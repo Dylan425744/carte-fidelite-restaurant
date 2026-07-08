@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const { GoogleAuth } = require('google-auth-library');
 
 function getClassId() {
-  return `${process.env.GOOGLE_ISSUER_ID}.carte_fidelite_coin_des_amis`;
+  return `${process.env.GOOGLE_ISSUER_ID}.${process.env.GOOGLE_ISSUER_ID}.carte_fidelite_coin_des_amis`;
 }
 
 function getObjectId(clientId) {
