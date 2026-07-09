@@ -148,24 +148,42 @@ app.post('/api/scan', async (req, res) => {
 });
 
 // Liste des lots possibles, avec leur probabilite (doit totaliser 100)
+// NOTE : le tirage est actuellement force sur "Boisson offerte" (voir tirerUnLot),
+// la probabilite indiquee ici ne sert que si on desactive le forcage plus tard.
 const LOTS_ROUE = [
-  { label: 'Café offert', icone: '☕', probabilite: 10 },
+  { label: 'Menu offert', icone: '🍽️', probabilite: 5 },
   { label: '-10% addition', icone: '🏷️', probabilite: 20 },
   { label: 'Dessert offert', icone: '🍰', probabilite: 10 },
-  { label: '-5% addition', icone: '✨', probabilite: 25 },
-  { label: 'Rejouez bientôt', icone: '🔁', probabilite: 15 },
-  { label: 'Perdu, à la prochaine !', icone: '🙈', probabilite: 20 }
+  { label: 'Boisson offerte', icone: '🥤', probabilite: 30 },
+  { label: 'Rejouez', icone: '🔁', probabilite: 15 },
+  { label: 'Perdu !', icone: '🙈', probabilite: 20 }
 ];
 
+// Nombre de jours avant que la boisson offerte devienne utilisable,
+// et pendant combien de jours elle reste valable une fois debloquee
+const DELAI_AVANT_BOISSON_JOURS = 1;
+const DUREE_VALIDITE_BOISSON_JOURS = 7;
+
 function tirerUnLot() {
-  const tirage = Math.random() * 100;
-  let cumul = 0;
-  for (let i = 0; i < LOTS_ROUE.length; i++) {
-    cumul += LOTS_ROUE[i].probabilite;
-    if (tirage <= cumul) return { index: i, label: LOTS_ROUE[i].label, icone: LOTS_ROUE[i].icone };
-  }
-  const dernier = LOTS_ROUE[LOTS_ROUE.length - 1];
-  return { index: LOTS_ROUE.length - 1, label: dernier.label, icone: dernier.icone };
+  // Le tirage est actuellement force : c'est toujours "Boisson offerte" qui sort,
+  // pour garantir que chaque client ait une raison concrete de revenir.
+  const indexForce = LOTS_ROUE.findIndex(l => l.label === 'Boisson offerte');
+  const lot = LOTS_ROUE[indexForce];
+  return { index: indexForce, label: lot.label, icone: lot.icone };
+}
+
+function calculerValiditeCadeau() {
+  const maintenant = new Date();
+
+  const dateDebut = new Date(maintenant);
+  dateDebut.setDate(dateDebut.getDate() + DELAI_AVANT_BOISSON_JOURS);
+  dateDebut.setHours(0, 0, 0, 0);
+
+  const dateFin = new Date(dateDebut);
+  dateFin.setDate(dateFin.getDate() + DUREE_VALIDITE_BOISSON_JOURS);
+  dateFin.setHours(23, 59, 59, 0);
+
+  return { dateDebut, dateFin };
 }
 
 // Verifie si un scan donne peut encore jouer a la roue
@@ -173,7 +191,7 @@ app.get('/api/roue/:scanId', async (req, res) => {
   try {
     const { data: scan, error } = await supabase
       .from('scans')
-      .select('id, roue_utilisee, cadeau_gagne')
+      .select('id, roue_utilisee, cadeau_gagne, cadeau_valide_du, cadeau_valide_au')
       .eq('id', req.params.scanId)
       .single();
 
@@ -184,6 +202,8 @@ app.get('/api/roue/:scanId', async (req, res) => {
     res.json({
       peutJouer: !scan.roue_utilisee,
       cadeauDejaGagne: scan.cadeau_gagne || null,
+      valideDu: scan.cadeau_valide_du || null,
+      valideAu: scan.cadeau_valide_au || null,
       lots: LOTS_ROUE.map(l => ({ label: l.label, icone: l.icone }))
     });
   } catch (erreur) {
@@ -209,13 +229,25 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
     }
 
     const lot = tirerUnLot();
+    const { dateDebut, dateFin } = calculerValiditeCadeau();
 
     await supabase
       .from('scans')
-      .update({ roue_utilisee: true, cadeau_gagne: lot.label })
+      .update({
+        roue_utilisee: true,
+        cadeau_gagne: lot.label,
+        cadeau_valide_du: dateDebut.toISOString(),
+        cadeau_valide_au: dateFin.toISOString()
+      })
       .eq('id', req.params.scanId);
 
-    res.json({ indexLot: lot.index, label: lot.label, icone: lot.icone });
+    res.json({
+      indexLot: lot.index,
+      label: lot.label,
+      icone: lot.icone,
+      valideDu: dateDebut.toISOString(),
+      valideAu: dateFin.toISOString()
+    });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
   }
