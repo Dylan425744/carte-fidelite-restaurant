@@ -42,15 +42,19 @@ async function envoyerEmailAvis(emailDestinataire, nomClient) {
   await envoyerEmail(emailDestinataire, `Merci de votre visite chez ${nomRestaurant} !`, texte);
 }
 
-async function envoyerEmailBienvenue(emailDestinataire, nomClient, lienWallet) {
+async function envoyerEmailBienvenue(emailDestinataire, nomClient, lienWallet, lienAppleWallet) {
   const nomRestaurant = process.env.NOM_RESTAURANT;
 
-  const texte =
+  let texte =
     `Bonjour ${nomClient},\n\n` +
     `Merci de rejoindre notre programme de fidelite !\n\n` +
-    `Ajoutez votre carte a Google Wallet en cliquant ici :\n${lienWallet}\n\n` +
-    `A tres bientot,\n` +
-    `L'equipe de ${nomRestaurant}`;
+    `Ajoutez votre carte a Google Wallet en cliquant ici :\n${lienWallet}\n\n`;
+
+  if (lienAppleWallet) {
+    texte += `Ou ajoutez-la a Apple Wallet en cliquant ici :\n${lienAppleWallet}\n\n`;
+  }
+
+  texte += `A tres bientot,\n` + `L'equipe de ${nomRestaurant}`;
 
   await envoyerEmail(emailDestinataire, `Bienvenue chez ${nomRestaurant} !`, texte);
 }
