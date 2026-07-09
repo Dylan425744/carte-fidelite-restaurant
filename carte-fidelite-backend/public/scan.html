@@ -95,7 +95,7 @@ function demarrerScan() {
     { fps: 10, qrbox: 250 },
     onScanSucces
   ).catch(function(err) {
-    resultatDiv.innerHTML = "Impossible d'acceder a la camera. Verifiez les autorisations de votre navigateur.";
+    resultatDiv.innerHTML = "Impossible d'accéder à la caméra. Vérifiez les autorisations de votre navigateur.";
     resultatDiv.className = 'resultat erreur visible';
   });
 }
@@ -123,8 +123,8 @@ async function onScanSucces(decodedText) {
 
     resultatDiv.innerHTML =
       donnees.recompenseAtteinte
-        ? '<div class="nom-client">Recompense debloquee !</div><div class="solde">Bravo !</div><p style="color:#a8a29a; font-size:13px;">Un email a ete envoye au client.</p>'
-        : '<div class="nom-client">Point ajoute !</div><div class="solde">' + donnees.nouveauSolde + ' points</div>';
+        ? '<div class="nom-client">Récompense débloquée !</div><div class="solde">Bravo !</div><p style="color:#a8a29a; font-size:13px;">Un email a été envoyé au client.</p>'
+        : '<div class="nom-client">Point ajouté !</div><div class="solde">' + donnees.nouveauSolde + ' points</div>';
     resultatDiv.className = 'resultat succes visible';
 
   } catch (erreur) {
