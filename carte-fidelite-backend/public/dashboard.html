@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le Coin des amis - Tableau de bord</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #1b1f24;
+    color: #f5f0e6;
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+  .conteneur {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 22px;
+    color: #e8a33d;
+    margin-bottom: 4px;
+  }
+  p.sous-titre {
+    color: #a8a29a;
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-carte {
+    background: #24292f;
+    border: 1px solid #353b42;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .stat-carte .valeur {
+    font-size: 26px;
+    font-weight: 700;
+    color: #e8a33d;
+  }
+  .stat-carte .label {
+    font-size: 12px;
+    color: #a8a29a;
+    margin-top: 2px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #24292f;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 12px 14px;
+    text-align: left;
+    font-size: 14px;
+    border-bottom: 1px solid #353b42;
+  }
+  th {
+    background: #1b1f24;
+    color: #a8a29a;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+  tr:last-child td { border-bottom: none; }
+  .points-badge {
+    display: inline-block;
+    background: #3d2f10;
+    color: #e8a33d;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .chargement {
+    text-align: center;
+    color: #a8a29a;
+    padding: 40px;
+  }
+  @media (max-width: 600px) {
+    th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="conteneur">
+  <h1>Tableau de bord</h1>
+  <p class="sous-titre">Le Coin des amis</p>
+
+  <div class="stats" id="stats"></div>
+
+  <div id="contenuTable">
+    <p class="chargement">Chargement des clients...</p>
+  </div>
+</div>
+
+<script>
+let motDePasseSaisi = null;
+
+async function demanderMotDePasse() {
+  const saisie = prompt('Mot de passe du tableau de bord :');
+  if (saisie === null) {
+    document.getElementById('contenuTable').innerHTML = '<p class="chargement">Accès annulé.</p>';
+    return;
+  }
+  motDePasseSaisi = saisie;
+  chargerClients();
+}
+
+async function chargerClients() {
+  try {
+    const reponse = await fetch('/api/clients', {
+      headers: { 'x-dashboard-password': motDePasseSaisi || '' }
+    });
+    const donnees = await reponse.json();
+
+    if (reponse.status === 401) {
+      document.getElementById('contenuTable').innerHTML = '<p class="chargement">Mot de passe incorrect.</p>';
+      document.getElementById('stats').innerHTML = '';
+      return;
+    }
+
+    if (!reponse.ok) throw new Error(donnees.erreur || 'Erreur de chargement');
+
+    const clients = donnees.clients;
+
+    // Statistiques rapides
+    const totalClients = clients.length;
+    const totalPoints = clients.reduce((somme, c) => somme + c.points, 0);
+    const clientActif = clients.filter(c => c.points > 0).length;
+
+    document.getElementById('stats').innerHTML = `
+      <div class="stat-carte">
+        <div class="valeur">${totalClients}</div>
+        <div class="label">Clients inscrits</div>
+      </div>
+      <div class="stat-carte">
+        <div class="valeur">${clientActif}</div>
+        <div class="label">Clients actifs</div>
+      </div>
+      <div class="stat-carte">
+        <div class="valeur">${totalPoints}</div>
+        <div class="label">Points cumulés</div>
+      </div>
+    `;
+
+    if (clients.length === 0) {
+      document.getElementById('contenuTable').innerHTML = '<p class="chargement">Aucun client pour le moment.</p>';
+      return;
+    }
+
+    let lignesTableau = clients.map(client => `
+      <tr>
+        <td>${client.nom}</td>
+        <td>${client.email}</td>
+        <td>${client.telephone || '-'}</td>
+        <td><span class="points-badge">${client.points} pts</span></td>
+      </tr>
+    `).join('');
+
+    document.getElementById('contenuTable').innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Email</th>
+            <th>Téléphone</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody>${lignesTableau}</tbody>
+      </table>
+    `;
+
+  } catch (erreur) {
+    document.getElementById('contenuTable').innerHTML = '<p class="chargement">Erreur : ' + erreur.message + '</p>';
+  }
+}
+
+demanderMotDePasse();
+setInterval(() => { if (motDePasseSaisi) chargerClients(); }, 30000); // Rafraichit automatiquement toutes les 30 secondes
+</script>
+
+</body>
+</html>
