@@ -5,6 +5,7 @@ const cron = require('node-cron');
 
 const supabase = require('./supabaseClient');
 const wallet = require('./walletService');
+const appleWallet = require('./appleWalletService');
 const email = require('./emailService');
 
 const app = express();
@@ -33,9 +34,23 @@ app.post('/api/clients', async (req, res) => {
     await wallet.creerObjetWallet(nouveauClient);
     const lienWallet = wallet.creerLienGoogleWallet(nouveauClient);
 
-    await email.envoyerEmailBienvenue(emailClient, nom, lienWallet);
+    // On cree aussi la carte Apple Wallet, et on garde son serialNumber
+    // pour pouvoir la mettre a jour plus tard (scan, points, etc.)
+    let lienAppleWallet = null;
+    try {
+      const passeApple = await appleWallet.creerPasseApple(nouveauClient);
+      lienAppleWallet = passeApple.shareUrl;
+      await supabase
+        .from('clients')
+        .update({ apple_wallet_serial: passeApple.serialNumber })
+        .eq('id', nouveauClient.id);
+    } catch (erreurApple) {
+      console.error('Erreur creation Apple Wallet:', erreurApple.message);
+    }
 
-    res.json({ client: nouveauClient, lienWallet });
+    await email.envoyerEmailBienvenue(emailClient, nom, lienWallet, lienAppleWallet);
+
+    res.json({ client: nouveauClient, lienWallet, lienAppleWallet });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });
@@ -69,6 +84,15 @@ app.post('/api/scan', async (req, res) => {
 
     // On met a jour la carte Google Wallet en temps reel
     await wallet.mettreAJourPointsWallet({ ...client, points: nouveauSolde });
+
+    // On met aussi a jour la carte Apple Wallet, si le client en a une
+    if (client.apple_wallet_serial) {
+      try {
+        await appleWallet.mettreAJourPasseApple(client.apple_wallet_serial, { ...client, points: nouveauSolde });
+      } catch (erreurApple) {
+        console.error('Erreur mise a jour Apple Wallet:', erreurApple.message);
+      }
+    }
 
     res.json({ succes: true, nouveauSolde });
   } catch (erreur) {
