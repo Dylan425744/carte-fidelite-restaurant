@@ -19,6 +19,29 @@ app.get('/api/statut', (req, res) => {
   res.send('Le serveur de la carte de fidelite fonctionne.');
 });
 
+// Recupere la liste de tous les clients, pour le tableau de bord restaurateur
+// Protege par un mot de passe simple (passe en en-tete)
+app.get('/api/clients', async (req, res) => {
+  try {
+    const motDePasse = req.headers['x-dashboard-password'];
+    if (motDePasse !== process.env.DASHBOARD_PASSWORD) {
+      return res.status(401).json({ erreur: 'Mot de passe incorrect' });
+    }
+
+    const { data: clients, error } = await supabase
+      .from('clients')
+      .select('nom, email, telephone, points, date_inscription')
+      .order('points', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ clients });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
 // Creer un nouveau client + sa carte Google Wallet
 app.post('/api/clients', async (req, res) => {
   try {
