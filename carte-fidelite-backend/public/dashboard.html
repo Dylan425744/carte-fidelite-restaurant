@@ -3,13 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Le Coin des amis - Tableau de bord</title>
+<title>Bravocard - Tableau de bord</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #1b1f24;
-    color: #f5f0e6;
+    font-family: 'Work Sans', sans-serif;
+    background: #1B1030;
+    color: #FFF9F3;
     min-height: 100vh;
     padding: 24px 16px;
   }
@@ -17,13 +19,26 @@
     max-width: 900px;
     margin: 0 auto;
   }
+  .logo-page {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .logo-page .nom {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+  }
+  .logo-page .nom .accent { color: #12B886; }
   h1 {
+    font-family: 'Manrope', sans-serif;
     font-size: 22px;
-    color: #e8a33d;
+    font-weight: 800;
     margin-bottom: 4px;
   }
   p.sous-titre {
-    color: #a8a29a;
+    color: #B8ABD0;
     font-size: 14px;
     margin-bottom: 24px;
   }
@@ -34,25 +49,26 @@
     margin-bottom: 28px;
   }
   .stat-carte {
-    background: #24292f;
-    border: 1px solid #353b42;
+    background: #241A3D;
+    border: 1px solid #362A55;
     border-radius: 12px;
     padding: 16px;
   }
   .stat-carte .valeur {
+    font-family: 'Manrope', sans-serif;
     font-size: 26px;
-    font-weight: 700;
-    color: #e8a33d;
+    font-weight: 800;
+    color: #12B886;
   }
   .stat-carte .label {
     font-size: 12px;
-    color: #a8a29a;
+    color: #B8ABD0;
     margin-top: 2px;
   }
   table {
     width: 100%;
     border-collapse: collapse;
-    background: #24292f;
+    background: #241A3D;
     border-radius: 12px;
     overflow: hidden;
   }
@@ -60,11 +76,11 @@
     padding: 12px 14px;
     text-align: left;
     font-size: 14px;
-    border-bottom: 1px solid #353b42;
+    border-bottom: 1px solid #362A55;
   }
   th {
-    background: #1b1f24;
-    color: #a8a29a;
+    background: #1B1030;
+    color: #B8ABD0;
     font-weight: 600;
     font-size: 12px;
     text-transform: uppercase;
@@ -72,15 +88,15 @@
   tr:last-child td { border-bottom: none; }
   .points-badge {
     display: inline-block;
-    background: #3d2f10;
-    color: #e8a33d;
+    background: #1F3D2F;
+    color: #12B886;
     padding: 3px 10px;
     border-radius: 20px;
-    font-weight: 600;
+    font-weight: 700;
   }
   .chargement {
     text-align: center;
-    color: #a8a29a;
+    color: #B8ABD0;
     padding: 40px;
   }
   @media (max-width: 600px) {
@@ -91,8 +107,13 @@
 <body>
 
 <div class="conteneur">
+  <div class="logo-page">
+    <svg width="20" height="20" viewBox="0 0 200 200"><g transform="rotate(-8 100 100)"><rect x="35" y="55" width="130" height="90" rx="18" fill="#6C3CE9"/></g><path d="M155 45 L163 62 L182 65 L168 79 L172 98 L155 88 L138 98 L142 79 L128 65 L147 62 Z" fill="#12B886"/></svg>
+    <div class="nom">Bravo<span class="accent">card</span></div>
+  </div>
+
   <h1>Tableau de bord</h1>
-  <p class="sous-titre">Le Coin des amis</p>
+  <p class="sous-titre">Chez Basile</p>
 
   <div class="stats" id="stats"></div>
 
@@ -131,7 +152,6 @@ async function chargerClients() {
 
     const clients = donnees.clients;
 
-    // Statistiques rapides
     const totalClients = clients.length;
     const totalPoints = clients.reduce((somme, c) => somme + c.points, 0);
     const clientActif = clients.filter(c => c.points > 0).length;
@@ -185,7 +205,7 @@ async function chargerClients() {
 }
 
 demanderMotDePasse();
-setInterval(() => { if (motDePasseSaisi) chargerClients(); }, 30000); // Rafraichit automatiquement toutes les 30 secondes
+setInterval(() => { if (motDePasseSaisi) chargerClients(); }, 30000);
 </script>
 
 </body>
