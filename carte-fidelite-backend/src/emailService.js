@@ -33,11 +33,11 @@ async function envoyerEmailAvis(emailDestinataire, nomClient) {
 
   const texte =
     `Bonjour ${nomClient},\n\n` +
-    `Merci d'etre venu(e) chez ${nomRestaurant} aujourd'hui !\n\n` +
-    `Votre avis compte enormement pour nous. Auriez-vous 30 secondes pour nous laisser un avis Google ?\n\n` +
+    `Merci d'être venu(e) chez ${nomRestaurant} aujourd'hui !\n\n` +
+    `Votre avis compte énormément pour nous. Auriez-vous 30 secondes pour nous laisser un avis Google ?\n\n` +
     `${lienAvis}\n\n` +
-    `A tres bientot,\n` +
-    `L'equipe de ${nomRestaurant}`;
+    `À très bientôt,\n` +
+    `L'équipe de ${nomRestaurant}`;
 
   await envoyerEmail(emailDestinataire, `Merci de votre visite chez ${nomRestaurant} !`, texte);
 }
@@ -47,31 +47,31 @@ async function envoyerEmailBienvenue(emailDestinataire, nomClient, lienWallet, l
 
   let texte =
     `Bonjour ${nomClient},\n\n` +
-    `Merci de rejoindre notre programme de fidelite !\n\n` +
-    `Ajoutez votre carte a Google Wallet en cliquant ici :\n${lienWallet}\n\n`;
+    `Merci de rejoindre notre programme de fidélité !\n\n` +
+    `Ajoutez votre carte à Google Wallet en cliquant ici :\n${lienWallet}\n\n`;
 
   if (lienAppleWallet) {
-    texte += `Ou ajoutez-la a Apple Wallet en cliquant ici :\n${lienAppleWallet}\n\n`;
+    texte += `Ou ajoutez-la à Apple Wallet en cliquant ici :\n${lienAppleWallet}\n\n`;
   }
 
-  texte += `A tres bientot,\n` + `L'equipe de ${nomRestaurant}`;
+  texte += `À très bientôt,\n` + `L'équipe de ${nomRestaurant}`;
 
   await envoyerEmail(emailDestinataire, `Bienvenue chez ${nomRestaurant} !`, texte);
 }
 
 async function envoyerEmailRecompense(emailDestinataire, nomClient) {
   const nomRestaurant = process.env.NOM_RESTAURANT;
-  const descriptionRecompense = process.env.DESCRIPTION_RECOMPENSE || 'une recompense speciale';
+  const descriptionRecompense = process.env.DESCRIPTION_RECOMPENSE || 'une récompense spéciale';
 
   const texte =
     `Bonjour ${nomClient},\n\n` +
-    `Felicitations ! Vous avez atteint le seuil de points chez ${nomRestaurant}.\n\n` +
-    `Vous avez droit a : ${descriptionRecompense}\n\n` +
-    `Presentez simplement votre carte de fidelite lors de votre prochaine visite pour en profiter.\n\n` +
-    `Merci pour votre fidelite,\n` +
-    `L'equipe de ${nomRestaurant}`;
+    `Félicitations ! Vous avez atteint le seuil de points chez ${nomRestaurant}.\n\n` +
+    `Vous avez droit à : ${descriptionRecompense}\n\n` +
+    `Présentez simplement votre carte de fidélité lors de votre prochaine visite pour en profiter.\n\n` +
+    `Merci pour votre fidélité,\n` +
+    `L'équipe de ${nomRestaurant}`;
 
-  await envoyerEmail(emailDestinataire, `Felicitations, votre recompense vous attend chez ${nomRestaurant} !`, texte);
+  await envoyerEmail(emailDestinataire, `Félicitations, votre récompense vous attend chez ${nomRestaurant} !`, texte);
 }
 
 module.exports = { envoyerEmailAvis, envoyerEmailBienvenue, envoyerEmailRecompense };
