@@ -6,6 +6,7 @@
 <title>Bravocard - Roue des cadeaux</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -27,33 +28,39 @@
   h1 { font-family: 'Manrope', sans-serif; font-size: 22px; font-weight: 800; margin-bottom: 6px; }
   p.sous-titre { color: #B8ABD0; font-size: 14px; margin-bottom: 30px; max-width: 320px; }
 
-  .zone-roue { position: relative; width: 280px; height: 280px; margin-bottom: 30px; }
+  .zone-roue { position: relative; width: 300px; height: 300px; margin-bottom: 30px; }
   .pointeur {
-    position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+    position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
     width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent;
-    border-top: 22px solid #FFC93C; z-index: 10;
+    border-top: 24px solid #FFC93C; z-index: 10;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3));
   }
   .roue {
-    width: 280px; height: 280px; border-radius: 50%;
-    position: relative; overflow: hidden;
+    width: 300px; height: 300px; border-radius: 50%;
+    position: relative;
     border: 6px solid #241A3D;
     box-shadow: 0 0 0 4px #6C3CE9, 0 30px 60px rgba(27,16,48,0.4);
     transition: transform 4.5s cubic-bezier(0.15, 0.85, 0.25, 1);
   }
-  .segment {
-    position: absolute; width: 50%; height: 50%; top: 0; left: 50%;
-    transform-origin: 0% 100%;
-    display: flex; align-items: flex-start; justify-content: center;
+  .segment-pivot {
+    position: absolute; top: 50%; left: 50%; width: 0; height: 0;
   }
-  .segment span {
-    display: block; margin-top: 24px; font-size: 11px; font-weight: 700;
-    font-family: 'Manrope', sans-serif; color: #FFF9F3; width: 70px; text-align: center;
-    transform: rotate(90deg);
+  .segment-contenu {
+    position: absolute;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    width: 76px;
+    left: -38px;
+  }
+  .segment-contenu .icone-lot { font-size: 20px; line-height: 1; }
+  .segment-contenu .texte-lot {
+    font-size: 10px; font-weight: 700; font-family: 'Manrope', sans-serif;
+    color: #FFF9F3; line-height: 1.15; text-shadow: 0 1px 3px rgba(0,0,0,0.35);
   }
   .centre-roue {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    width: 44px; height: 44px; border-radius: 50%; background: #FFC93C;
-    display: flex; align-items: center; justify-content: center; font-size: 18px; z-index: 5;
+    width: 46px; height: 46px; border-radius: 50%; background: #FFC93C;
+    display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 5;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
   }
 
   .bouton {
@@ -67,16 +74,16 @@
   .bouton:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .resultat-final {
-    display: none; margin-top: 26px; padding: 22px 28px; border-radius: 16px;
-    background: #14301F; border: 1px solid #12B886; max-width: 320px;
+    display: none; margin-top: 26px; padding: 24px 30px; border-radius: 18px;
+    background: linear-gradient(160deg, #14301F, #1A3D26); border: 1px solid #12B886; max-width: 320px;
   }
-  .resultat-final.visible { display: block; }
+  .resultat-final.visible { display: block; animation: apparition 0.4s ease; }
+  @keyframes apparition { from { opacity:0; transform: scale(0.9); } to { opacity:1; transform: scale(1); } }
+  .resultat-final .icone-finale { font-size: 36px; margin-bottom: 6px; }
   .resultat-final .titre-gain { font-size: 13px; color: #B8ABD0; }
   .resultat-final .nom-gain { font-family: 'Manrope', sans-serif; font-size: 22px; font-weight: 800; color: #12B886; margin-top: 6px; }
 
-  .message-info {
-    margin-top: 20px; color: #B8ABD0; font-size: 14px; max-width: 300px;
-  }
+  .message-info { margin-top: 20px; color: #B8ABD0; font-size: 14px; max-width: 300px; }
 </style>
 </head>
 <body>
@@ -99,6 +106,7 @@
 <button class="bouton" id="boutonJouer">Faire tourner la roue</button>
 
 <div class="resultat-final" id="resultatFinal">
+  <div class="icone-finale" id="iconeFinale"></div>
   <div class="titre-gain">Vous avez gagné</div>
   <div class="nom-gain" id="nomGain"></div>
 </div>
@@ -106,36 +114,80 @@
 <div class="message-info" id="messageInfo"></div>
 
 <script>
-const COULEURS = ['#6C3CE9', '#12B886', '#241A3D', '#7C4FF0', '#0E9469', '#362A55'];
+const COULEURS = ['#6C3CE9', '#12B886', '#5A2FD0', '#0E9469', '#7C4FF0', '#0A7A56'];
 const params = new URLSearchParams(window.location.search);
 const scanId = params.get('scan');
 const roue = document.getElementById('roue');
 const boutonJouer = document.getElementById('boutonJouer');
 const resultatFinal = document.getElementById('resultatFinal');
 const nomGain = document.getElementById('nomGain');
+const iconeFinale = document.getElementById('iconeFinale');
 const messageInfo = document.getElementById('messageInfo');
 
 let lots = [];
+const RAYON_TEXTE = 100; // distance du centre a laquelle placer le texte
 
-function dessinerRoue(labels) {
-  const nb = labels.length;
+function dessinerRoue(listeLots) {
+  const nb = listeLots.length;
   const angle = 360 / nb;
+
+  // Le fond colore, un secteur par lot
   let degrades = [];
-  labels.forEach((label, i) => {
+  listeLots.forEach((lot, i) => {
     const debut = i * angle;
     degrades.push(`${COULEURS[i % COULEURS.length]} ${debut}deg ${debut + angle}deg`);
   });
   roue.style.background = `conic-gradient(${degrades.join(',')})`;
 
-  labels.forEach((label, i) => {
-    const segment = document.createElement('div');
-    segment.className = 'segment';
-    segment.style.transform = `rotate(${i * angle + angle / 2 - 90}deg)`;
-    const texte = document.createElement('span');
-    texte.textContent = label;
-    segment.appendChild(texte);
-    roue.appendChild(segment);
+  // Le texte de chaque secteur, place puis oriente pour rester lisible
+  listeLots.forEach((lot, i) => {
+    const centreAngle = i * angle + angle / 2;
+
+    const pivot = document.createElement('div');
+    pivot.className = 'segment-pivot';
+    // On tourne le pivot jusqu'au milieu du secteur, l'axe (0,0) reste au centre de la roue
+    pivot.style.transform = `rotate(${centreAngle}deg)`;
+
+    const contenu = document.createElement('div');
+    contenu.className = 'segment-contenu';
+    // On pousse le contenu vers l'exterieur du cercle, puis on annule la rotation du pivot
+    // pour que le texte reste bien droit, quelle que soit sa position sur la roue
+    contenu.style.transform = `translateY(-${RAYON_TEXTE}px) rotate(${-centreAngle}deg)`;
+
+    contenu.innerHTML = `
+      <div class="icone-lot">${lot.icone}</div>
+      <div class="texte-lot">${lot.label}</div>
+    `;
+
+    pivot.appendChild(contenu);
+    roue.appendChild(pivot);
   });
+}
+
+function lancerConfettis() {
+  const dureeMs = 2200;
+  const fin = Date.now() + dureeMs;
+  const couleurs = ['#6C3CE9', '#12B886', '#FFC93C', '#FFF9F3'];
+
+  (function frame() {
+    confetti({
+      particleCount: 4,
+      angle: 60,
+      spread: 70,
+      origin: { x: 0, y: 0.6 },
+      colors: couleurs
+    });
+    confetti({
+      particleCount: 4,
+      angle: 120,
+      spread: 70,
+      origin: { x: 1, y: 0.6 },
+      colors: couleurs
+    });
+    if (Date.now() < fin) requestAnimationFrame(frame);
+  })();
+
+  confetti({ particleCount: 90, spread: 100, origin: { y: 0.5 }, colors: couleurs });
 }
 
 async function initialiser() {
@@ -162,6 +214,7 @@ async function initialiser() {
       boutonJouer.disabled = true;
       if (donnees.cadeauDejaGagne) {
         nomGain.textContent = donnees.cadeauDejaGagne;
+        iconeFinale.textContent = '🎉';
         resultatFinal.classList.add('visible');
         messageInfo.textContent = "Vous avez déjà joué avec ce lien.";
       }
@@ -194,7 +247,9 @@ boutonJouer.addEventListener('click', async () => {
 
     setTimeout(() => {
       nomGain.textContent = donnees.label;
+      iconeFinale.textContent = donnees.icone;
       resultatFinal.classList.add('visible');
+      lancerConfettis();
     }, 4600);
 
   } catch (erreur) {
