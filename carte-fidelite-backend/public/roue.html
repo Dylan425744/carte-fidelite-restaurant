@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bravocard - Roue des cadeaux</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Work Sans', sans-serif;
+    background: #1B1030;
+    color: #FFF9F3;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    overflow-x: hidden;
+  }
+  .logo-page { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .logo-page .nom { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 16px; }
+  .logo-page .nom .accent { color: #12B886; }
+  h1 { font-family: 'Manrope', sans-serif; font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  p.sous-titre { color: #B8ABD0; font-size: 14px; margin-bottom: 30px; max-width: 320px; }
+
+  .zone-roue { position: relative; width: 280px; height: 280px; margin-bottom: 30px; }
+  .pointeur {
+    position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent;
+    border-top: 22px solid #FFC93C; z-index: 10;
+  }
+  .roue {
+    width: 280px; height: 280px; border-radius: 50%;
+    position: relative; overflow: hidden;
+    border: 6px solid #241A3D;
+    box-shadow: 0 0 0 4px #6C3CE9, 0 30px 60px rgba(27,16,48,0.4);
+    transition: transform 4.5s cubic-bezier(0.15, 0.85, 0.25, 1);
+  }
+  .segment {
+    position: absolute; width: 50%; height: 50%; top: 0; left: 50%;
+    transform-origin: 0% 100%;
+    display: flex; align-items: flex-start; justify-content: center;
+  }
+  .segment span {
+    display: block; margin-top: 24px; font-size: 11px; font-weight: 700;
+    font-family: 'Manrope', sans-serif; color: #FFF9F3; width: 70px; text-align: center;
+    transform: rotate(90deg);
+  }
+  .centre-roue {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 44px; height: 44px; border-radius: 50%; background: #FFC93C;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; z-index: 5;
+  }
+
+  .bouton {
+    padding: 15px 40px; border-radius: 100px; border: none;
+    background: #6C3CE9; color: #FFF9F3; font-size: 16px; font-weight: 700;
+    font-family: 'Work Sans', sans-serif; cursor: pointer;
+    box-shadow: 0 10px 24px rgba(108,60,233,0.35);
+    transition: transform 0.15s ease;
+  }
+  .bouton:hover:not(:disabled) { transform: translateY(-2px); }
+  .bouton:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .resultat-final {
+    display: none; margin-top: 26px; padding: 22px 28px; border-radius: 16px;
+    background: #14301F; border: 1px solid #12B886; max-width: 320px;
+  }
+  .resultat-final.visible { display: block; }
+  .resultat-final .titre-gain { font-size: 13px; color: #B8ABD0; }
+  .resultat-final .nom-gain { font-family: 'Manrope', sans-serif; font-size: 22px; font-weight: 800; color: #12B886; margin-top: 6px; }
+
+  .message-info {
+    margin-top: 20px; color: #B8ABD0; font-size: 14px; max-width: 300px;
+  }
+</style>
+</head>
+<body>
+
+<div class="logo-page">
+  <svg width="20" height="20" viewBox="0 0 200 200"><g transform="rotate(-8 100 100)"><rect x="35" y="55" width="130" height="90" rx="18" fill="#6C3CE9"/></g><path d="M155 45 L163 62 L182 65 L168 79 L172 98 L155 88 L138 98 L142 79 L128 65 L147 62 Z" fill="#12B886"/></svg>
+  <div class="nom">Bravo<span class="accent">card</span></div>
+</div>
+
+<h1>Merci pour votre avis !</h1>
+<p class="sous-titre">Tournez la roue, un cadeau vous attend peut-être.</p>
+
+<div class="zone-roue">
+  <div class="pointeur"></div>
+  <div class="roue" id="roue">
+    <div class="centre-roue">🎁</div>
+  </div>
+</div>
+
+<button class="bouton" id="boutonJouer">Faire tourner la roue</button>
+
+<div class="resultat-final" id="resultatFinal">
+  <div class="titre-gain">Vous avez gagné</div>
+  <div class="nom-gain" id="nomGain"></div>
+</div>
+
+<div class="message-info" id="messageInfo"></div>
+
+<script>
+const COULEURS = ['#6C3CE9', '#12B886', '#241A3D', '#7C4FF0', '#0E9469', '#362A55'];
+const params = new URLSearchParams(window.location.search);
+const scanId = params.get('scan');
+const roue = document.getElementById('roue');
+const boutonJouer = document.getElementById('boutonJouer');
+const resultatFinal = document.getElementById('resultatFinal');
+const nomGain = document.getElementById('nomGain');
+const messageInfo = document.getElementById('messageInfo');
+
+let lots = [];
+
+function dessinerRoue(labels) {
+  const nb = labels.length;
+  const angle = 360 / nb;
+  let degrades = [];
+  labels.forEach((label, i) => {
+    const debut = i * angle;
+    degrades.push(`${COULEURS[i % COULEURS.length]} ${debut}deg ${debut + angle}deg`);
+  });
+  roue.style.background = `conic-gradient(${degrades.join(',')})`;
+
+  labels.forEach((label, i) => {
+    const segment = document.createElement('div');
+    segment.className = 'segment';
+    segment.style.transform = `rotate(${i * angle + angle / 2 - 90}deg)`;
+    const texte = document.createElement('span');
+    texte.textContent = label;
+    segment.appendChild(texte);
+    roue.appendChild(segment);
+  });
+}
+
+async function initialiser() {
+  if (!scanId) {
+    messageInfo.textContent = "Lien invalide. Utilisez le lien reçu par email.";
+    boutonJouer.disabled = true;
+    return;
+  }
+
+  try {
+    const reponse = await fetch(`/api/roue/${scanId}`);
+    const donnees = await reponse.json();
+
+    if (!reponse.ok) {
+      messageInfo.textContent = donnees.erreur || "Ce lien n'est plus valide.";
+      boutonJouer.disabled = true;
+      return;
+    }
+
+    lots = donnees.lots;
+    dessinerRoue(lots);
+
+    if (!donnees.peutJouer) {
+      boutonJouer.disabled = true;
+      if (donnees.cadeauDejaGagne) {
+        nomGain.textContent = donnees.cadeauDejaGagne;
+        resultatFinal.classList.add('visible');
+        messageInfo.textContent = "Vous avez déjà joué avec ce lien.";
+      }
+    }
+  } catch (erreur) {
+    messageInfo.textContent = "Une erreur est survenue.";
+    boutonJouer.disabled = true;
+  }
+}
+
+boutonJouer.addEventListener('click', async () => {
+  boutonJouer.disabled = true;
+  messageInfo.textContent = '';
+
+  try {
+    const reponse = await fetch(`/api/roue/${scanId}/jouer`, { method: 'POST' });
+    const donnees = await reponse.json();
+
+    if (!reponse.ok) {
+      messageInfo.textContent = donnees.erreur || "Impossible de jouer.";
+      return;
+    }
+
+    const nb = lots.length;
+    const angleSegment = 360 / nb;
+    const centreSegment = donnees.indexLot * angleSegment + angleSegment / 2;
+    const rotationFinale = 360 * 6 + (360 - centreSegment);
+
+    roue.style.transform = `rotate(${rotationFinale}deg)`;
+
+    setTimeout(() => {
+      nomGain.textContent = donnees.label;
+      resultatFinal.classList.add('visible');
+    }, 4600);
+
+  } catch (erreur) {
+    messageInfo.textContent = "Une erreur est survenue.";
+    boutonJouer.disabled = false;
+  }
+});
+
+initialiser();
+</script>
+
+</body>
+</html>
