@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
+const path = require('path');
 
 const supabase = require('./supabaseClient');
 const wallet = require('./walletService');
@@ -11,9 +12,10 @@ const email = require('./emailService');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Route de test pour verifier que le serveur tourne bien
-app.get('/', (req, res) => {
+app.get('/api/statut', (req, res) => {
   res.send('Le serveur de la carte de fidelite fonctionne.');
 });
 
