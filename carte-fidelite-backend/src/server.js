@@ -147,6 +147,79 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
+// Liste des lots possibles, avec leur probabilite (doit totaliser 100)
+const LOTS_ROUE = [
+  { label: 'Café offert', probabilite: 10 },
+  { label: '-10% sur l\'addition', probabilite: 20 },
+  { label: 'Dessert offert', probabilite: 10 },
+  { label: '-5% sur l\'addition', probabilite: 25 },
+  { label: 'Rejouez bientôt', probabilite: 15 },
+  { label: 'Perdu, à la prochaine !', probabilite: 20 }
+];
+
+function tirerUnLot() {
+  const tirage = Math.random() * 100;
+  let cumul = 0;
+  for (let i = 0; i < LOTS_ROUE.length; i++) {
+    cumul += LOTS_ROUE[i].probabilite;
+    if (tirage <= cumul) return { index: i, label: LOTS_ROUE[i].label };
+  }
+  return { index: LOTS_ROUE.length - 1, label: LOTS_ROUE[LOTS_ROUE.length - 1].label };
+}
+
+// Verifie si un scan donne peut encore jouer a la roue
+app.get('/api/roue/:scanId', async (req, res) => {
+  try {
+    const { data: scan, error } = await supabase
+      .from('scans')
+      .select('id, roue_utilisee, cadeau_gagne')
+      .eq('id', req.params.scanId)
+      .single();
+
+    if (error || !scan) {
+      return res.status(404).json({ erreur: 'Lien invalide ou expiré' });
+    }
+
+    res.json({
+      peutJouer: !scan.roue_utilisee,
+      cadeauDejaGagne: scan.cadeau_gagne || null,
+      lots: LOTS_ROUE.map(l => l.label)
+    });
+  } catch (erreur) {
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// Fait tourner la roue pour un scan donne, une seule fois possible
+app.post('/api/roue/:scanId/jouer', async (req, res) => {
+  try {
+    const { data: scan, error: erreurLecture } = await supabase
+      .from('scans')
+      .select('id, roue_utilisee')
+      .eq('id', req.params.scanId)
+      .single();
+
+    if (erreurLecture || !scan) {
+      return res.status(404).json({ erreur: 'Lien invalide ou expiré' });
+    }
+
+    if (scan.roue_utilisee) {
+      return res.status(400).json({ erreur: 'Vous avez déjà joué avec ce lien' });
+    }
+
+    const lot = tirerUnLot();
+
+    await supabase
+      .from('scans')
+      .update({ roue_utilisee: true, cadeau_gagne: lot.label })
+      .eq('id', req.params.scanId);
+
+    res.json({ indexLot: lot.index, label: lot.label });
+  } catch (erreur) {
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
 // Verifie toutes les 15 minutes les scans a traiter pour l'envoi d'avis Google
 cron.schedule('*/15 * * * *', async () => {
   console.log('Verification des scans pour envoi d\'avis...');
@@ -169,7 +242,8 @@ cron.schedule('*/15 * * * *', async () => {
 
     if (minutesEcoulees >= 55 && minutesEcoulees <= 75) {
       try {
-        await email.envoyerEmailAvis(scan.clients.email, scan.clients.nom);
+        const lienRoue = `${process.env.URL_SITE}/roue.html?scan=${scan.id}`;
+        await email.envoyerEmailAvis(scan.clients.email, scan.clients.nom, lienRoue);
         await supabase.from('scans').update({ avis_envoye: true }).eq('id', scan.id);
         console.log(`Avis envoye a ${scan.clients.email}`);
       } catch (erreurEnvoi) {
