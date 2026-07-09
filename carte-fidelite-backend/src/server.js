@@ -149,12 +149,12 @@ app.post('/api/scan', async (req, res) => {
 
 // Liste des lots possibles, avec leur probabilite (doit totaliser 100)
 const LOTS_ROUE = [
-  { label: 'Café offert', probabilite: 10 },
-  { label: '-10% sur l\'addition', probabilite: 20 },
-  { label: 'Dessert offert', probabilite: 10 },
-  { label: '-5% sur l\'addition', probabilite: 25 },
-  { label: 'Rejouez bientôt', probabilite: 15 },
-  { label: 'Perdu, à la prochaine !', probabilite: 20 }
+  { label: 'Café offert', icone: '☕', probabilite: 10 },
+  { label: '-10% addition', icone: '🏷️', probabilite: 20 },
+  { label: 'Dessert offert', icone: '🍰', probabilite: 10 },
+  { label: '-5% addition', icone: '✨', probabilite: 25 },
+  { label: 'Rejouez bientôt', icone: '🔁', probabilite: 15 },
+  { label: 'Perdu, à la prochaine !', icone: '🙈', probabilite: 20 }
 ];
 
 function tirerUnLot() {
@@ -162,9 +162,10 @@ function tirerUnLot() {
   let cumul = 0;
   for (let i = 0; i < LOTS_ROUE.length; i++) {
     cumul += LOTS_ROUE[i].probabilite;
-    if (tirage <= cumul) return { index: i, label: LOTS_ROUE[i].label };
+    if (tirage <= cumul) return { index: i, label: LOTS_ROUE[i].label, icone: LOTS_ROUE[i].icone };
   }
-  return { index: LOTS_ROUE.length - 1, label: LOTS_ROUE[LOTS_ROUE.length - 1].label };
+  const dernier = LOTS_ROUE[LOTS_ROUE.length - 1];
+  return { index: LOTS_ROUE.length - 1, label: dernier.label, icone: dernier.icone };
 }
 
 // Verifie si un scan donne peut encore jouer a la roue
@@ -183,7 +184,7 @@ app.get('/api/roue/:scanId', async (req, res) => {
     res.json({
       peutJouer: !scan.roue_utilisee,
       cadeauDejaGagne: scan.cadeau_gagne || null,
-      lots: LOTS_ROUE.map(l => l.label)
+      lots: LOTS_ROUE.map(l => ({ label: l.label, icone: l.icone }))
     });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
@@ -214,7 +215,7 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
       .update({ roue_utilisee: true, cadeau_gagne: lot.label })
       .eq('id', req.params.scanId);
 
-    res.json({ indexLot: lot.index, label: lot.label });
+    res.json({ indexLot: lot.index, label: lot.label, icone: lot.icone });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
   }
