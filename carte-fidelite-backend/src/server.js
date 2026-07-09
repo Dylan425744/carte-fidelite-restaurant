@@ -84,19 +84,40 @@ app.post('/api/scan', async (req, res) => {
 
     await supabase.from('scans').insert([{ client_id, points_ajoutes: pointsAAjouter }]);
 
+    // Verifie si le client vient d'atteindre le seuil de recompense
+    const seuil = parseInt(process.env.SEUIL_RECOMPENSE || '100');
+    let recompenseAtteinte = false;
+    let soldeFinal = nouveauSolde;
+
+    if (client.points < seuil && nouveauSolde >= seuil) {
+      recompenseAtteinte = true;
+      soldeFinal = 0; // On remet le compteur a zero apres la recompense
+
+      await supabase
+        .from('clients')
+        .update({ points: soldeFinal })
+        .eq('id', client_id);
+
+      try {
+        await email.envoyerEmailRecompense(client.email, client.nom);
+      } catch (erreurEmail) {
+        console.error('Erreur envoi email recompense:', erreurEmail.message);
+      }
+    }
+
     // On met a jour la carte Google Wallet en temps reel
-    await wallet.mettreAJourPointsWallet({ ...client, points: nouveauSolde });
+    await wallet.mettreAJourPointsWallet({ ...client, points: soldeFinal });
 
     // On met aussi a jour la carte Apple Wallet, si le client en a une
     if (client.apple_wallet_serial) {
       try {
-        await appleWallet.mettreAJourPasseApple(client.apple_wallet_serial, { ...client, points: nouveauSolde });
+        await appleWallet.mettreAJourPasseApple(client.apple_wallet_serial, { ...client, points: soldeFinal });
       } catch (erreurApple) {
         console.error('Erreur mise a jour Apple Wallet:', erreurApple.message);
       }
     }
 
-    res.json({ succes: true, nouveauSolde });
+    res.json({ succes: true, nouveauSolde: soldeFinal, recompenseAtteinte });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });
