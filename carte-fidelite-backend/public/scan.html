@@ -122,8 +122,9 @@ async function onScanSucces(decodedText) {
     }
 
     resultatDiv.innerHTML =
-      '<div class="nom-client">Point ajoute !</div>' +
-      '<div class="solde">' + donnees.nouveauSolde + ' points</div>';
+      donnees.recompenseAtteinte
+        ? '<div class="nom-client">Recompense debloquee !</div><div class="solde">Bravo !</div><p style="color:#a8a29a; font-size:13px;">Un email a ete envoye au client.</p>'
+        : '<div class="nom-client">Point ajoute !</div><div class="solde">' + donnees.nouveauSolde + ' points</div>';
     resultatDiv.className = 'resultat succes visible';
 
   } catch (erreur) {
