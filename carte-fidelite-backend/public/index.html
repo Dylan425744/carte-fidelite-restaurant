@@ -111,26 +111,26 @@
 
 <div class="carte">
   <h1>Le Coin des amis</h1>
-  <p class="sous-titre">Creez votre carte de fidelite en quelques secondes</p>
+  <p class="sous-titre">Créez votre carte de fidélité en quelques secondes</p>
 
   <form id="formulaire">
-    <label for="nom">Votre prenom</label>
+    <label for="nom">Votre prénom</label>
     <input type="text" id="nom" required placeholder="Jean">
 
     <label for="email">Votre email</label>
     <input type="email" id="email" required placeholder="jean@exemple.com">
 
-    <label for="telephone">Votre telephone (optionnel)</label>
+    <label for="telephone">Votre téléphone (optionnel)</label>
     <input type="tel" id="telephone" placeholder="06 00 00 00 00">
 
-    <button type="submit" id="bouton">Creer ma carte</button>
+    <button type="submit" id="bouton">Créer ma carte</button>
   </form>
 
   <div class="message-erreur" id="messageErreur"></div>
 
   <div class="resultat" id="resultat">
     <p style="text-align:center; margin-bottom: 8px; color:#a8a29a; font-size:14px;">
-      Votre carte est prete ! Ajoutez-la a votre telephone :
+      Votre carte est prête ! Ajoutez-la à votre téléphone :
     </p>
     <a href="#" id="lienGoogle" class="lien-wallet google" target="_blank">Ajouter a Google Wallet</a>
     <a href="#" id="lienApple" class="lien-wallet apple" target="_blank">Ajouter a Apple Wallet</a>
@@ -148,7 +148,7 @@ document.getElementById('formulaire').addEventListener('submit', async function(
   messageErreur.classList.remove('visible');
   resultat.classList.remove('visible');
   bouton.disabled = true;
-  bouton.textContent = 'Creation en cours...';
+  bouton.textContent = 'Création en cours...';
 
   const nom = document.getElementById('nom').value;
   const email = document.getElementById('email').value;
@@ -183,7 +183,7 @@ document.getElementById('formulaire').addEventListener('submit', async function(
     messageErreur.textContent = erreur.message;
     messageErreur.classList.add('visible');
     bouton.disabled = false;
-    bouton.textContent = 'Creer ma carte';
+    bouton.textContent = 'Créer ma carte';
   }
 });
 </script>
