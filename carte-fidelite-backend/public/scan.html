@@ -3,28 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Le Coin des amis - Scan</title>
+<title>Bravocard - Scan</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #1b1f24;
-    color: #f5f0e6;
+    font-family: 'Work Sans', sans-serif;
+    background: #1B1030;
+    color: #FFF9F3;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 20px;
   }
+  .logo-page {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .logo-page .nom {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+  }
+  .logo-page .nom .accent { color: #12B886; }
   h1 {
-    font-size: 20px;
-    color: #e8a33d;
-    margin: 16px 0 4px;
+    font-family: 'Manrope', sans-serif;
+    font-size: 19px;
+    font-weight: 800;
+    margin: 8px 0 4px;
     text-align: center;
   }
   p.sous-titre {
-    color: #a8a29a;
+    color: #B8ABD0;
     font-size: 13px;
     margin-bottom: 20px;
     text-align: center;
@@ -34,7 +49,7 @@
     max-width: 400px;
     border-radius: 16px;
     overflow: hidden;
-    border: 1px solid #353b42;
+    border: 1px solid #362A55;
   }
   .bouton {
     width: 100%;
@@ -43,13 +58,16 @@
     padding: 14px;
     border-radius: 10px;
     border: none;
-    background: #e8a33d;
-    color: #1b1f24;
+    background: #6C3CE9;
+    color: #FFF9F3;
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 700;
+    font-family: 'Work Sans', sans-serif;
     cursor: pointer;
+    box-shadow: 0 10px 24px rgba(108,60,233,0.35);
+    transition: transform 0.15s ease;
   }
-  .bouton:hover { background: #f0b45a; }
+  .bouton:hover { transform: translateY(-2px); }
   .resultat {
     width: 100%;
     max-width: 400px;
@@ -60,15 +78,20 @@
     display: none;
   }
   .resultat.visible { display: block; }
-  .resultat.succes { background: #1f3d2b; border: 1px solid #2f6b45; }
-  .resultat.erreur { background: #3d1f1f; border: 1px solid #6b2f2f; }
-  .resultat .nom-client { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
-  .resultat .solde { font-size: 32px; font-weight: 700; color: #e8a33d; margin: 8px 0; }
+  .resultat.succes { background: #14301F; border: 1px solid #12B886; }
+  .resultat.erreur { background: #3D1F1F; border: 1px solid #6b2f2f; }
+  .resultat .nom-client { font-family: 'Manrope', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .resultat .solde { font-family: 'Manrope', sans-serif; font-size: 32px; font-weight: 800; color: #12B886; margin: 8px 0; }
 </style>
 </head>
 <body>
 
-<h1>Le Coin des amis</h1>
+<div class="logo-page">
+  <svg width="20" height="20" viewBox="0 0 200 200"><g transform="rotate(-8 100 100)"><rect x="35" y="55" width="130" height="90" rx="18" fill="#6C3CE9"/></g><path d="M155 45 L163 62 L182 65 L168 79 L172 98 L155 88 L138 98 L142 79 L128 65 L147 62 Z" fill="#12B886"/></svg>
+  <div class="nom">Bravo<span class="accent">card</span></div>
+</div>
+
+<h1>Chez Basile</h1>
 <p class="sous-titre">Scannez la carte du client pour ajouter un point</p>
 
 <div id="lecteur"></div>
@@ -123,7 +146,7 @@ async function onScanSucces(decodedText) {
 
     resultatDiv.innerHTML =
       donnees.recompenseAtteinte
-        ? '<div class="nom-client">Récompense débloquée !</div><div class="solde">Bravo !</div><p style="color:#a8a29a; font-size:13px;">Un email a été envoyé au client.</p>'
+        ? '<div class="nom-client">Récompense débloquée !</div><div class="solde">Bravo !</div><p style="color:#B8ABD0; font-size:13px;">Un email a été envoyé au client.</p>'
         : '<div class="nom-client">Point ajouté !</div><div class="solde">' + donnees.nouveauSolde + ' points</div>';
     resultatDiv.className = 'resultat succes visible';
 
