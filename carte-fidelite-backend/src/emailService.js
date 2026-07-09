@@ -59,4 +59,19 @@ async function envoyerEmailBienvenue(emailDestinataire, nomClient, lienWallet, l
   await envoyerEmail(emailDestinataire, `Bienvenue chez ${nomRestaurant} !`, texte);
 }
 
-module.exports = { envoyerEmailAvis, envoyerEmailBienvenue };
+async function envoyerEmailRecompense(emailDestinataire, nomClient) {
+  const nomRestaurant = process.env.NOM_RESTAURANT;
+  const descriptionRecompense = process.env.DESCRIPTION_RECOMPENSE || 'une recompense speciale';
+
+  const texte =
+    `Bonjour ${nomClient},\n\n` +
+    `Felicitations ! Vous avez atteint le seuil de points chez ${nomRestaurant}.\n\n` +
+    `Vous avez droit a : ${descriptionRecompense}\n\n` +
+    `Presentez simplement votre carte de fidelite lors de votre prochaine visite pour en profiter.\n\n` +
+    `Merci pour votre fidelite,\n` +
+    `L'equipe de ${nomRestaurant}`;
+
+  await envoyerEmail(emailDestinataire, `Felicitations, votre recompense vous attend chez ${nomRestaurant} !`, texte);
+}
+
+module.exports = { envoyerEmailAvis, envoyerEmailBienvenue, envoyerEmailRecompense };
