@@ -82,6 +82,11 @@
   .resultat-final .icone-finale { font-size: 36px; margin-bottom: 6px; }
   .resultat-final .titre-gain { font-size: 13px; color: #B8ABD0; }
   .resultat-final .nom-gain { font-family: 'Manrope', sans-serif; font-size: 22px; font-weight: 800; color: #12B886; margin-top: 6px; }
+  .resultat-final .validite {
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(18,184,134,0.3);
+    font-size: 12.5px; color: #C9F0E2; line-height: 1.5;
+  }
+  .resultat-final .validite b { color: #FFF9F3; }
 
   .message-info { margin-top: 20px; color: #B8ABD0; font-size: 14px; max-width: 300px; }
 </style>
@@ -109,6 +114,7 @@
   <div class="icone-finale" id="iconeFinale"></div>
   <div class="titre-gain">Vous avez gagné</div>
   <div class="nom-gain" id="nomGain"></div>
+  <div class="validite" id="validite"></div>
 </div>
 
 <div class="message-info" id="messageInfo"></div>
@@ -122,7 +128,24 @@ const boutonJouer = document.getElementById('boutonJouer');
 const resultatFinal = document.getElementById('resultatFinal');
 const nomGain = document.getElementById('nomGain');
 const iconeFinale = document.getElementById('iconeFinale');
+const validite = document.getElementById('validite');
 const messageInfo = document.getElementById('messageInfo');
+
+function formaterDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+}
+
+function afficherValidite(valideDu, valideAu) {
+  if (!valideDu || !valideAu) {
+    validite.innerHTML = '';
+    return;
+  }
+  validite.innerHTML =
+    `Non consommable aujourd'hui. Votre boisson sera disponible ` +
+    `à partir du <b>${formaterDate(valideDu)}</b>, jusqu'au <b>${formaterDate(valideAu)}</b>. ` +
+    `Présentez simplement votre carte au restaurant durant cette période.`;
+}
 
 let lots = [];
 const RAYON_TEXTE = 100; // distance du centre a laquelle placer le texte
@@ -215,6 +238,7 @@ async function initialiser() {
       if (donnees.cadeauDejaGagne) {
         nomGain.textContent = donnees.cadeauDejaGagne;
         iconeFinale.textContent = '🎉';
+        afficherValidite(donnees.valideDu, donnees.valideAu);
         resultatFinal.classList.add('visible');
         messageInfo.textContent = "Vous avez déjà joué avec ce lien.";
       }
@@ -248,6 +272,7 @@ boutonJouer.addEventListener('click', async () => {
     setTimeout(() => {
       nomGain.textContent = donnees.label;
       iconeFinale.textContent = donnees.icone;
+      afficherValidite(donnees.valideDu, donnees.valideAu);
       resultatFinal.classList.add('visible');
       lancerConfettis();
     }, 4600);
