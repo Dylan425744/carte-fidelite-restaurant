@@ -27,15 +27,16 @@ async function envoyerEmail(destinataire, sujet, texte) {
   }
 }
 
-async function envoyerEmailAvis(emailDestinataire, nomClient) {
+async function envoyerEmailAvis(emailDestinataire, nomClient, lienRoue) {
   const nomRestaurant = process.env.NOM_RESTAURANT;
   const lienAvis = process.env.LIEN_AVIS_GOOGLE;
 
   const texte =
     `Bonjour ${nomClient},\n\n` +
     `Merci d'être venu(e) chez ${nomRestaurant} aujourd'hui !\n\n` +
-    `Votre avis compte énormément pour nous. Auriez-vous 30 secondes pour nous laisser un avis Google ?\n\n` +
+    `Votre avis compte énormément pour nous. Laissez-nous un avis Google en 30 secondes :\n\n` +
     `${lienAvis}\n\n` +
+    `Une fois votre avis laissé, revenez ici pour tourner la roue des cadeaux :\n${lienRoue}\n\n` +
     `À très bientôt,\n` +
     `L'équipe de ${nomRestaurant}`;
 
