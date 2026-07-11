@@ -46,6 +46,8 @@ async function mettreAJourPasseApple(serialNumber, client) {
       'Authorization': `Bearer ${process.env.WALLETWALLET_API_KEY}`
     },
     body: JSON.stringify({
+      barcodeValue: client.id,
+      barcodeFormat: 'QR',
       primaryFields: [
         { key: 'points', label: 'Points', value: String(client.points) }
       ]
