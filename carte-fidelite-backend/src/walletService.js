@@ -23,14 +23,60 @@ function construireObjetFidelite(client) {
     accountId: client.id,
     accountName: client.nom,
     loyaltyPoints: {
-      label: 'Points',
+      label: 'Points fidélité',
       balance: { int: client.points }
     },
     barcode: {
       type: 'QR_CODE',
       value: client.id
+    },
+    textModulesData: [
+      { id: 'client', header: 'CLIENT', body: client.nom },
+      { id: 'type_carte', header: 'CARTE', body: 'FIDÉLITÉ' }
+    ]
+  };
+}
+
+// A appeler UNE SEULE FOIS pour configurer la disposition personnalisee
+// de la carte (positionne les lignes Client / Carte cote a cote, sous les points).
+// Ne pas rappeler a chaque client, ça configure la classe entiere une fois pour toutes.
+async function configurerModeleCarte() {
+  const auth = new GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
+    },
+    scopes: ['https://www.googleapis.com/auth/wallet_object.issuer']
+  });
+
+  const client_auth = await auth.getClient();
+  const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass/${getClassId()}`;
+
+  const donnees = {
+    classTemplateInfo: {
+      cardTemplateOverride: {
+        cardRowTemplateInfos: [
+          {
+            twoItems: {
+              startItem: {
+                firstValue: {
+                  fields: [{ fieldPath: "object.textModulesData['client']" }]
+                }
+              },
+              endItem: {
+                firstValue: {
+                  fields: [{ fieldPath: "object.textModulesData['type_carte']" }]
+                }
+              }
+            }
+          }
+        ]
+      }
     }
   };
+
+  await client_auth.request({ url, method: 'PATCH', data: donnees });
+  return true;
 }
 
 // Genere le lien que le client clique pour ajouter sa carte a Google Wallet
@@ -117,5 +163,6 @@ async function creerObjetWallet(client) {
 module.exports = {
   creerLienGoogleWallet,
   mettreAJourPointsWallet,
-  creerObjetWallet
+  creerObjetWallet,
+  configurerModeleCarte
 };
