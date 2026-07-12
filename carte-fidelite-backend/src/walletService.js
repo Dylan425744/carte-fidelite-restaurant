@@ -53,6 +53,7 @@ async function configurerModeleCarte() {
   const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass/${getClassId()}`;
 
   const donnees = {
+    reviewStatus: 'underReview',
     classTemplateInfo: {
       cardTemplateOverride: {
         cardRowTemplateInfos: [
