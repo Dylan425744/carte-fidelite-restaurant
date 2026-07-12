@@ -14,6 +14,24 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// Route a usage unique : configure la disposition personnalisee de la carte
+// Google Wallet (lignes Client / Carte). Protegee par le meme mot de passe
+// que le tableau de bord, pour eviter qu'elle soit appelee par n'importe qui.
+app.post('/api/admin/configurer-template', async (req, res) => {
+  try {
+    const motDePasse = req.headers['x-dashboard-password'];
+    if (motDePasse !== process.env.DASHBOARD_PASSWORD) {
+      return res.status(401).json({ erreur: 'Mot de passe incorrect' });
+    }
+
+    await wallet.configurerModeleCarte();
+    res.json({ succes: true, message: 'Modele de carte configure avec succes.' });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
 // Route de test pour verifier que le serveur tourne bien
 app.get('/api/statut', (req, res) => {
   res.send('Le serveur de la carte de fidelite fonctionne.');
@@ -216,7 +234,7 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
   try {
     const { data: scan, error: erreurLecture } = await supabase
       .from('scans')
-      .select('id, roue_utilisee')
+      .select('id, roue_utilisee, client_id, clients(nom, email)')
       .eq('id', req.params.scanId)
       .single();
 
@@ -240,6 +258,22 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
         cadeau_valide_au: dateFin.toISOString()
       })
       .eq('id', req.params.scanId);
+
+    // Envoie un email de confirmation avec le lien a presenter au comptoir
+    try {
+      const lienCadeau = `${process.env.URL_SITE}/cadeau.html?scan=${req.params.scanId}`;
+      await email.envoyerEmailCadeau(
+        scan.clients.email,
+        scan.clients.nom,
+        lot.label,
+        lot.icone,
+        dateDebut.toISOString(),
+        dateFin.toISOString(),
+        lienCadeau
+      );
+    } catch (erreurEmail) {
+      console.error('Erreur envoi email cadeau:', erreurEmail.message);
+    }
 
     res.json({
       indexLot: lot.index,
