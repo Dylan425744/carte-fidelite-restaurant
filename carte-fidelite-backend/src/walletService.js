@@ -52,11 +52,26 @@ async function configurerModeleCarte() {
   const client_auth = await auth.getClient();
   const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass/${getClassId()}`;
 
+  // On lit d'abord la classe telle qu'elle existe actuellement (titre, logo,
+  // image...), pour etre sur de ne rien ecraser en la mettant a jour.
+  const reponseActuelle = await client_auth.request({ url, method: 'GET' });
+  const classeActuelle = reponseActuelle.data;
+
   const donnees = {
+    ...classeActuelle,
     reviewStatus: 'underReview',
     classTemplateInfo: {
       cardTemplateOverride: {
         cardRowTemplateInfos: [
+          {
+            oneItem: {
+              item: {
+                firstValue: {
+                  fields: [{ fieldPath: 'object.loyaltyPoints.balance' }]
+                }
+              }
+            }
+          },
           {
             twoItems: {
               startItem: {
@@ -76,7 +91,7 @@ async function configurerModeleCarte() {
     }
   };
 
-  await client_auth.request({ url, method: 'PATCH', data: donnees });
+  await client_auth.request({ url, method: 'PUT', data: donnees });
   return true;
 }
 
