@@ -198,7 +198,7 @@ function construireChampsCarte(client) {
 
   const champs = {
     barcodeValue: String(client.id),
-    barcodeFormat: 'QR',
+    barcodeFormat: 'Code128',
 
     /*
      * Sans logo personnalisé, "Bravocard" apparaît en texte.
@@ -277,7 +277,7 @@ function construireChampsCarte(client) {
       {
         label: 'UTILISATION',
         value:
-          'Présentez le QR code de cette carte au commerçant afin de créditer ou utiliser vos points.'
+          'Présentez le code-barres de cette carte au commerçant afin de créditer ou utiliser vos points.'
       },
       {
         label: 'IDENTIFIANT DE LA CARTE',

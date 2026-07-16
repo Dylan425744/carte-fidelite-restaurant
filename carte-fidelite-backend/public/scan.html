@@ -92,7 +92,7 @@
 </div>
 
 <h1>Chez Basile</h1>
-<p class="sous-titre">Scannez la carte du client pour ajouter un point</p>
+<p class="sous-titre">Scannez le code-barres de la carte pour ajouter un point</p>
 
 <div id="lecteur"></div>
 
@@ -115,7 +115,15 @@ function demarrerScan() {
   lecteurQR = new Html5Qrcode("lecteur");
   lecteurQR.start(
     { facingMode: "environment" },
-    { fps: 10, qrbox: 250 },
+    {
+      fps: 10,
+      qrbox: function(viewfinderWidth, viewfinderHeight) {
+        return {
+          width: Math.floor(viewfinderWidth * 0.9),
+          height: Math.min(140, Math.floor(viewfinderHeight * 0.35))
+        };
+      }
+    },
     onScanSucces
   ).catch(function(err) {
     resultatDiv.innerHTML = "Impossible d'accéder à la caméra. Vérifiez les autorisations de votre navigateur.";
