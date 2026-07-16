@@ -27,7 +27,7 @@ function construireObjetFidelite(client) {
       balance: { int: client.points }
     },
     barcode: {
-      type: 'CODE_128',
+      type: 'QR_CODE',
       value: client.id,
       alternateText: ''
     },
