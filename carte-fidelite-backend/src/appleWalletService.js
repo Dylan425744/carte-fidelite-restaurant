@@ -122,8 +122,8 @@ function ajouterDesignPro(champs) {
     return champs;
   }
 
-  // Violet Bravocard exact.
-  champs.color = '#6C3CE9';
+  // Encre Bravocard, la couleur sombre principale de la marque.
+  champs.color = '#1B1030';
 
   const logoBravocard = obtenirVariableEnvironnement(
     'BRAVOCARD_LOGO_URL'
@@ -216,11 +216,11 @@ function construireChampsCarte(client) {
     sharingProhibited: true,
 
     /*
-     * Thème violet disponible gratuitement.
-     * Si WALLETWALLET_PRO_DESIGN=true, la couleur exacte #6C3CE9
+     * Thème le plus sombre disponible gratuitement.
+     * Si WALLETWALLET_PRO_DESIGN=true, la couleur exacte #1B1030
      * sera ajoutée automatiquement par ajouterDesignPro().
      */
-    colorPreset: 'purple',
+    colorPreset: 'dark',
 
     /*
      * Zone située en haut à droite sur Apple Wallet.
