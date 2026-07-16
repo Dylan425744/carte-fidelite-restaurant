@@ -137,7 +137,7 @@
 </div>
 
 <div class="carte">
-  <h1>Bienvenue chez Chez Basile</h1>
+  <h1 id="titreRestaurant">Bienvenue chez Chez Basile</h1>
   <p class="sous-titre">Créez votre carte de fidélité en quelques secondes</p>
 
   <form id="formulaire">
@@ -165,6 +165,23 @@
 </div>
 
 <script>
+const parametres = new URLSearchParams(window.location.search);
+const restaurantSlug = parametres.get('restaurant') || 'chez-basile';
+
+async function chargerRestaurant() {
+  try {
+    const reponse = await fetch(`/api/restaurants/${encodeURIComponent(restaurantSlug)}/public`);
+    const donnees = await reponse.json();
+    if (!reponse.ok) throw new Error(donnees.erreur);
+    document.getElementById('titreRestaurant').textContent = `Bienvenue chez ${donnees.restaurant.nom}`;
+    document.title = `Carte de fidélité - ${donnees.restaurant.nom}`;
+  } catch (erreur) {
+    document.getElementById('messageErreur').textContent = erreur.message || 'Commerce introuvable.';
+    document.getElementById('messageErreur').classList.add('visible');
+    document.getElementById('bouton').disabled = true;
+  }
+}
+
 document.getElementById('formulaire').addEventListener('submit', async function(e) {
   e.preventDefault();
 
@@ -185,7 +202,7 @@ document.getElementById('formulaire').addEventListener('submit', async function(
     const reponse = await fetch('/api/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nom, email, telephone })
+      body: JSON.stringify({ nom, email, telephone, restaurant_slug: restaurantSlug })
     });
 
     const donnees = await reponse.json();
@@ -213,6 +230,8 @@ document.getElementById('formulaire').addEventListener('submit', async function(
     bouton.textContent = 'Créer ma carte';
   }
 });
+
+chargerRestaurant();
 </script>
 
 </body>

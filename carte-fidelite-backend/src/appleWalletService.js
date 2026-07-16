@@ -99,7 +99,7 @@ function verifierClient(client) {
  *
  * Si elle n'est pas activée, la carte fonctionne avec le thème violet gratuit.
  */
-function designProActive() {
+function designProDisponible() {
   return obtenirVariableEnvironnement(
     'WALLETWALLET_PRO_DESIGN',
     'false'
@@ -117,25 +117,30 @@ function designProActive() {
  *
  * Les URLs doivent commencer par https://
  */
-function ajouterDesignPro(champs) {
-  if (!designProActive()) {
+function ajouterDesignPro(champs, restaurant = null) {
+  const restaurantConfigure = restaurant && Object.keys(restaurant).length > 0;
+  const proAutorise =
+    designProDisponible() &&
+    (!restaurantConfigure || restaurant.apple_pro_design === true);
+
+  if (!proAutorise) {
     return champs;
   }
 
-  // Encre Bravocard, la couleur sombre principale de la marque.
-  champs.color = '#1B1030';
+  // La couleur précise est réservée au compte WalletWallet Pro.
+  champs.color = restaurant?.apple_custom_color || '#1B1030';
 
-  const logoBravocard = obtenirVariableEnvironnement(
-    'BRAVOCARD_LOGO_URL'
-  );
+  const logoBravocard =
+    restaurant?.apple_logo_url ||
+    obtenirVariableEnvironnement('BRAVOCARD_LOGO_URL');
 
-  const banniereBravocard = obtenirVariableEnvironnement(
-    'BRAVOCARD_STRIP_URL'
-  );
+  const banniereBravocard =
+    restaurant?.apple_strip_url ||
+    obtenirVariableEnvironnement('BRAVOCARD_STRIP_URL');
 
-  const iconeBravocard = obtenirVariableEnvironnement(
-    'BRAVOCARD_ICON_URL'
-  );
+  const iconeBravocard =
+    restaurant?.apple_icon_url ||
+    obtenirVariableEnvironnement('BRAVOCARD_ICON_URL');
 
   const logoRestaurant = obtenirVariableEnvironnement(
     'RESTAURANT_LOGO_URL'
@@ -185,13 +190,20 @@ function ajouterDesignPro(champs) {
  * Cette fonction est utilisée à l'identique lors de la création
  * et lors de chaque mise à jour.
  */
-function construireChampsCarte(client) {
+function construireChampsCarte(client, restaurant = null) {
   verifierClient(client);
 
-  const nomRestaurant = obtenirVariableEnvironnement(
-    'NOM_RESTAURANT',
-    'Votre restaurant'
-  );
+  const nomRestaurant =
+    restaurant?.nom ||
+    obtenirVariableEnvironnement('NOM_RESTAURANT', 'Votre restaurant');
+
+  const logoText = restaurant?.apple_logo_text || 'Bravocard';
+  const pointsLabel = restaurant?.apple_points_label || 'POINTS FIDÉLITÉ';
+  const carteLabel = restaurant?.apple_card_label || 'FIDÉLITÉ';
+  const presetsAutorises = ['dark', 'blue', 'green', 'red', 'purple', 'orange'];
+  const colorPreset = presetsAutorises.includes(restaurant?.apple_color_preset)
+    ? restaurant.apple_color_preset
+    : 'dark';
 
   const nomClient = obtenirNomCompletClient(client).toUpperCase();
   const points = obtenirNombrePoints(client);
@@ -204,7 +216,7 @@ function construireChampsCarte(client) {
      * Sans logo personnalisé, "Bravocard" apparaît en texte.
      * Avec le design Pro, le logo PNG remplacera visuellement ce texte.
      */
-    logoText: 'Bravocard',
+    logoText,
 
     organizationName: nomRestaurant,
 
@@ -220,7 +232,7 @@ function construireChampsCarte(client) {
      * Si WALLETWALLET_PRO_DESIGN=true, la couleur exacte #1B1030
      * sera ajoutée automatiquement par ajouterDesignPro().
      */
-    colorPreset: 'dark',
+    colorPreset,
 
     /*
      * Zone située en haut à droite sur Apple Wallet.
@@ -238,7 +250,7 @@ function construireChampsCarte(client) {
      */
     primaryFields: [
       {
-        label: 'POINTS FIDÉLITÉ',
+        label: pointsLabel,
         value: String(points),
 
         /*
@@ -259,7 +271,7 @@ function construireChampsCarte(client) {
       },
       {
         label: 'CARTE',
-        value: 'FIDÉLITÉ'
+        value: carteLabel
       }
     ],
 
@@ -295,7 +307,7 @@ function construireChampsCarte(client) {
     ]
   };
 
-  return ajouterDesignPro(champs);
+  return ajouterDesignPro(champs, restaurant);
 }
 
 /**
@@ -368,7 +380,7 @@ async function envoyerRequeteWalletWallet(url, options) {
  * si WalletWallet a créé la carte mais que la réponse réseau s'est perdue,
  * une nouvelle tentative pourrait créer un doublon.
  */
-async function creerPasseApple(client) {
+async function creerPasseApple(client, restaurant = null) {
   const cleApi = obtenirVariableEnvironnement(
     'WALLETWALLET_API_KEY'
   );
@@ -388,7 +400,7 @@ async function creerPasseApple(client) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${cleApi}`
       },
-      body: JSON.stringify(construireChampsCarte(client))
+      body: JSON.stringify(construireChampsCarte(client, restaurant))
     });
   } catch (erreur) {
     if (erreur.name === 'AbortError') {
@@ -435,6 +447,7 @@ async function creerPasseApple(client) {
 async function mettreAJourPasseApple(
   serialNumber,
   client,
+  restaurant = null,
   tentative = 1
 ) {
   const cleApi = obtenirVariableEnvironnement(
@@ -468,7 +481,7 @@ async function mettreAJourPasseApple(
           'Content-Type': 'application/json',
           Authorization: `Bearer ${cleApi}`
         },
-        body: JSON.stringify(construireChampsCarte(client))
+        body: JSON.stringify(construireChampsCarte(client, restaurant))
       }
     );
   } catch (erreur) {
@@ -486,6 +499,7 @@ async function mettreAJourPasseApple(
       return mettreAJourPasseApple(
         serialNumber,
         client,
+        restaurant,
         tentative + 1
       );
     }
@@ -518,6 +532,7 @@ async function mettreAJourPasseApple(
       return mettreAJourPasseApple(
         serialNumber,
         client,
+        restaurant,
         tentative + 1
       );
     }
@@ -534,6 +549,8 @@ async function mettreAJourPasseApple(
 }
 
 module.exports = {
+  construireChampsCarte,
   creerPasseApple,
+  designProDisponible,
   mettreAJourPasseApple
 };

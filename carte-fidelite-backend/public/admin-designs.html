@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration des designs - Bravocard</title>
+  <style>
+    :root{--fond:#0e0a16;--surface:#191324;--bordure:#342844;--texte:#f5f1fa;--secondaire:#aa9db8;--violet:#7650ef;--vert:#20c58a;--rouge:#ff6e79}*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font-family:Inter,system-ui,-apple-system,sans-serif}header{height:70px;padding:0 5vw;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bordure)}.marque{font-size:21px;font-weight:850}.marque span{color:#a991f8}main{width:min(1120px,92vw);margin:40px auto 80px}h1{font-size:clamp(29px,4vw,44px);letter-spacing:-1.4px;margin:0}.intro{color:var(--secondaire);margin:8px 0 28px}.connexion,.creation,.commerce{border:1px solid var(--bordure);background:var(--surface);border-radius:18px;padding:22px}.connexion{max-width:460px}.creation{margin:26px 0;display:none}.creation.visible{display:block}.ligne{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.champ{flex:1;min-width:190px}label{display:block;font-size:13px;font-weight:700;margin:0 0 7px;color:#d7cce1}input{height:44px;width:100%;border:1px solid #4b3b60;border-radius:10px;background:#0f0b17;color:white;padding:0 12px;font:inherit}button,a.bouton{border:0;border-radius:10px;background:var(--violet);color:white;padding:11px 15px;font:inherit;font-weight:750;cursor:pointer;text-decoration:none;display:inline-block}.secondaire{background:#2c223b!important}.danger{background:#57242d!important}.liste{display:grid;gap:15px}.commerce{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}.commerce h2{font-size:19px;margin:0 0 5px}.meta{color:var(--secondaire);font-size:13px}.badges{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}.badge{font-size:11px;padding:5px 8px;border-radius:999px;background:#30263e;color:#c7bad4}.badge.ok{background:#153e31;color:#7be3ba}.badge.off{background:#4a242a;color:#ffabb3}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.acces{display:none;grid-column:1/-1;background:#100c18;border-radius:12px;padding:15px}.acces.visible{display:block}.acces code{display:block;color:#bfaefe;overflow-wrap:anywhere;margin:8px 0}.message{font-size:14px;color:var(--secondaire);margin-top:12px}.message.erreur{color:#ff8a94}.message.succes{color:#66dda8}@media(max-width:760px){.commerce{grid-template-columns:1fr}.actions{justify-content:flex-start}}
+  </style>
+</head>
+<body>
+  <header><div class="marque">Bravo<span>card</span></div><a class="bouton secondaire" href="/dashboard.html">Clients</a></header>
+  <main>
+    <h1>Administration des designs</h1>
+    <p class="intro">Crée les accès commerçants et garde la main sur toutes les options sensibles.</p>
+    <section class="connexion" id="connexion"><label for="motDePasse">Mot de passe administrateur</label><input id="motDePasse" type="password"><button id="seConnecter" style="margin-top:12px">Accéder à la console</button><div class="message" id="messageConnexion"></div></section>
+    <section class="creation" id="creation"><h2 style="margin-top:0">Ajouter un commerce</h2><div class="ligne"><div class="champ"><label for="nom">Nom</label><input id="nom" placeholder="Le Petit Comptoir"></div><div class="champ"><label for="slug">Lien personnalisé</label><input id="slug" placeholder="le-petit-comptoir"></div><button id="creer">Créer l’accès</button></div></section>
+    <div class="liste" id="liste"></div>
+  </main>
+  <script>
+    let motDePasse=sessionStorage.getItem('bravocard_admin_password')||'';
+    const liste=document.getElementById('liste');
+    function headers(json=false){return {'x-dashboard-password':motDePasse,...(json?{'Content-Type':'application/json'}:{})}}
+    function echapper(texte){const div=document.createElement('div');div.textContent=texte??'';return div.innerHTML}
+    function message(id,texte,type=''){const element=document.getElementById(id);element.textContent=texte;element.className=`message ${type}`}
+    async function api(url,options={}){const reponse=await fetch(url,{...options,headers:{...headers(Boolean(options.body)),...(options.headers||{})}});const donnees=await reponse.json();if(!reponse.ok)throw new Error(donnees.erreur||'Une erreur est survenue.');return donnees}
+
+    async function charger(){
+      try{const donnees=await api('/api/admin/restaurants');sessionStorage.setItem('bravocard_admin_password',motDePasse);document.getElementById('connexion').style.display='none';document.getElementById('creation').classList.add('visible');afficher(donnees.restaurants)}
+      catch(e){message('messageConnexion',e.message,'erreur')}
+    }
+    function afficher(restaurants){
+      liste.innerHTML=restaurants.map(r=>`<article class="commerce" data-id="${r.id}"><div><h2>${echapper(r.nom)}</h2><div class="meta">/${echapper(r.slug)} · Design modifié ${r.design_updated_at?new Date(r.design_updated_at).toLocaleDateString('fr-FR'):'jamais'}</div><div class="badges"><span class="badge ${r.actif?'ok':'off'}">${r.actif?'Commerce actif':'Commerce désactivé'}</span><span class="badge ${r.design_enabled?'ok':'off'}">${r.design_enabled?'Éditeur autorisé':'Éditeur bloqué'}</span><span class="badge ${r.apple_pro_design?'ok':''}">${r.apple_pro_design?'Design Pro autorisé':'Design standard'}</span><span class="badge">${r.acces_configure?'Accès configuré':'Aucun code'}</span></div></div><div class="actions"><button class="secondaire" onclick="ouvrirEditeur('${r.slug}')">Modifier</button><button class="secondaire" onclick="basculer('${r.id}','design_enabled',${!r.design_enabled})">${r.design_enabled?'Bloquer l’éditeur':'Autoriser l’éditeur'}</button><button class="secondaire" onclick="basculer('${r.id}','apple_pro_design',${!r.apple_pro_design})">${r.apple_pro_design?'Retirer Pro':'Autoriser Pro'}</button><button onclick="resetAcces('${r.id}','${r.slug}')">${r.acces_configure?'Réinitialiser le code':'Créer le code'}</button></div><div class="acces" id="acces-${r.id}"></div></article>`).join('');
+    }
+    async function basculer(id,champ,valeur){try{await api(`/api/admin/restaurants/${id}`,{method:'PATCH',body:JSON.stringify({[champ]:valeur})});await charger()}catch(e){alert(e.message)}}
+    async function resetAcces(id,slug){if(!confirm('L’ancien code ne fonctionnera plus. Continuer ?'))return;try{const d=await api(`/api/admin/restaurants/${id}/reset-access`,{method:'POST'});const zone=document.getElementById(`acces-${id}`);const lien=`${location.origin}/personnalisation.html?restaurant=${slug}`;zone.classList.add('visible');zone.innerHTML=`<strong>À transmettre au commerçant une seule fois</strong><span class="meta">Lien</span><code>${echapper(lien)}</code><span class="meta">Code privé</span><code>${echapper(d.code_acces)}</code><button class="secondaire" onclick="navigator.clipboard.writeText('${d.code_acces}')">Copier le code</button>`}catch(e){alert(e.message)}}
+    function ouvrirEditeur(slug){sessionStorage.setItem('bravocard_admin_password',motDePasse);window.open(`/personnalisation.html?restaurant=${encodeURIComponent(slug)}&admin=1`,'_blank')}
+    document.getElementById('seConnecter').onclick=()=>{motDePasse=document.getElementById('motDePasse').value;charger()};
+    document.getElementById('creer').onclick=async()=>{try{const d=await api('/api/admin/restaurants',{method:'POST',body:JSON.stringify({nom:document.getElementById('nom').value,slug:document.getElementById('slug').value})});await charger();setTimeout(()=>resetAccesSansConfirmation(d.restaurant.id,d.restaurant.slug,d.code_acces),50)}catch(e){alert(e.message)}};
+    function resetAccesSansConfirmation(id,slug,code){const zone=document.getElementById(`acces-${id}`);if(!zone)return;const lien=`${location.origin}/personnalisation.html?restaurant=${slug}`;zone.classList.add('visible');zone.innerHTML=`<strong>Nouvel accès à transmettre</strong><span class="meta">Lien</span><code>${echapper(lien)}</code><span class="meta">Code privé</span><code>${echapper(code)}</code>`}
+    if(motDePasse)charger();
+  </script>
+</body>
+</html>
