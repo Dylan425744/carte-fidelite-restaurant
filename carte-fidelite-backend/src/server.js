@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
 const path = require('path');
+const crypto = require('crypto');
 
 const supabase = require('./supabaseClient');
 const wallet = require('./walletService');
@@ -33,7 +34,12 @@ const CHAMPS_RESTAURANT = [
   'apple_logo_url',
   'apple_strip_url',
   'apple_icon_url',
-  'design_updated_at'
+  'design_updated_at',
+  'last_notification_title',
+  'last_notification_message',
+  'last_notification_sent_at',
+  'notification_history',
+  'notification_sending'
 ].join(', ');
 
 function estAdministrateur(req) {
@@ -95,6 +101,156 @@ async function authentifierEspaceDesign(req, res) {
   }
 
   return { restaurant, administrateur: false };
+}
+
+function validerNotification(donnees) {
+  const titre = String(donnees.titre || '').trim();
+  const message = String(donnees.message || '').trim();
+  const plateforme = String(donnees.plateforme || 'toutes').toLowerCase();
+
+  if (!titre || titre.length > 48) {
+    throw new Error('Le titre doit contenir entre 1 et 48 caractères.');
+  }
+
+  if (!message || message.length > 160) {
+    throw new Error('Le message doit contenir entre 1 et 160 caractères.');
+  }
+
+  if (!['toutes', 'apple', 'google'].includes(plateforme)) {
+    throw new Error('La plateforme choisie est invalide.');
+  }
+
+  return { titre, message, plateforme };
+}
+
+function obtenirHistoriqueNotifications(restaurant) {
+  return Array.isArray(restaurant.notification_history)
+    ? restaurant.notification_history.slice(0, 50)
+    : [];
+}
+
+async function finaliserCampagne(campagneId, restaurantId, resultat) {
+  const { data: restaurant, error: erreurLecture } = await supabase
+    .from('restaurants')
+    .select('notification_history')
+    .eq('id', restaurantId)
+    .single();
+
+  if (erreurLecture) throw erreurLecture;
+
+  const historique = Array.isArray(restaurant.notification_history)
+    ? restaurant.notification_history
+    : [];
+  const historiqueMisAJour = historique.map(campagne =>
+    campagne.id === campagneId
+      ? {
+          ...campagne,
+          ...resultat,
+          completed_at: new Date().toISOString()
+        }
+      : campagne
+  );
+
+  const { error } = await supabase
+    .from('restaurants')
+    .update({
+      notification_history: historiqueMisAJour,
+      notification_sending: false
+    })
+    .eq('id', restaurantId);
+
+  if (error) throw error;
+}
+
+async function traiterCampagneWallet(campagne, clients, restaurant) {
+  const resultat = {
+    statut: 'terminee',
+    apple_reussies: 0,
+    apple_echecs: 0,
+    google_reussies: 0,
+    google_echecs: 0
+  };
+
+  try {
+    for (let index = 0; index < clients.length; index += 5) {
+      const lot = clients.slice(index, index + 5);
+
+      await Promise.all(
+        lot.map(async client => {
+          const envois = [];
+
+          if (
+            campagne.plateforme !== 'google' &&
+            client.apple_wallet_serial
+          ) {
+            envois.push(
+              appleWallet
+                .mettreAJourPasseApple(
+                  client.apple_wallet_serial,
+                  client,
+                  restaurant
+                )
+                .then(() => {
+                  resultat.apple_reussies += 1;
+                })
+                .catch(erreur => {
+                  resultat.apple_echecs += 1;
+                  console.error(
+                    `Notification Apple impossible pour ${client.id}:`,
+                    erreur.message
+                  );
+                })
+            );
+          }
+
+          if (campagne.plateforme !== 'apple') {
+            envois.push(
+              wallet
+                .envoyerNotificationWallet(
+                  client,
+                  campagne.titre,
+                  campagne.message,
+                  campagne.id
+                )
+                .then(() => {
+                  resultat.google_reussies += 1;
+                })
+                .catch(erreur => {
+                  resultat.google_echecs += 1;
+                  console.error(
+                    `Notification Google impossible pour ${client.id}:`,
+                    erreur.message
+                  );
+                })
+            );
+          }
+
+          await Promise.all(envois);
+        })
+      );
+    }
+
+    if (
+      resultat.apple_reussies + resultat.google_reussies === 0 &&
+      resultat.apple_echecs + resultat.google_echecs > 0
+    ) {
+      resultat.statut = 'echec';
+    } else if (resultat.apple_echecs + resultat.google_echecs > 0) {
+      resultat.statut = 'partielle';
+    }
+
+    await finaliserCampagne(campagne.id, restaurant.id, resultat);
+  } catch (erreur) {
+    console.error('Erreur campagne Wallet:', erreur.message);
+    try {
+      await finaliserCampagne(campagne.id, restaurant.id, {
+        ...resultat,
+        statut: 'echec'
+      });
+    } catch (erreurFinalisation) {
+      console.error('Erreur finalisation campagne:', erreurFinalisation.message);
+    }
+  }
 }
 
 // Informations publiques minimales utilisées par la page d'inscription.
@@ -159,6 +315,172 @@ app.put('/api/design/:slug', async (req, res) => {
         data,
         appleWallet.designProDisponible()
       )
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+// Tableau de bord unifié du restaurateur : statistiques, clients et campagnes.
+app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res);
+    if (!acces) return;
+
+    const { data: clients, error } = await supabase
+      .from('clients')
+      .select(
+        'id, nom, email, telephone, points, apple_wallet_serial, google_wallet_object_id, date_inscription'
+      )
+      .eq('restaurant_id', acces.restaurant.id)
+      .order('date_inscription', { ascending: false });
+
+    if (error) throw error;
+
+    const historique = obtenirHistoriqueNotifications(acces.restaurant);
+    const totalPoints = clients.reduce(
+      (total, client) => total + Number(client.points || 0),
+      0
+    );
+
+    res.json({
+      administrateur: acces.administrateur,
+      restaurant: designRestaurant.serialiserRestaurant(
+        acces.restaurant,
+        appleWallet.designProDisponible()
+      ),
+      statistiques: {
+        clients: clients.length,
+        clients_actifs: clients.filter(client => Number(client.points) > 0).length,
+        points: totalPoints,
+        cartes_apple: clients.filter(client => client.apple_wallet_serial).length,
+        campagnes_24h: historique.filter(campagne => {
+          const date = new Date(campagne.created_at).getTime();
+          return Number.isFinite(date) && date > Date.now() - 24 * 60 * 60 * 1000;
+        }).length
+      },
+      clients: clients.map(client => ({
+        id: client.id,
+        nom: client.nom,
+        email: client.email,
+        telephone: client.telephone,
+        points: client.points,
+        date_inscription: client.date_inscription,
+        apple_wallet: Boolean(client.apple_wallet_serial),
+        google_wallet: true
+      })),
+      notifications: historique,
+      notification_en_cours: Boolean(acces.restaurant.notification_sending),
+      limite_notifications_24h: 3
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res);
+    if (!acces) return;
+
+    const notification = validerNotification(req.body);
+    const historique = obtenirHistoriqueNotifications(acces.restaurant);
+    const maintenant = new Date();
+    const campagnes24h = historique.filter(campagne => {
+      const date = new Date(campagne.created_at).getTime();
+      return (
+        campagne.statut !== 'echec' &&
+        Number.isFinite(date) &&
+        date > Date.now() - 24 * 60 * 60 * 1000
+      );
+    });
+
+    if (campagnes24h.length >= 3) {
+      return res.status(429).json({
+        erreur: 'La limite de 3 notifications sur 24 heures est atteinte.'
+      });
+    }
+
+    const derniereDate = new Date(
+      acces.restaurant.last_notification_sent_at || 0
+    ).getTime();
+    const envoiBloque =
+      acces.restaurant.notification_sending &&
+      Number.isFinite(derniereDate) &&
+      derniereDate > Date.now() - 15 * 60 * 1000;
+
+    if (envoiBloque) {
+      return res.status(409).json({
+        erreur: 'Une campagne est déjà en cours. Attendez sa fin avant de recommencer.'
+      });
+    }
+
+    const { data: clients, error: erreurClients } = await supabase
+      .from('clients')
+      .select('id, nom, points, apple_wallet_serial')
+      .eq('restaurant_id', acces.restaurant.id);
+
+    if (erreurClients) throw erreurClients;
+
+    const clientsEligibles = clients.filter(client => {
+      if (notification.plateforme === 'apple') {
+        return Boolean(client.apple_wallet_serial);
+      }
+      return true;
+    });
+
+    if (clientsEligibles.length === 0) {
+      return res.status(400).json({
+        erreur: 'Aucune carte Wallet compatible ne peut recevoir ce message.'
+      });
+    }
+
+    const campagne = {
+      id: crypto.randomUUID(),
+      titre: notification.titre,
+      message: notification.message,
+      plateforme: notification.plateforme,
+      statut: 'en_cours',
+      destinataires: clientsEligibles.length,
+      apple_reussies: 0,
+      apple_echecs: 0,
+      google_reussies: 0,
+      google_echecs: 0,
+      created_at: maintenant.toISOString(),
+      completed_at: null,
+      creee_par_admin: acces.administrateur
+    };
+    const nouvelHistorique = [campagne, ...historique].slice(0, 50);
+
+    const { data: restaurantMisAJour, error: erreurMiseAJour } = await supabase
+      .from('restaurants')
+      .update({
+        last_notification_title: campagne.titre,
+        last_notification_message: campagne.message,
+        last_notification_sent_at: campagne.created_at,
+        notification_history: nouvelHistorique,
+        notification_sending: true
+      })
+      .eq('id', acces.restaurant.id)
+      .select(CHAMPS_RESTAURANT)
+      .single();
+
+    if (erreurMiseAJour) throw erreurMiseAJour;
+
+    // La réponse part immédiatement. Le serveur poursuit les envois par lots
+    // et l'interface actualise ensuite l'historique automatiquement.
+    void traiterCampagneWallet(
+      campagne,
+      clientsEligibles,
+      restaurantMisAJour
+    );
+
+    res.status(202).json({
+      succes: true,
+      message: 'La campagne Wallet est en cours d’envoi.',
+      campagne
     });
   } catch (erreur) {
     console.error(erreur);
@@ -391,9 +713,12 @@ app.post('/api/clients', async (req, res) => {
   }
 });
 
-// Enregistrer un scan (le restaurateur scanne la carte du client)
-app.post('/api/scan', async (req, res) => {
+// Enregistrer un scan depuis l'espace sécurisé du restaurateur.
+app.post('/api/restaurateur/:slug/scan', async (req, res) => {
   try {
+    const acces = await authentifierEspaceDesign(req, res);
+    if (!acces) return;
+
     const { client_id, points_ajoutes } = req.body;
     const pointsAAjouter = points_ajoutes || 1;
 
@@ -404,6 +729,12 @@ app.post('/api/scan', async (req, res) => {
       .single();
 
     if (erreurLecture) throw erreurLecture;
+
+    if (client.restaurant_id !== acces.restaurant.id) {
+      return res.status(404).json({
+        erreur: 'Cette carte n’appartient pas à votre établissement.'
+      });
+    }
 
     const nouveauSolde = client.points + pointsAAjouter;
 
@@ -457,7 +788,12 @@ app.post('/api/scan', async (req, res) => {
       }
     }
 
-    res.json({ succes: true, nouveauSolde: soldeFinal, recompenseAtteinte });
+    res.json({
+      succes: true,
+      client_nom: client.nom,
+      nouveauSolde: soldeFinal,
+      recompenseAtteinte
+    });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });

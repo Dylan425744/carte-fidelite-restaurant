@@ -298,14 +298,28 @@ function construireChampsCarte(client, restaurant = null) {
       {
         label: 'PROPULSÉ PAR',
         value: 'Bravocard'
-      },
-      {
-        label: 'NOTIFICATIONS',
-        value: ' ',
-        changeMessage: '%@'
       }
     ]
   };
+
+  // Le dernier message reste dans les détails de la carte. Sa valeur contient
+  // la date d'envoi afin qu'une nouvelle campagne soit toujours détectée comme
+  // une vraie modification, même si le restaurateur réutilise le même texte.
+  if (restaurant?.last_notification_message) {
+    const dateEnvoi = restaurant.last_notification_sent_at
+      ? new Date(restaurant.last_notification_sent_at).toLocaleString('fr-FR', {
+          timeZone: 'Europe/Paris',
+          dateStyle: 'short',
+          timeStyle: 'short'
+        })
+      : 'maintenant';
+
+    champs.backFields.push({
+      label: restaurant.last_notification_title || 'MESSAGE DU RESTAURANT',
+      value: `${restaurant.last_notification_message}\n\nEnvoyé le ${dateEnvoi}`,
+      changeMessage: restaurant.last_notification_message
+    });
+  }
 
   return ajouterDesignPro(champs, restaurant);
 }
@@ -545,7 +559,7 @@ async function mettreAJourPasseApple(
     );
   }
 
-  return true;
+  return donnees;
 }
 
 module.exports = {

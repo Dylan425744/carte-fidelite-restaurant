@@ -177,9 +177,42 @@ async function creerObjetWallet(client) {
   }
 }
 
+// Ajoute un message à la carte Google Wallet et demande à Google
+// d'afficher une vraie notification sur le téléphone du détenteur.
+async function envoyerNotificationWallet(client, titre, message, campagneId) {
+  const auth = new GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
+    },
+    scopes: ['https://www.googleapis.com/auth/wallet_object.issuer']
+  });
+
+  const clientAuth = await auth.getClient();
+  const objectId = getObjectId(client.id);
+  const identifiantMessage = `bravocard_${String(campagneId).replace(/-/g, '')}`;
+  const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(objectId)}/addMessage`;
+
+  await clientAuth.request({
+    url,
+    method: 'POST',
+    data: {
+      message: {
+        id: identifiantMessage,
+        header: titre,
+        body: message,
+        messageType: 'TEXT_AND_NOTIFY'
+      }
+    }
+  });
+
+  return true;
+}
+
 module.exports = {
   creerLienGoogleWallet,
   mettreAJourPointsWallet,
   creerObjetWallet,
-  configurerModeleCarte
+  configurerModeleCarte,
+  envoyerNotificationWallet
 };
