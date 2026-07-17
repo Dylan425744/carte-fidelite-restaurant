@@ -196,6 +196,9 @@ function construireChampsCarte(client, restaurant = null) {
   const nomRestaurant =
     restaurant?.nom ||
     obtenirVariableEnvironnement('NOM_RESTAURANT', 'Votre restaurant');
+  const titreNotification = restaurant?.notification_title_override
+    ? String(restaurant.notification_title_override).trim().slice(0, 64)
+    : nomRestaurant;
 
   const logoText = restaurant?.apple_logo_text || 'Bravocard';
   const pointsLabel = restaurant?.apple_points_label || 'POINTS FIDÉLITÉ';
@@ -218,7 +221,10 @@ function construireChampsCarte(client, restaurant = null) {
      */
     logoText,
 
-    organizationName: nomRestaurant,
+    // Apple utilise organizationName comme titre de la notification Wallet.
+    // Pendant une campagne, le serveur fournit un titre temporaire afin
+    // d'afficher exactement celui saisi par le restaurateur.
+    organizationName: titreNotification,
 
     description: `Carte de fidélité ${nomRestaurant} propulsée par Bravocard`,
 
@@ -302,9 +308,10 @@ function construireChampsCarte(client, restaurant = null) {
     ]
   };
 
-  // Le dernier message reste dans les détails de la carte. Sa valeur contient
-  // la date d'envoi afin qu'une nouvelle campagne soit toujours détectée comme
-  // une vraie modification, même si le restaurateur réutilise le même texte.
+  // Le dernier message reste dans les détails de la carte. Apple exige que le
+  // modèle changeMessage contienne %@, remplacé par la nouvelle valeur du
+  // champ. Un séparateur invisible horodaté garantit qu'un message identique
+  // envoyé une seconde fois est tout de même détecté comme une modification.
   if (restaurant?.last_notification_message) {
     const dateEnvoi = restaurant.last_notification_sent_at
       ? new Date(restaurant.last_notification_sent_at).toLocaleString('fr-FR', {
@@ -314,10 +321,21 @@ function construireChampsCarte(client, restaurant = null) {
         })
       : 'maintenant';
 
+    const horodatage = restaurant.last_notification_sent_at
+      ? new Date(restaurant.last_notification_sent_at).getTime()
+      : Date.now();
+    const marqueInvisible = '\u2063'.repeat(
+      (Math.abs(Number.isFinite(horodatage) ? horodatage : Date.now()) % 31) + 1
+    );
+
     champs.backFields.push({
       label: restaurant.last_notification_title || 'MESSAGE DU RESTAURANT',
-      value: `${restaurant.last_notification_message}\n\nEnvoyé le ${dateEnvoi}`,
-      changeMessage: restaurant.last_notification_message
+      value: `${restaurant.last_notification_message}${marqueInvisible}`,
+      changeMessage: '%@'
+    });
+    champs.backFields.push({
+      label: 'ENVOYÉ LE',
+      value: dateEnvoi
     });
   }
 

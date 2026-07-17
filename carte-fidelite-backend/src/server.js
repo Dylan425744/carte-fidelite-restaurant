@@ -502,14 +502,19 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
 
     // La réponse part immédiatement. Le serveur poursuit les envois par lots
     // et l'interface actualise ensuite l'historique automatiquement.
-    const restaurantPourEnvoi = clientTestId
-      ? {
-          ...restaurantMisAJour,
-          last_notification_title: campagne.titre,
-          last_notification_message: campagne.message,
-          last_notification_sent_at: campagne.created_at
-        }
-      : restaurantMisAJour;
+    const restaurantPourEnvoi = {
+      ...restaurantMisAJour,
+      // Wallet affiche organizationName comme titre de notification. Cette
+      // valeur n'est pas enregistrée en base : elle ne sert qu'à cet envoi.
+      notification_title_override: campagne.titre,
+      ...(clientTestId
+        ? {
+            last_notification_title: campagne.titre,
+            last_notification_message: campagne.message,
+            last_notification_sent_at: campagne.created_at
+          }
+        : {})
+    };
 
     void traiterCampagneWallet(
       campagne,
