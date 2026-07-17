@@ -23,13 +23,13 @@ function construireObjetFidelite(client) {
     accountId: client.id,
     accountName: client.nom,
     loyaltyPoints: {
-      label: 'Points fidélité',
+      label: 'Points sur 100',
       balance: { int: client.points }
     },
     barcode: {
       type: 'CODE_128',
-      value: client.id,
-      alternateText: ''
+      value: client.scan_code || client.id,
+      alternateText: client.scan_code || ''
     },
     textModulesData: [
       { id: 'client', header: 'CLIENT', body: client.nom },
@@ -149,6 +149,7 @@ async function mettreAJourPointsWallet(client) {
       method: 'PATCH',
       data: {
         loyaltyPoints: objetActualise.loyaltyPoints,
+        barcode: objetActualise.barcode,
         ...(objetActualise.linksModuleData
           ? { linksModuleData: objetActualise.linksModuleData }
           : {})

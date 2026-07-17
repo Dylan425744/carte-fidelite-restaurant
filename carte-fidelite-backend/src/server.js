@@ -24,6 +24,7 @@ const CHAMPS_RESTAURANT = [
   'nom',
   'slug',
   'seuil_recompense',
+  'points_per_scan',
   'description_recompense',
   'actif',
   'design_enabled',
@@ -436,6 +437,79 @@ app.get('/api/restaurateur/:slug/statistiques', async (req, res) => {
   }
 });
 
+app.post('/api/restaurateur/:slug/cartes/actualiser', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res);
+    if (!acces) return;
+
+    const [resultatClients, resultatCodes] = await Promise.all([
+      supabase
+        .from('clients')
+        .select('*')
+        .eq('restaurant_id', acces.restaurant.id),
+      supabase
+        .from('referral_codes')
+        .select('client_id, code')
+        .eq('restaurant_id', acces.restaurant.id)
+    ]);
+
+    if (resultatClients.error) throw resultatClients.error;
+    if (resultatCodes.error) throw resultatCodes.error;
+
+    const codes = new Map(
+      (resultatCodes.data || []).map(entree => [entree.client_id, entree.code])
+    );
+    const bilan = {
+      clients: resultatClients.data.length,
+      google_reussies: 0,
+      google_echecs: 0,
+      apple_reussies: 0,
+      apple_echecs: 0
+    };
+
+    for (let index = 0; index < resultatClients.data.length; index += 5) {
+      const lot = resultatClients.data.slice(index, index + 5);
+      await Promise.all(lot.map(async client => {
+        const codeParrainage = codes.get(client.id) || null;
+        const clientWallet = {
+          ...client,
+          referral_code: codeParrainage,
+          referral_link: referral.construireLienParrainage(
+            acces.restaurant.slug,
+            codeParrainage
+          )
+        };
+
+        const googleMisAJour = await wallet.mettreAJourPointsWallet(clientWallet);
+        if (googleMisAJour) bilan.google_reussies += 1;
+        else bilan.google_echecs += 1;
+
+        if (client.apple_wallet_serial) {
+          try {
+            await appleWallet.mettreAJourPasseApple(
+              client.apple_wallet_serial,
+              clientWallet,
+              acces.restaurant
+            );
+            bilan.apple_reussies += 1;
+          } catch (erreurApple) {
+            bilan.apple_echecs += 1;
+            console.error(
+              `Actualisation Apple impossible pour ${client.id}:`,
+              erreurApple.message
+            );
+          }
+        }
+      }));
+    }
+
+    res.json({ succes: true, bilan });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
 app.put('/api/restaurateur/:slug/parrainage', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res);
@@ -555,7 +629,7 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
 
     const { data: clients, error: erreurClients } = await supabase
       .from('clients')
-      .select('id, nom, points, apple_wallet_serial')
+      .select('id, nom, points, scan_code, apple_wallet_serial')
       .eq('restaurant_id', acces.restaurant.id);
 
     if (erreurClients) throw erreurClients;
@@ -963,8 +1037,8 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
     const acces = await authentifierEspaceDesign(req, res);
     if (!acces) return;
 
-    const { client_id, points_ajoutes } = req.body;
-    const pointsAAjouter = Number.parseInt(points_ajoutes || 1, 10);
+    const codeScanne = String(req.body.client_id || '').trim();
+    const pointsAAjouter = Number.parseInt(acces.restaurant.points_per_scan || 10, 10);
 
     if (!Number.isInteger(pointsAAjouter) || pointsAAjouter < 1 || pointsAAjouter > 100) {
       return res.status(400).json({
@@ -972,11 +1046,21 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       });
     }
 
-    const { data: client, error: erreurLecture } = await supabase
+    const codeEstUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      codeScanne
+    );
+    const codeEstCourt = /^BC[A-F0-9]{10}$/i.test(codeScanne);
+    if (!codeEstUuid && !codeEstCourt) {
+      return res.status(400).json({
+        erreur: 'Ce code-barres n’est pas reconnu. Cadrez entièrement les barres dans la caméra.'
+      });
+    }
+    const requeteClient = supabase
       .from('clients')
-      .select('*, restaurants(*)')
-      .eq('id', client_id)
-      .single();
+      .select('*, restaurants(*)');
+    const { data: client, error: erreurLecture } = codeEstUuid
+      ? await requeteClient.eq('id', codeScanne).single()
+      : await requeteClient.eq('scan_code', codeScanne.toUpperCase()).single();
 
     if (erreurLecture) throw erreurLecture;
 
@@ -988,7 +1072,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
 
     const controleScan = await antiFraude.enregistrerScan(
       acces.restaurant.id,
-      client_id,
+      client.id,
       pointsAAjouter
     );
 
@@ -1007,14 +1091,20 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
 
     let parrainageValide = null;
     try {
-      parrainageValide = await referral.validerAuPremierScan(client_id, scan.id);
+      parrainageValide = await referral.validerAuPremierScan(client.id, scan.id);
     } catch (erreurParrainage) {
       if (!referral.estErreurPermission(erreurParrainage)) {
         throw erreurParrainage;
       }
     }
 
-    const clientActualise = { points: controleScan.nouveau_solde };
+    const { data: clientActualise, error: erreurSolde } = await supabase
+      .from('clients')
+      .select('points')
+      .eq('id', client.id)
+      .single();
+
+    if (erreurSolde) throw erreurSolde;
 
     // Verifie si le client vient d'atteindre le seuil de recompense
     const restaurant = client.restaurants || null;
@@ -1032,7 +1122,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       await supabase
         .from('clients')
         .update({ points: soldeFinal })
-        .eq('id', client_id);
+        .eq('id', client.id);
 
       try {
         await email.envoyerEmailRecompense(client.email, client.nom);
@@ -1120,6 +1210,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       succes: true,
       client_nom: client.nom,
       nouveauSolde: soldeFinal,
+      points_ajoutes: pointsAAjouter,
       recompenseAtteinte,
       parrainage_valide: Boolean(parrainageValide),
       bonus_filleul: Number(parrainageValide?.referee_points_awarded || 0),

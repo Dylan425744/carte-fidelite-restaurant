@@ -112,7 +112,9 @@ async function demarrerScanner() {
     if (lecteurScanner) {
       try { await lecteurScanner.clear(); } catch { /* Le lecteur était déjà nettoyé. */ }
     }
-    lecteurScanner = new Html5Qrcode('lecteurRestaurateur');
+    lecteurScanner = new Html5Qrcode('lecteurRestaurateur', {
+      formatsToSupport: [Html5QrcodeSupportedFormats.CODE_128]
+    });
     scanEnCours = true;
     await lecteurScanner.start(
       { facingMode: 'environment' },
@@ -154,7 +156,11 @@ async function traiterCodeScanne(code) {
     if (donnees.parrainage_valide) {
       contenu += `<div class="info-envoi"><span>✓</span><p>Parrainage validé : ${Number(donnees.bonus_filleul)} points pour le filleul et ${Number(donnees.bonus_parrain)} points pour le parrain.</p></div>`;
     }
-    afficherResultatScan('succes', 'Point ajouté', contenu);
+    afficherResultatScan(
+      'succes',
+      `${Number(donnees.points_ajoutes || 10)} points ajoutés`,
+      contenu
+    );
     await actualiserTableau(true);
   } catch (erreur) {
     afficherResultatScan('erreur', 'Scan refusé', `<p>${echapper(erreur.message)}</p>`);
@@ -668,7 +674,7 @@ function actualiserApercuWallet() {
   $('#wallet').style.background = restaurant?.pro_autorise && /^#[0-9a-f]{6}$/i.test(exacte)
     ? exacte : couleursWallet[preset];
   $('#previewLogo').textContent = $('#logoText').value || 'Bravocard';
-  $('#previewPointsLabel').textContent = $('#pointsLabel').value || 'POINTS FIDÉLITÉ';
+  $('#previewPointsLabel').textContent = $('#pointsLabel').value || 'POINTS SUR 100';
   $('#previewCardLabel').textContent = $('#cardLabel').value || 'FIDÉLITÉ';
 }
 

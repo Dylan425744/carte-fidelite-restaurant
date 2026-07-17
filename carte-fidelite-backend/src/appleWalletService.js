@@ -201,7 +201,7 @@ function construireChampsCarte(client, restaurant = null) {
     : nomRestaurant;
 
   const logoText = restaurant?.apple_logo_text || 'Bravocard';
-  const pointsLabel = restaurant?.apple_points_label || 'POINTS FIDÉLITÉ';
+  const pointsLabel = restaurant?.apple_points_label || 'POINTS SUR 100';
   const carteLabel = restaurant?.apple_card_label || 'FIDÉLITÉ';
   const presetsAutorises = ['dark', 'blue', 'green', 'red', 'purple', 'orange'];
   const colorPreset = presetsAutorises.includes(restaurant?.apple_color_preset)
@@ -213,7 +213,7 @@ function construireChampsCarte(client, restaurant = null) {
   const lienParrainage = client.referral_link || null;
 
   const champs = {
-    barcodeValue: String(client.id),
+    barcodeValue: String(client.scan_code || client.id),
     barcodeFormat: 'Code128',
 
     /*

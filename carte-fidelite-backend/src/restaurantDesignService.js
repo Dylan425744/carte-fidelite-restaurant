@@ -128,7 +128,7 @@ function serialiserRestaurant(restaurant, proDisponible) {
       ? restaurant.apple_color_preset
       : 'dark',
     apple_logo_text: restaurant.apple_logo_text || 'Bravocard',
-    apple_points_label: restaurant.apple_points_label || 'POINTS FIDÉLITÉ',
+    apple_points_label: restaurant.apple_points_label || 'POINTS SUR 100',
     apple_card_label: restaurant.apple_card_label || 'FIDÉLITÉ',
     apple_custom_color: proAutorise ? restaurant.apple_custom_color || '' : '',
     apple_logo_url: proAutorise ? restaurant.apple_logo_url || '' : '',
