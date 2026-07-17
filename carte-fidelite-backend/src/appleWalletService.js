@@ -102,7 +102,7 @@ function verifierClient(client) {
 function designProDisponible() {
   return obtenirVariableEnvironnement(
     'WALLETWALLET_PRO_DESIGN',
-    'false'
+    'true'
   ).toLowerCase() === 'true';
 }
 
@@ -203,6 +203,11 @@ function construireChampsCarte(client, restaurant = null) {
   const logoText = restaurant?.apple_logo_text || 'Bravocard';
   const pointsLabel = restaurant?.apple_points_label || 'POINTS SUR 100';
   const carteLabel = restaurant?.apple_card_label || 'FIDÉLITÉ';
+  const nomProgramme = restaurant?.apple_program_name || carteLabel || 'Carte fidélité';
+  const texteRecompense = restaurant?.apple_reward_text ||
+    restaurant?.description_recompense || 'Récompense à débloquer';
+  const conditions = restaurant?.apple_terms ||
+    'Conditions du programme disponibles auprès du restaurant.';
   const presetsAutorises = ['dark', 'blue', 'green', 'red', 'purple', 'orange'];
   const colorPreset = presetsAutorises.includes(restaurant?.apple_color_preset)
     ? restaurant.apple_color_preset
@@ -246,8 +251,9 @@ function construireChampsCarte(client, restaurant = null) {
      */
     headerFields: [
       {
-        label: 'RESTAURANT',
-        value: nomRestaurant
+        label: pointsLabel,
+        value: String(points),
+        changeMessage: 'Vous avez maintenant %@ points.'
       }
     ],
 
@@ -257,14 +263,8 @@ function construireChampsCarte(client, restaurant = null) {
      */
     primaryFields: [
       {
-        label: pointsLabel,
-        value: String(points),
-
-        /*
-         * Lorsqu'un solde change, Apple peut afficher cette notification :
-         * "Votre solde est maintenant de 80 points."
-         */
-        changeMessage: 'Votre solde est maintenant de %@ points.'
+        label: 'PROGRAMME',
+        value: nomProgramme
       }
     ],
 
@@ -277,8 +277,8 @@ function construireChampsCarte(client, restaurant = null) {
         value: nomClient
       },
       {
-        label: 'CARTE',
-        value: carteLabel
+        label: 'RÉCOMPENSE',
+        value: texteRecompense
       }
     ],
 
@@ -289,6 +289,10 @@ function construireChampsCarte(client, restaurant = null) {
      * marketing personnalisées.
      */
     backFields: [
+      {
+        label: 'CONDITIONS',
+        value: conditions
+      },
       {
         label: 'PROGRAMME DE FIDÉLITÉ',
         value: `Cette carte vous permet de cumuler des points chez ${nomRestaurant}.`

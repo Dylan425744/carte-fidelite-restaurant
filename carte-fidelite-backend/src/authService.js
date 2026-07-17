@@ -21,6 +21,7 @@ const PERMISSIONS_PAR_ROLE = {
 
 const COOKIE_ACCES = 'bravocard_access';
 const COOKIE_REFRESH = 'bravocard_refresh';
+const STATUTS_ABONNEMENT_ACTIFS = ['active', 'trialing'];
 
 function creerClientAuth() {
   const cle = process.env.SUPABASE_PUBLISHABLE_KEY ||
@@ -126,6 +127,13 @@ function permissionsPourRole(role) {
   return [...(PERMISSIONS_PAR_ROLE[role] || [])];
 }
 
+function abonnementPremiumActif(profil) {
+  return Boolean(
+    profil?.subscription_plan === 'premium' &&
+    STATUTS_ABONNEMENT_ACTIFS.includes(profil?.stripe_subscription_status)
+  );
+}
+
 function possedePermission(contexte, role, permission) {
   if (contexte?.profil?.is_super_admin) return true;
   return permissionsPourRole(role).includes(permission);
@@ -177,7 +185,7 @@ async function obtenirContexteUtilisateur(req) {
 
   const { data: profil, error: erreurProfil } = await supabase
     .from('user_profiles')
-    .select('user_id, email, full_name, is_super_admin')
+    .select('user_id, email, full_name, is_super_admin, subscription_plan, stripe_customer_id, stripe_subscription_id, stripe_subscription_status, stripe_price_id, subscription_current_period_end')
     .eq('user_id', utilisateur.id)
     .maybeSingle();
   if (erreurProfil) throw erreurProfil;
@@ -187,6 +195,7 @@ async function obtenirContexteUtilisateur(req) {
   }
 
   let etablissements;
+  let etablissementsBloques = [];
   if (profil.is_super_admin) {
     const { data, error } = await supabase
       .from('restaurants')
@@ -201,23 +210,104 @@ async function obtenirContexteUtilisateur(req) {
   } else {
     const { data, error } = await supabase
       .from('restaurant_memberships')
-      .select('restaurant_id, role, active, restaurants(id, nom, slug, actif)')
+      .select('restaurant_id, role, active, created_at, restaurants(id, nom, slug, actif)')
       .eq('user_id', utilisateur.id)
-      .eq('active', true);
+      .eq('active', true)
+      .order('created_at');
     if (error) throw error;
-    etablissements = (data || [])
+    const tousLesEtablissements = (data || [])
       .filter(entree => entree.restaurants)
       .map(entree => ({
         ...entree.restaurants,
         role: entree.role,
-        permissions: permissionsPourRole(entree.role)
+        permissions: permissionsPourRole(entree.role),
+        membership_created_at: entree.created_at
       }))
       .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+
+    const appartenancesProprietaire = tousLesEtablissements
+      .filter(entree => entree.role === 'owner')
+      .sort((a, b) => new Date(a.membership_created_at) - new Date(b.membership_created_at));
+
+    if (appartenancesProprietaire.length > 1 && !abonnementPremiumActif(profil)) {
+      const restaurantPrincipal = appartenancesProprietaire[0].id;
+      etablissementsBloques = appartenancesProprietaire
+        .filter(entree => entree.id !== restaurantPrincipal)
+        .map(entree => ({ ...entree, verrouille_abonnement: true }));
+      const idsBloques = new Set(etablissementsBloques.map(entree => entree.id));
+      etablissements = tousLesEtablissements.filter(entree => !idsBloques.has(entree.id));
+    } else {
+      etablissements = tousLesEtablissements;
+    }
   }
 
-  const contexte = { utilisateur, profil, etablissements };
+  const contexte = { utilisateur, profil, etablissements, etablissementsBloques };
   req.bravocardContexteUtilisateur = contexte;
   return contexte;
+}
+
+async function creerJetonReinitialisation(userId) {
+  const jeton = crypto.randomBytes(32).toString('base64url');
+  const tokenHash = crypto.createHash('sha256').update(jeton).digest('hex');
+  const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+  await supabase
+    .from('password_reset_tokens')
+    .update({ used_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .is('used_at', null);
+
+  const { error } = await supabase.from('password_reset_tokens').insert({
+    user_id: userId,
+    token_hash: tokenHash,
+    expires_at: expiration
+  });
+  if (error) throw error;
+  return jeton;
+}
+
+async function demanderReinitialisation(email) {
+  const emailNormalise = normaliserEmail(email);
+  const { data: profil, error } = await supabase
+    .from('user_profiles')
+    .select('user_id, email, full_name')
+    .eq('email', emailNormalise)
+    .maybeSingle();
+  if (error) throw error;
+  if (!profil) return null;
+  return { profil, jeton: await creerJetonReinitialisation(profil.user_id) };
+}
+
+async function reinitialiserMotDePasse(jeton, nouveauMotDePasse) {
+  const valeur = String(jeton || '').trim();
+  if (!/^[A-Za-z0-9_-]{40,100}$/.test(valeur)) {
+    throw new Error('Ce lien de réinitialisation est invalide ou expiré.');
+  }
+  const tokenHash = crypto.createHash('sha256').update(valeur).digest('hex');
+  const { data: entree, error } = await supabase
+    .from('password_reset_tokens')
+    .select('id, user_id, expires_at, used_at')
+    .eq('token_hash', tokenHash)
+    .maybeSingle();
+  if (error) throw error;
+  if (!entree || entree.used_at || new Date(entree.expires_at).getTime() <= Date.now()) {
+    throw new Error('Ce lien de réinitialisation est invalide ou expiré.');
+  }
+
+  const password = verifierMotDePasse(nouveauMotDePasse);
+  const { error: erreurMotDePasse } = await supabase.auth.admin.updateUserById(
+    entree.user_id,
+    { password }
+  );
+  if (erreurMotDePasse) throw erreurMotDePasse;
+
+  const { error: erreurJeton } = await supabase
+    .from('password_reset_tokens')
+    .update({ used_at: new Date().toISOString() })
+    .eq('user_id', entree.user_id)
+    .is('used_at', null);
+  if (erreurJeton) throw erreurJeton;
+  return entree.user_id;
 }
 
 async function accesEtablissement(req, restaurant, permission) {
@@ -404,6 +494,7 @@ module.exports = {
   normaliserNom,
   verifierMotDePasse,
   permissionsPourRole,
+  abonnementPremiumActif,
   possedePermission,
   connexion,
   rafraichirSession,
@@ -414,5 +505,8 @@ module.exports = {
   creerOuAssocierUtilisateur,
   listerEquipe,
   modifierAppartenance,
-  journaliser
+  journaliser,
+  creerJetonReinitialisation,
+  demanderReinitialisation,
+  reinitialiserMotDePasse
 };

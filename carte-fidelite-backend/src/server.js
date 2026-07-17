@@ -14,9 +14,22 @@ const referral = require('./referralService');
 const antiFraude = require('./antiFraudService');
 const analytics = require('./analyticsService');
 const auth = require('./authService');
+const billing = require('./billingService');
 
 const app = express();
 app.use(cors());
+
+// Stripe exige le corps brut pour vérifier cryptographiquement la signature.
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const type = await billing.traiterWebhook(req.body, req.headers['stripe-signature']);
+    res.json({ recu: true, type });
+  } catch (erreur) {
+    console.error('Webhook Stripe refusé:', erreur.message);
+    res.status(400).json({ erreur: 'Signature Stripe invalide.' });
+  }
+});
+
 app.use(express.json({ limit: '3mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -39,6 +52,9 @@ const CHAMPS_RESTAURANT = [
   'apple_logo_url',
   'apple_strip_url',
   'apple_icon_url',
+  'apple_program_name',
+  'apple_reward_text',
+  'apple_terms',
   'design_updated_at',
   'last_notification_title',
   'last_notification_message',
@@ -167,6 +183,7 @@ function validerNotification(donnees) {
 }
 
 const tentativesConnexion = new Map();
+const tentativesRecuperation = new Map();
 
 function cleTentativeConnexion(req) {
   const adresse = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
@@ -187,6 +204,47 @@ function verifierLimiteConnexion(req) {
     throw new Error('Trop de tentatives. Réessayez dans quelques minutes.');
   }
   return cle;
+}
+
+function obtenirUrlBase(req) {
+  const configuree = String(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '')
+    .trim()
+    .replace(/\/$/, '');
+  return configuree || `${req.protocol}://${req.get('host')}`;
+}
+
+async function envoyerActivationCompte(req, resultat) {
+  if (!resultat.nouveau_compte) return { email_envoye: false, compte_existant: true };
+  try {
+    const jeton = await auth.creerJetonReinitialisation(resultat.profil.user_id);
+    const lien = `${obtenirUrlBase(req)}/reinitialiser-mot-de-passe.html?token=${encodeURIComponent(jeton)}`;
+    await email.envoyerEmailAccesCompte(
+      resultat.profil.email,
+      resultat.profil.full_name,
+      lien,
+      true
+    );
+    return { email_envoye: true, compte_existant: false };
+  } catch (erreur) {
+    console.error('Email d’activation non envoyé:', erreur.message);
+    return { email_envoye: false, compte_existant: false };
+  }
+}
+
+function verifierLimiteRecuperation(req, email) {
+  const cle = crypto.createHash('sha256')
+    .update(`${cleTentativeConnexion(req)}:${String(email || '').trim().toLowerCase()}`)
+    .digest('hex');
+  const maintenant = Date.now();
+  const entree = tentativesRecuperation.get(cle);
+  if (!entree || entree.reinitialisation < maintenant) {
+    tentativesRecuperation.set(cle, { tentatives: 1, reinitialisation: maintenant + 30 * 60 * 1000 });
+    return;
+  }
+  if (entree.tentatives >= 3) {
+    throw new Error('Trop de demandes. Réessayez dans 30 minutes.');
+  }
+  entree.tentatives += 1;
 }
 
 app.post('/api/auth/connexion', async (req, res) => {
@@ -213,6 +271,49 @@ app.post('/api/auth/connexion', async (req, res) => {
     }
     const limite = erreur.message.startsWith('Trop de tentatives');
     res.status(limite ? 429 : 401).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/auth/mot-de-passe-oublie', async (req, res) => {
+  const reponseGenerique = {
+    succes: true,
+    message: 'Si un compte correspond à cette adresse, un lien sécurisé vient d’être envoyé.'
+  };
+  try {
+    verifierLimiteRecuperation(req, req.body.email);
+    const demande = await auth.demanderReinitialisation(req.body.email);
+    if (demande) {
+      const lien = `${obtenirUrlBase(req)}/reinitialiser-mot-de-passe.html?token=${encodeURIComponent(demande.jeton)}`;
+      await email.envoyerEmailAccesCompte(
+        demande.profil.email,
+        demande.profil.full_name,
+        lien,
+        false
+      );
+      await auth.journaliser('auth.password_reset_requested', {
+        utilisateur: { id: demande.profil.user_id }
+      }, null, {});
+    }
+    res.json(reponseGenerique);
+  } catch (erreur) {
+    if (erreur.message.startsWith('Trop de demandes')) {
+      return res.status(429).json({ erreur: erreur.message });
+    }
+    console.error('Récupération de compte:', erreur.message);
+    // Ne jamais révéler si une adresse possède ou non un compte.
+    res.json(reponseGenerique);
+  }
+});
+
+app.post('/api/auth/reinitialiser-mot-de-passe', async (req, res) => {
+  try {
+    const userId = await auth.reinitialiserMotDePasse(req.body.token, req.body.password);
+    await auth.journaliser('auth.password_reset_completed', {
+      utilisateur: { id: userId }
+    }, null, {});
+    res.json({ succes: true, message: 'Mot de passe modifié. Vous pouvez vous connecter.' });
+  } catch (erreur) {
+    res.status(400).json({ erreur: erreur.message });
   }
 });
 
@@ -246,7 +347,16 @@ app.get('/api/auth/moi', async (req, res) => {
         nom: contexte.profil.full_name,
         super_admin: contexte.profil.is_super_admin
       },
-      etablissements: contexte.etablissements
+      etablissements: contexte.etablissements,
+      etablissements_bloques: contexte.etablissementsBloques || [],
+      abonnement: {
+        plan: contexte.profil.is_super_admin ? 'admin' : contexte.profil.subscription_plan,
+        statut: contexte.profil.stripe_subscription_status,
+        premium_actif: contexte.profil.is_super_admin || auth.abonnementPremiumActif(contexte.profil),
+        echeance: contexte.profil.subscription_current_period_end,
+        stripe_configure: billing.estConfigure(),
+        client_stripe: Boolean(contexte.profil.stripe_customer_id)
+      }
     });
   } catch (erreur) {
     console.error(erreur);
@@ -266,6 +376,34 @@ app.post('/api/auth/changer-mot-de-passe', async (req, res) => {
     if (error) throw error;
     await auth.journaliser('auth.password_changed', contexte, null, {});
     res.json({ succes: true, message: 'Votre mot de passe a été modifié.' });
+  } catch (erreur) {
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/stripe/checkout-premium', async (req, res) => {
+  try {
+    const contexte = await auth.obtenirContexteUtilisateur(req);
+    if (!contexte) return res.status(401).json({ erreur: 'Reconnectez-vous.' });
+    const proprietaire = [...contexte.etablissements, ...(contexte.etablissementsBloques || [])]
+      .some(entree => entree.role === 'owner');
+    if (!proprietaire || contexte.profil.is_super_admin) {
+      return res.status(403).json({ erreur: 'Cette offre est réservée aux propriétaires.' });
+    }
+    const url = await billing.creerCheckout(contexte.profil, obtenirUrlBase(req));
+    res.json({ url });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/stripe/portail', async (req, res) => {
+  try {
+    const contexte = await auth.obtenirContexteUtilisateur(req);
+    if (!contexte) return res.status(401).json({ erreur: 'Reconnectez-vous.' });
+    const url = await billing.creerPortail(contexte.profil, obtenirUrlBase(req));
+    res.json({ url });
   } catch (erreur) {
     res.status(400).json({ erreur: erreur.message });
   }
@@ -479,6 +617,43 @@ app.get('/api/parrainage/:slug/:code', async (req, res) => {
 });
 
 // Espace commerçant. Le code privé reste dans l'en-tête et n'est jamais renvoyé.
+function decoderImagePNG(imageData) {
+  const correspondance = String(imageData || '').match(/^data:image\/png;base64,([A-Za-z0-9+/=\r\n]+)$/);
+  if (!correspondance) throw new Error('Le fichier doit être une image PNG.');
+  const buffer = Buffer.from(correspondance[1], 'base64');
+  if (buffer.length < 24 || buffer.length > 2 * 1024 * 1024) {
+    throw new Error('L’image doit peser moins de 2 Mo.');
+  }
+  const signaturePNG = '89504e470d0a1a0a';
+  if (buffer.subarray(0, 8).toString('hex') !== signaturePNG) {
+    throw new Error('Le contenu du fichier PNG est invalide.');
+  }
+  return {
+    buffer,
+    largeur: buffer.readUInt32BE(16),
+    hauteur: buffer.readUInt32BE(20)
+  };
+}
+
+async function actualiserCartesAppleEnArrierePlan(restaurant) {
+  try {
+    const { data: clients, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('restaurant_id', restaurant.id)
+      .not('apple_wallet_serial', 'is', null);
+    if (error) throw error;
+    for (let index = 0; index < (clients || []).length; index += 5) {
+      const lot = clients.slice(index, index + 5);
+      await Promise.allSettled(lot.map(client =>
+        appleWallet.mettreAJourPasseApple(client.apple_wallet_serial, client, restaurant)
+      ));
+    }
+  } catch (erreur) {
+    console.error('Synchronisation du design Apple Wallet:', erreur.message);
+  }
+}
+
 app.get('/api/design/:slug', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res, 'design_view');
@@ -494,6 +669,49 @@ app.get('/api/design/:slug', async (req, res) => {
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/design/:slug/image', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'design_manage');
+    if (!acces) return;
+    const proAutorise = Boolean(
+      acces.restaurant.apple_pro_design && appleWallet.designProDisponible()
+    );
+    if (!proAutorise) {
+      return res.status(403).json({ erreur: 'La personnalisation WalletWallet Pro n’est pas active.' });
+    }
+    const type = String(req.body.type || '').toLowerCase();
+    if (!['logo', 'strip', 'icon'].includes(type)) {
+      return res.status(400).json({ erreur: 'Type d’image inconnu.' });
+    }
+    const image = decoderImagePNG(req.body.image_data);
+    if (type === 'icon' && Math.abs(image.largeur - image.hauteur) > Math.max(image.largeur, image.hauteur) * 0.12) {
+      return res.status(400).json({ erreur: 'L’icône doit être carrée.' });
+    }
+    if (type === 'strip' && image.largeur / image.hauteur < 2.2) {
+      return res.status(400).json({ erreur: 'La bannière doit être nettement plus large que haute.' });
+    }
+    const chemin = `${acces.restaurant.id}/${type}-${Date.now()}.png`;
+    const { error } = await supabase.storage
+      .from('wallet-assets')
+      .upload(chemin, image.buffer, {
+        contentType: 'image/png',
+        cacheControl: '31536000',
+        upsert: false
+      });
+    if (error) throw error;
+    const { data } = supabase.storage.from('wallet-assets').getPublicUrl(chemin);
+    res.status(201).json({
+      succes: true,
+      url: data.publicUrl,
+      largeur: image.largeur,
+      hauteur: image.hauteur
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
   }
 });
 
@@ -519,9 +737,11 @@ app.put('/api/design/:slug', async (req, res) => {
 
     if (error) throw error;
 
+    setImmediate(() => actualiserCartesAppleEnArrierePlan(data));
+
     res.json({
       succes: true,
-      message: 'Le design Apple Wallet a bien été enregistré.',
+      message: 'Design enregistré. Les cartes Apple existantes se mettent à jour en arrière-plan.',
       restaurant: designRestaurant.serialiserRestaurant(
         data,
         appleWallet.designProDisponible()
@@ -958,6 +1178,7 @@ app.post('/api/restaurateur/:slug/equipe', async (req, res) => {
       role,
       invitedBy: acces.contexte?.utilisateur?.id || null
     });
+    const activation = await envoyerActivationCompte(req, resultat);
     await auth.journaliser(
       'team.member_added',
       acces.contexte,
@@ -972,7 +1193,10 @@ app.post('/api/restaurateur/:slug/equipe', async (req, res) => {
         full_name: resultat.profil.full_name
       },
       nouveau_compte: resultat.nouveau_compte,
-      mot_de_passe_temporaire: resultat.mot_de_passe_temporaire
+      email_activation_envoye: activation.email_envoye,
+      mot_de_passe_temporaire: activation.email_envoye
+        ? null
+        : resultat.mot_de_passe_temporaire
     });
   } catch (erreur) {
     console.error(erreur);
@@ -989,6 +1213,17 @@ app.patch('/api/restaurateur/:slug/equipe/:membershipId', async (req, res) => {
       return res.status(403).json({
         erreur: 'Seul le super-administrateur peut nommer un propriétaire.'
       });
+    }
+    // A restaurant owner may manage their team, but cannot demote or suspend
+    // another owner; that remains a Bravocard super-admin action.
+    if (!acces.administrateur) {
+      const membres = await auth.listerEquipe(acces.restaurant.id);
+      const cible = membres.find(membre => membre.id === req.params.membershipId);
+      if (cible?.role === 'owner') {
+        return res.status(403).json({
+          erreur: 'Seul le super-administrateur peut modifier un propriétaire.'
+        });
+      }
     }
     const appartenance = await auth.modifierAppartenance(
       acces.restaurant.id,
@@ -1073,7 +1308,8 @@ app.post('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
       .insert({
         nom,
         slug,
-        design_access_token_hash: designRestaurant.hacherCodeAcces(codeAcces)
+        design_access_token_hash: designRestaurant.hacherCodeAcces(codeAcces),
+        apple_pro_design: true
       })
       .select(CHAMPS_RESTAURANT)
       .single();
@@ -1111,6 +1347,7 @@ app.post('/api/admin/restaurants/:id/proprietaires', exigerAdministrateur, async
       role: 'owner',
       invitedBy: req.bravocardAdmin?.utilisateur?.id || null
     });
+    const activation = await envoyerActivationCompte(req, resultat);
     await auth.journaliser(
       'admin.owner_assigned',
       req.bravocardAdmin?.utilisateur ? req.bravocardAdmin : null,
@@ -1122,7 +1359,10 @@ app.post('/api/admin/restaurants/:id/proprietaires', exigerAdministrateur, async
       restaurant,
       compte: resultat.profil,
       nouveau_compte: resultat.nouveau_compte,
-      mot_de_passe_temporaire: resultat.mot_de_passe_temporaire
+      email_activation_envoye: activation.email_envoye,
+      mot_de_passe_temporaire: activation.email_envoye
+        ? null
+        : resultat.mot_de_passe_temporaire
     });
   } catch (erreur) {
     console.error(erreur);

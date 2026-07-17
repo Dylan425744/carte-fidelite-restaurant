@@ -3,6 +3,9 @@
 // (contrairement a Gmail/SMTP, bloque par Render sur le plan gratuit)
 
 async function envoyerEmail(destinataire, sujet, texte) {
+  if (!process.env.BREVO_API_KEY || !process.env.BREVO_SENDER_EMAIL) {
+    throw new Error('Le service email Bravocard n’est pas configuré.');
+  }
   const reponse = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -12,7 +15,7 @@ async function envoyerEmail(destinataire, sujet, texte) {
     },
     body: JSON.stringify({
       sender: {
-        name: process.env.NOM_RESTAURANT,
+        name: process.env.BREVO_SENDER_NAME || 'Bravocard',
         email: process.env.BREVO_SENDER_EMAIL
       },
       to: [{ email: destinataire }],
@@ -25,6 +28,25 @@ async function envoyerEmail(destinataire, sujet, texte) {
     const erreur = await reponse.text();
     throw new Error(`Erreur envoi email Brevo: ${erreur}`);
   }
+}
+
+async function envoyerEmailAccesCompte(destinataire, nom, lien, nouveauCompte = false) {
+  const introduction = nouveauCompte
+    ? 'Votre compte professionnel Bravocard vient d’être créé.'
+    : 'Nous avons reçu une demande de réinitialisation pour votre compte Bravocard.';
+  const texte =
+    `Bonjour ${nom},\n\n` +
+    `${introduction}\n\n` +
+    `Votre identifiant est : ${destinataire}\n\n` +
+    `Choisissez un nouveau mot de passe grâce à ce lien sécurisé, valable 30 minutes :\n${lien}\n\n` +
+    `Si vous n’êtes pas à l’origine de cette demande, ignorez simplement cet email.\n\n` +
+    `L’équipe Bravocard`;
+
+  await envoyerEmail(
+    destinataire,
+    nouveauCompte ? 'Activez votre accès Bravocard' : 'Réinitialisez votre mot de passe Bravocard',
+    texte
+  );
 }
 
 async function envoyerEmailAvis(emailDestinataire, nomClient, lienRoue) {
@@ -75,4 +97,10 @@ async function envoyerEmailRecompense(emailDestinataire, nomClient) {
   await envoyerEmail(emailDestinataire, `Félicitations, votre récompense vous attend chez ${nomRestaurant} !`, texte);
 }
 
-module.exports = { envoyerEmailAvis, envoyerEmailBienvenue, envoyerEmailRecompense };
+module.exports = {
+  envoyerEmail,
+  envoyerEmailAccesCompte,
+  envoyerEmailAvis,
+  envoyerEmailBienvenue,
+  envoyerEmailRecompense
+};

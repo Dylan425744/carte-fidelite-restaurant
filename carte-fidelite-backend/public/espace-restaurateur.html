@@ -32,12 +32,18 @@
           <label for="motDePasseConnexion">Mot de passe</label>
           <input id="motDePasseConnexion" type="password" autocomplete="current-password" placeholder="Votre mot de passe">
           <button class="bouton principal large" id="boutonConnexion">Se connecter</button>
+          <button class="lien-bouton mot-de-passe-oublie" id="motDePasseOublie" type="button">Identifiant ou mot de passe oublié ?</button>
           <button class="lien-bouton acces-historique" id="afficherAccesHistorique" type="button">Utiliser temporairement mon ancien code d’accès</button>
         </div>
         <div id="connexionHistorique" class="connexion-historique">
           <label for="codeAcces">Ancien code d’accès</label>
           <input id="codeAcces" type="password" autocomplete="off" placeholder="bravo_••••••••••">
           <button class="bouton secondaire large" id="boutonConnexionHistorique">Continuer avec le code</button>
+        </div>
+        <div id="recuperationCompte" class="connexion-historique">
+          <label for="emailRecuperation">Adresse email du compte</label>
+          <input id="emailRecuperation" type="email" autocomplete="email" placeholder="vous@restaurant.fr">
+          <button class="bouton secondaire large" id="envoyerRecuperation">Recevoir un lien sécurisé</button>
         </div>
         <p class="message" id="messageConnexion"></p>
         <small class="securite">Chaque membre dispose désormais de son propre compte et de droits adaptés.</small>
@@ -66,7 +72,7 @@
     </aside>
 
     <main class="contenu">
-      <header class="entete-app"><div><span class="fil-ariane">Espace restaurateur</span><h1 id="titreVue">Vue d’ensemble</h1></div><div class="entete-actions"><span class="badge-admin" id="badgeAdmin">Administrateur</span><button class="bouton principal" data-ouvrir-vue="notifications">+ Nouvelle notification</button></div></header>
+      <header class="entete-app"><div><span class="fil-ariane">Espace restaurateur</span><h1 id="titreVue">Vue d’ensemble</h1></div><div class="entete-actions"><span class="badge-admin" id="badgeAdmin">Administrateur</span><button class="bouton principal" data-ouvrir-vue="notifications">+ Nouvelle notification</button><button class="bouton secondaire bouton-deconnexion-entete" id="deconnexionEntete">Se déconnecter</button></div></header>
 
       <section class="vue active" id="vue-accueil">
         <div class="bienvenue"><div><span class="eyebrow">Aujourd’hui</span><h2 id="messageBienvenue">Bonjour 👋</h2><p>Voici ce qui se passe dans votre programme de fidélité.</p></div><div class="bienvenue-actions"><button class="bouton clair" data-ouvrir-vue="scanner">Scanner une carte</button><button class="bouton clair discret" data-ouvrir-vue="notifications">Prévenir mes clients</button></div></div>
@@ -237,14 +243,32 @@
       <section class="vue" id="vue-design">
         <div class="grille-design">
           <article class="panneau editeur-design">
+            <label class="titre-modeles">Partir d’un modèle professionnel</label>
+            <div class="modeles-wallet" id="modelesWallet">
+              <button type="button" data-modele-wallet="signature"><span class="modele-visuel signature"></span><strong>Signature Nuit</strong><small>Minimal et premium</small></button>
+              <button type="button" data-modele-wallet="violet"><span class="modele-visuel violet"></span><strong>Violet Prestige</strong><small>Élégant et distinctif</small></button>
+              <button type="button" data-modele-wallet="foret"><span class="modele-visuel foret"></span><strong>Forêt Moderne</strong><small>Naturel et chaleureux</small></button>
+              <button type="button" data-modele-wallet="neon"><span class="modele-visuel neon"></span><strong>Néon City</strong><small>Visuel et nocturne</small></button>
+            </div>
             <span class="eyebrow">Identité visuelle</span><h3>Design Apple Wallet</h3><p class="texte-secondaire">Les nouvelles cartes utilisent immédiatement ce design. Les autres se mettront à jour au prochain changement.</p>
             <label>Couleur de la carte</label><div class="palette"><label class="pastille-couleur dark" title="Noir"><input type="radio" name="preset" value="dark"></label><label class="pastille-couleur blue" title="Bleu"><input type="radio" name="preset" value="blue"></label><label class="pastille-couleur green" title="Vert"><input type="radio" name="preset" value="green"></label><label class="pastille-couleur red" title="Rouge"><input type="radio" name="preset" value="red"></label><label class="pastille-couleur purple" title="Violet"><input type="radio" name="preset" value="purple"></label><label class="pastille-couleur orange" title="Orange"><input type="radio" name="preset" value="orange"></label></div>
             <label for="logoText">Nom en haut de la carte</label><input id="logoText" type="text" maxlength="32">
             <div class="deux-colonnes"><div><label for="pointsLabel">Libellé des points</label><input id="pointsLabel" type="text" maxlength="28"></div><div><label for="cardLabel">Type de carte</label><input id="cardLabel" type="text" maxlength="28"></div></div>
-            <div class="zone-pro verrouille" id="zonePro"><div class="pro-entete"><div><span class="pastille">PRO</span><strong>Personnalisation avancée</strong></div><span id="messagePro">Option administrateur</span></div><div class="contenu-pro"><label for="customColor">Couleur exacte</label><input id="customColor" type="text" maxlength="7" placeholder="#1B1030"><label for="logoUrl">Logo PNG</label><input id="logoUrl" type="text" placeholder="Adresse HTTPS ou fichier PNG"><input id="logoFile" type="file" accept="image/png"><label for="stripUrl">Bannière PNG</label><input id="stripUrl" type="text" placeholder="Adresse HTTPS ou fichier PNG"><input id="stripFile" type="file" accept="image/png"><label for="iconUrl">Icône PNG</label><input id="iconUrl" type="text" placeholder="Adresse HTTPS ou fichier PNG"><input id="iconFile" type="file" accept="image/png"></div></div>
-            <button class="bouton principal" id="enregistrerDesign">Enregistrer le design</button><span class="message" id="messageDesign"></span>
+            <div class="zone-pro verrouille" id="zonePro">
+              <div class="pro-entete"><div><span class="pastille">PRO</span><strong>Direction artistique avancée</strong></div><span id="messagePro">WalletWallet Pro</span></div>
+              <div class="contenu-pro">
+                <div class="deux-colonnes couleur-exacte"><div><label for="customColorPicker">Couleur exacte</label><input id="customColorPicker" type="color" value="#17171D"></div><div><label for="customColor">Code hexadécimal</label><input id="customColor" type="text" maxlength="7" placeholder="#17171D"></div></div>
+                <div class="asset-wallet"><div class="asset-entete"><div><strong>Logo principal</strong><small>PNG transparent · idéalement 320 × 100 px</small></div><span class="asset-statut" id="statutLogo">Facultatif</span></div><input id="logoUrl" type="url" placeholder="https://…"><label class="upload-wallet" for="logoFile">Importer un logo PNG<input id="logoFile" type="file" accept="image/png"></label></div>
+                <div class="asset-wallet"><div class="asset-entete"><div><strong>Bannière visuelle</strong><small>PNG panoramique · recommandé 1032 × 336 px</small></div><span class="asset-statut" id="statutStrip">Facultatif</span></div><input id="stripUrl" type="url" placeholder="https://…"><label class="upload-wallet" for="stripFile">Importer une bannière PNG<input id="stripFile" type="file" accept="image/png"></label></div>
+                <div class="asset-wallet"><div class="asset-entete"><div><strong>Icône de notification</strong><small>PNG carré · recommandé 512 × 512 px</small></div><span class="asset-statut" id="statutIcon">Facultatif</span></div><input id="iconUrl" type="url" placeholder="https://…"><label class="upload-wallet" for="iconFile">Importer une icône PNG<input id="iconFile" type="file" accept="image/png"></label></div>
+                <label for="programName">Nom du programme</label><input id="programName" type="text" maxlength="48" placeholder="Le Club Maison">
+                <label for="rewardText">Récompense affichée</label><input id="rewardText" type="text" maxlength="90" placeholder="Votre menu offert à 100 points">
+                <label for="walletTerms">Conditions visibles au dos</label><textarea id="walletTerms" rows="4" maxlength="500" placeholder="Décrivez les règles du programme et la durée de validité."></textarea>
+              </div>
+            </div>
+            <button class="bouton principal" id="enregistrerDesign">Enregistrer et actualiser les cartes</button><span class="message" id="messageDesign"></span>
           </article>
-          <div class="apercu-wallet"><div class="wallet" id="wallet"><div class="wallet-entete"><strong id="previewLogo">Bravocard</strong><div><small>RESTAURANT</small><span id="previewResto">Mon commerce</span></div></div><div class="wallet-points"><small id="previewPointsLabel">POINTS SUR 100</small><strong>60</strong></div><div class="wallet-bas"><div><small>CLIENT</small><strong>CLIENT TEST</strong><small id="previewCardLabel">FIDÉLITÉ</small></div><div class="codebarres"></div></div></div><p class="legende">Aperçu Apple Wallet</p></div>
+          <div class="apercu-wallet"><div class="wallet" id="wallet"><div class="wallet-entete"><div class="preview-logo-zone"><img id="previewLogoImage" alt=""><strong id="previewLogo">Bravocard</strong></div><div><small id="previewPointsLabel">POINTS SUR 100</small><span>60</span></div></div><div class="wallet-banniere" id="previewBanniere"><div><small>PROGRAMME</small><strong id="previewProgramme">Carte fidélité</strong></div></div><div class="wallet-bas"><div><small>CLIENT</small><strong>CLIENT TEST</strong><small id="previewCardLabel">FIDÉLITÉ</small><span id="previewRecompense">Récompense à débloquer</span></div><div class="codebarres"></div></div></div><p class="legende">Aperçu indicatif Apple Wallet · le rendu final dépend de l’appareil</p></div>
         </div>
       </section>
 
@@ -267,6 +291,7 @@
         <div class="grille-compte">
           <article class="panneau"><span class="eyebrow">Votre session</span><h3>Mon compte Bravocard</h3><div class="profil-compte"><div class="avatar-client" id="avatarCompte">BC</div><div><strong id="nomCompte">Compte commerçant</strong><span id="emailCompte">-</span></div></div><p class="texte-secondaire">Ce compte est personnel. Ne transmettez jamais votre mot de passe à un autre membre de l’équipe.</p></article>
           <article class="panneau"><span class="eyebrow">Sécurité</span><h3>Changer mon mot de passe</h3><label for="nouveauMotDePasse">Nouveau mot de passe</label><input id="nouveauMotDePasse" type="password" minlength="10" autocomplete="new-password" placeholder="10 caractères minimum"><button class="bouton principal" id="changerMotDePasse">Enregistrer</button><span class="message" id="messageMotDePasse"></span></article>
+          <article class="panneau abonnement-compte" id="abonnementCompte"><span class="eyebrow">Forfait Bravocard</span><div class="abonnement-titre"><h3 id="nomForfait">Essentiel</h3><span class="badge-doux" id="statutForfait">Actif</span></div><p class="texte-secondaire" id="texteForfait">Passez au forfait Premium pour piloter plusieurs restaurants depuis le même compte propriétaire.</p><div class="restaurants-verrouilles" id="restaurantsVerrouilles"></div><button class="bouton principal" id="passerPremium">Débloquer le multi-établissements</button><button class="bouton secondaire" id="gererAbonnement">Gérer mon abonnement Stripe</button><span class="message" id="messageAbonnement"></span></article>
         </div>
       </section>
     </main>

@@ -19,6 +19,8 @@ let utilisationCompte = false;
 let sessionUtilisateur = null;
 let etablissements = [];
 let permissions = [];
+let abonnement = null;
+let etablissementsBloques = [];
 
 const $ = selecteur => document.querySelector(selecteur);
 
@@ -236,6 +238,8 @@ async function restaurerCompte() {
   }
   sessionUtilisateur = moi.utilisateur;
   etablissements = moi.etablissements || [];
+  abonnement = moi.abonnement || null;
+  etablissementsBloques = moi.etablissements_bloques || [];
   if (etablissements.length === 0) {
     throw new Error('Aucun établissement n’est associé à ce compte.');
   }
@@ -294,6 +298,34 @@ function libelleRole(role) {
   }[role] || 'Compte commerçant';
 }
 
+function afficherAbonnement() {
+  const zone = $('#abonnementCompte');
+  if (!zone) return;
+  const estProprietaire = etablissements.some(entree => entree.role === 'owner');
+  zone.classList.toggle('visible', Boolean(sessionUtilisateur && estProprietaire && !sessionUtilisateur.super_admin));
+  if (!sessionUtilisateur || !estProprietaire || sessionUtilisateur.super_admin) return;
+
+  const premium = Boolean(abonnement?.premium_actif);
+  $('#nomForfait').textContent = premium ? 'Premium multi-établissements' : 'Essentiel';
+  $('#statutForfait').textContent = premium
+    ? (abonnement?.statut === 'trialing' ? 'Essai en cours' : 'Actif')
+    : '1 établissement';
+  $('#texteForfait').textContent = premium
+    ? 'Votre compte propriétaire peut piloter tous vos restaurants depuis ce même espace.'
+    : 'Le forfait Premium débloque le sélecteur multi-établissements pour vos restaurants.';
+  $('#restaurantsVerrouilles').innerHTML = etablissementsBloques.map(entree =>
+    `<span>🔒 ${echapper(entree.nom)} — disponible avec Premium</span>`
+  ).join('');
+  $('#passerPremium').style.display = premium ? 'none' : '';
+  $('#gererAbonnement').style.display = abonnement?.client_stripe ? '' : 'none';
+  if (!abonnement?.stripe_configure) {
+    $('#passerPremium').disabled = true;
+    $('#texteForfait').textContent = 'La facturation Premium est en cours de configuration par Bravocard.';
+  } else {
+    $('#passerPremium').disabled = false;
+  }
+}
+
 function appliquerPermissions() {
   const correspondances = {
     accueil: 'dashboard', statistiques: 'statistics', scanner: 'scan',
@@ -325,6 +357,7 @@ function appliquerPermissions() {
     `<option value="${echapper(entree.slug)}" ${entree.slug === slug ? 'selected' : ''}>${echapper(entree.nom)} - ${echapper(libelleRole(entree.role))}</option>`
   ).join('');
   $('#zoneEtablissement').classList.toggle('visible', etablissements.length > 1);
+  afficherAbonnement();
 }
 
 function afficherApplication(administrateur) {
@@ -788,12 +821,15 @@ function remplirDesign() {
   const correspondances = {
     logoText: 'apple_logo_text', pointsLabel: 'apple_points_label',
     cardLabel: 'apple_card_label', customColor: 'apple_custom_color',
-    logoUrl: 'apple_logo_url', stripUrl: 'apple_strip_url', iconUrl: 'apple_icon_url'
+    logoUrl: 'apple_logo_url', stripUrl: 'apple_strip_url', iconUrl: 'apple_icon_url',
+    programName: 'apple_program_name', rewardText: 'apple_reward_text', walletTerms: 'apple_terms'
   };
   for (const [id, champ] of Object.entries(correspondances)) $(`#${id}`).value = restaurant[champ] || '';
+  $('#customColorPicker').value = /^#[0-9a-f]{6}$/i.test(restaurant.apple_custom_color || '')
+    ? restaurant.apple_custom_color : couleursWallet[restaurant.apple_color_preset] || '#17171D';
   $('#zonePro').classList.toggle('verrouille', !restaurant.pro_autorise);
   $('#messagePro').textContent = restaurant.pro_disponible
-    ? 'Activation réservée à Bravocard'
+    ? 'Toutes les options professionnelles sont disponibles'
     : 'Abonnement WalletWallet Pro requis';
   actualiserApercuWallet();
 }
@@ -806,19 +842,73 @@ function actualiserApercuWallet() {
   $('#previewLogo').textContent = $('#logoText').value || 'Bravocard';
   $('#previewPointsLabel').textContent = $('#pointsLabel').value || 'POINTS SUR 100';
   $('#previewCardLabel').textContent = $('#cardLabel').value || 'FIDÉLITÉ';
+  $('#previewProgramme').textContent = $('#programName').value || 'Carte fidélité';
+  $('#previewRecompense').textContent = $('#rewardText').value || 'Récompense à débloquer';
+  const logo = $('#logoUrl').value.trim();
+  const strip = $('#stripUrl').value.trim();
+  const imageLogo = $('#previewLogoImage');
+  imageLogo.src = logo;
+  imageLogo.classList.toggle('visible', Boolean(logo));
+  $('#previewBanniere').style.backgroundImage = strip
+    ? `linear-gradient(90deg,rgba(0,0,0,.48),rgba(0,0,0,.04)),url("${strip.replace(/"/g, '%22')}")`
+    : '';
+  $('#statutLogo').textContent = logo ? 'Prêt' : 'Facultatif';
+  $('#statutStrip').textContent = strip ? 'Prête' : 'Facultatif';
+  $('#statutIcon').textContent = $('#iconUrl').value.trim() ? 'Prête' : 'Facultatif';
 }
 
-async function lireFichier(input, cible) {
+async function lireFichier(input, cible, type) {
   const fichier = input.files[0];
   if (!fichier) return;
-  if (fichier.type !== 'image/png' || fichier.size > 500000) {
-    afficherMessage($('#messageDesign'), 'Choisissez un PNG de moins de 500 Ko.', 'erreur');
+  if (fichier.type !== 'image/png' || fichier.size > 2 * 1024 * 1024) {
+    afficherMessage($('#messageDesign'), 'Choisissez un PNG de moins de 2 Mo.', 'erreur');
     input.value = '';
     return;
   }
   const lecteur = new FileReader();
-  lecteur.onload = () => { $(`#${cible}`).value = lecteur.result; };
+  lecteur.onload = async () => {
+    try {
+      afficherMessage($('#messageDesign'), 'Import de l’image…');
+      const donnees = await api(`/api/design/${encodeURIComponent(slug)}/image`, {
+        method: 'POST',
+        body: JSON.stringify({ type, image_data: lecteur.result })
+      });
+      $(`#${cible}`).value = donnees.url;
+      actualiserApercuWallet();
+      afficherMessage($('#messageDesign'), 'Image importée. Enregistrez le design pour la publier.', 'succes');
+    } catch (erreur) {
+      afficherMessage($('#messageDesign'), erreur.message, 'erreur');
+    } finally {
+      input.value = '';
+    }
+  };
   lecteur.readAsDataURL(fichier);
+}
+
+const modelesWallet = {
+  signature: { preset: 'dark', color: '#17171D', points: 'POINTS', card: 'MEMBRE', program: 'Carte privilège', reward: 'Votre récompense vous attend' },
+  violet: { preset: 'purple', color: '#2B174A', points: 'POINTS', card: 'CLUB', program: 'Le Club Maison', reward: 'Un avantage à 100 points' },
+  foret: { preset: 'green', color: '#0E3B2E', points: 'POINTS', card: 'FIDÉLITÉ', program: 'Les habitués', reward: 'Une attention à débloquer' },
+  neon: { preset: 'blue', color: '#071049', points: 'CRÉDITS', card: 'VIP', program: 'Night rewards', reward: 'Votre surprise approche', strip: '/BANNER%20V3.png', icon: '/avatar-bravocard.png', logo: '/logo-bravocard-encadre.png' }
+};
+
+function appliquerModeleWallet(nom) {
+  const modele = modelesWallet[nom];
+  if (!modele) return;
+  document.querySelector(`[name="preset"][value="${modele.preset}"]`).checked = true;
+  $('#customColor').value = modele.color;
+  $('#customColorPicker').value = modele.color;
+  $('#pointsLabel').value = modele.points;
+  $('#cardLabel').value = modele.card;
+  $('#programName').value = modele.program;
+  $('#rewardText').value = modele.reward;
+  if (modele.strip) $('#stripUrl').value = `${window.location.origin}${modele.strip}`;
+  if (modele.icon) $('#iconUrl').value = `${window.location.origin}${modele.icon}`;
+  if (modele.logo) $('#logoUrl').value = `${window.location.origin}${modele.logo}`;
+  document.querySelectorAll('[data-modele-wallet]').forEach(bouton =>
+    bouton.classList.toggle('actif', bouton.dataset.modeleWallet === nom)
+  );
+  actualiserApercuWallet();
 }
 
 async function enregistrerDesign() {
@@ -833,14 +923,18 @@ async function enregistrerDesign() {
     apple_custom_color: $('#customColor').value,
     apple_logo_url: $('#logoUrl').value,
     apple_strip_url: $('#stripUrl').value,
-    apple_icon_url: $('#iconUrl').value
+    apple_icon_url: $('#iconUrl').value,
+    apple_program_name: $('#programName').value,
+    apple_reward_text: $('#rewardText').value,
+    apple_terms: $('#walletTerms').value
   };
   try {
     const donnees = await api(`/api/design/${encodeURIComponent(slug)}`, {
       method: 'PUT', body: JSON.stringify(corps)
     });
     restaurant = donnees.restaurant;
-    afficherMessage($('#messageDesign'), 'Design enregistré.', 'succes');
+    remplirDesign();
+    afficherMessage($('#messageDesign'), donnees.message || 'Design enregistré.', 'succes');
   } catch (erreur) {
     afficherMessage($('#messageDesign'), erreur.message, 'erreur');
   } finally {
@@ -893,7 +987,9 @@ async function ajouterMembre() {
     });
     $('#nomMembre').value = '';
     $('#emailMembre').value = '';
-    const precision = donnees.mot_de_passe_temporaire
+    const precision = donnees.email_activation_envoye
+      ? 'Un email d’activation sécurisé a été envoyé à ce membre.'
+      : donnees.mot_de_passe_temporaire
       ? `<span class="mot-de-passe-temporaire">${echapper(donnees.mot_de_passe_temporaire)}</span>Copiez ce mot de passe maintenant : il ne sera plus affiché.`
       : 'Le compte existant a été associé à cet établissement.';
     $('#messageEquipe').className = 'message succes';
@@ -936,6 +1032,48 @@ async function changerMotDePasse() {
   }
 }
 
+async function ouvrirCheckoutPremium() {
+  const bouton = $('#passerPremium');
+  bouton.disabled = true;
+  afficherMessage($('#messageAbonnement'), 'Ouverture du paiement sécurisé…');
+  try {
+    const donnees = await api('/api/stripe/checkout-premium', { method: 'POST', body: JSON.stringify({}) });
+    window.location.href = donnees.url;
+  } catch (erreur) {
+    afficherMessage($('#messageAbonnement'), erreur.message, 'erreur');
+    bouton.disabled = false;
+  }
+}
+
+async function ouvrirPortailStripe() {
+  try {
+    const donnees = await api('/api/stripe/portail', { method: 'POST', body: JSON.stringify({}) });
+    window.location.href = donnees.url;
+  } catch (erreur) {
+    afficherMessage($('#messageAbonnement'), erreur.message, 'erreur');
+  }
+}
+
+async function demanderRecuperation() {
+  const bouton = $('#envoyerRecuperation');
+  bouton.disabled = true;
+  afficherMessage($('#messageConnexion'), 'Envoi du lien sécurisé…');
+  try {
+    const reponse = await fetch('/api/auth/mot-de-passe-oublie', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: $('#emailRecuperation').value })
+    });
+    const donnees = await reponse.json();
+    if (!reponse.ok) throw new Error(donnees.erreur || 'Impossible d’envoyer le lien.');
+    afficherMessage($('#messageConnexion'), donnees.message, 'succes');
+  } catch (erreur) {
+    afficherMessage($('#messageConnexion'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
 document.querySelectorAll('.navigation').forEach(bouton => bouton.addEventListener('click', () => ouvrirVue(bouton.dataset.vue)));
 document.querySelectorAll('[data-ouvrir-vue]').forEach(bouton => bouton.addEventListener('click', () => ouvrirVue(bouton.dataset.ouvrirVue)));
 $('#rechercheClients').addEventListener('input', () => afficherClients(donneesTableau.clients));
@@ -955,10 +1093,17 @@ $('#tableAlertesFraude').addEventListener('click', evenement => {
   const bouton = evenement.target.closest('[data-traiter-alerte]');
   if (bouton) traiterAlerteFraude(bouton.dataset.traiterAlerte, bouton);
 });
-document.querySelectorAll('.editeur-design input').forEach(input => input.addEventListener('input', actualiserApercuWallet));
-$('#logoFile').addEventListener('change', evenement => lireFichier(evenement.target, 'logoUrl'));
-$('#stripFile').addEventListener('change', evenement => lireFichier(evenement.target, 'stripUrl'));
-$('#iconFile').addEventListener('change', evenement => lireFichier(evenement.target, 'iconUrl'));
+document.querySelectorAll('.editeur-design input, .editeur-design textarea').forEach(input => input.addEventListener('input', actualiserApercuWallet));
+$('#customColorPicker').addEventListener('input', evenement => {
+  $('#customColor').value = evenement.target.value.toUpperCase();
+  actualiserApercuWallet();
+});
+$('#logoFile').addEventListener('change', evenement => lireFichier(evenement.target, 'logoUrl', 'logo'));
+$('#stripFile').addEventListener('change', evenement => lireFichier(evenement.target, 'stripUrl', 'strip'));
+$('#iconFile').addEventListener('change', evenement => lireFichier(evenement.target, 'iconUrl', 'icon'));
+document.querySelectorAll('[data-modele-wallet]').forEach(bouton =>
+  bouton.addEventListener('click', () => appliquerModeleWallet(bouton.dataset.modeleWallet))
+);
 $('#ajouterMembre').addEventListener('click', ajouterMembre);
 $('#actualiserEquipe').addEventListener('click', chargerEquipe);
 $('#changerMotDePasse').addEventListener('click', changerMotDePasse);
@@ -979,16 +1124,20 @@ $('#selectEtablissement').addEventListener('change', evenement => {
   url.hash = '';
   window.location.href = url.toString();
 });
-$('#deconnexion').addEventListener('click', async () => {
+async function deconnecter() {
   if (utilisationCompte) {
     await fetch('/api/auth/deconnexion', { method: 'POST' }).catch(() => {});
   }
   sessionStorage.removeItem(modeAdmin ? 'bravocard_admin_password' : `bravocard_design_${slug}`);
   window.location.reload();
-});
+}
+$('#deconnexion').addEventListener('click', deconnecter);
+$('#deconnexionEntete').addEventListener('click', deconnecter);
 
 $('#boutonConnexion').addEventListener('click', connecterCompte);
 $('#boutonConnexionHistorique').addEventListener('click', connecterHistorique);
+$('#motDePasseOublie').addEventListener('click', () => $('#recuperationCompte').classList.toggle('visible'));
+$('#envoyerRecuperation').addEventListener('click', demanderRecuperation);
 $('#afficherAccesHistorique').addEventListener('click', () => {
   $('#connexionHistorique').classList.toggle('visible');
 });
@@ -998,6 +1147,11 @@ $('#motDePasseConnexion').addEventListener('keydown', evenement => {
 $('#codeAcces').addEventListener('keydown', evenement => {
   if (evenement.key === 'Enter') connecterHistorique();
 });
+$('#emailRecuperation').addEventListener('keydown', evenement => {
+  if (evenement.key === 'Enter') demanderRecuperation();
+});
+$('#passerPremium').addEventListener('click', ouvrirCheckoutPremium);
+$('#gererAbonnement').addEventListener('click', ouvrirPortailStripe);
 
 if (modeAdmin && !motDePasseAdmin) {
   $('#titreConnexion').textContent = 'Accès super-administrateur';

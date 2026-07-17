@@ -3,6 +3,14 @@ const crypto = require('crypto');
 const PRESETS_APPLE = ['dark', 'blue', 'green', 'red', 'purple', 'orange'];
 const TAILLE_MAX_IMAGE = 700000;
 
+function nettoyerTexteOptionnel(valeur, longueurMax, valeurParDefaut = '') {
+  const texte = String(valeur || '').trim().replace(/\s+/g, ' ');
+  if (texte.length > longueurMax) {
+    throw new Error(`Ce texte ne peut pas dépasser ${longueurMax} caractères.`);
+  }
+  return texte || valeurParDefaut;
+}
+
 function nettoyerTexte(valeur, longueurMax, nomChamp) {
   const texte = String(valeur || '').trim();
 
@@ -108,6 +116,21 @@ function construireMiseAJourDesign(donnees, proAutorise) {
   miseAJour.apple_logo_url = validerImage(donnees.apple_logo_url, 'Le logo');
   miseAJour.apple_strip_url = validerImage(donnees.apple_strip_url, 'La bannière');
   miseAJour.apple_icon_url = validerImage(donnees.apple_icon_url, 'L’icône');
+  miseAJour.apple_program_name = nettoyerTexteOptionnel(
+    donnees.apple_program_name,
+    48,
+    'Carte fidélité'
+  );
+  miseAJour.apple_reward_text = nettoyerTexteOptionnel(
+    donnees.apple_reward_text,
+    90,
+    'Récompense à débloquer'
+  );
+  miseAJour.apple_terms = nettoyerTexteOptionnel(
+    donnees.apple_terms,
+    500,
+    'Conditions du programme disponibles auprès du restaurant.'
+  );
 
   return miseAJour;
 }
@@ -134,6 +157,9 @@ function serialiserRestaurant(restaurant, proDisponible) {
     apple_logo_url: proAutorise ? restaurant.apple_logo_url || '' : '',
     apple_strip_url: proAutorise ? restaurant.apple_strip_url || '' : '',
     apple_icon_url: proAutorise ? restaurant.apple_icon_url || '' : '',
+    apple_program_name: restaurant.apple_program_name || 'Carte fidélité',
+    apple_reward_text: restaurant.apple_reward_text || restaurant.description_recompense || 'Récompense à débloquer',
+    apple_terms: restaurant.apple_terms || 'Conditions du programme disponibles auprès du restaurant.',
     design_updated_at: restaurant.design_updated_at || null,
     acces_configure: Boolean(restaurant.design_access_token_hash)
   };
