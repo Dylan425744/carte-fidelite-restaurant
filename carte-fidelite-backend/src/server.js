@@ -464,7 +464,8 @@ app.post('/api/restaurateur/:slug/cartes/actualiser', async (req, res) => {
       google_reussies: 0,
       google_echecs: 0,
       apple_reussies: 0,
-      apple_echecs: 0
+      apple_echecs: 0,
+      diagnostic_google: {}
     };
 
     for (let index = 0; index < resultatClients.data.length; index += 5) {
@@ -480,9 +481,18 @@ app.post('/api/restaurateur/:slug/cartes/actualiser', async (req, res) => {
           )
         };
 
-        const googleMisAJour = await wallet.synchroniserObjetWallet(clientWallet);
-        if (googleMisAJour) bilan.google_reussies += 1;
-        else bilan.google_echecs += 1;
+        const resultatGoogle = await wallet.diagnostiquerSynchronisationObjetWallet(
+          clientWallet
+        );
+        if (resultatGoogle.succes) {
+          bilan.google_reussies += 1;
+        } else {
+          bilan.google_echecs += 1;
+          const statut = resultatGoogle.erreur?.statut || 'inconnu';
+          const message = resultatGoogle.erreur?.message || 'Erreur inconnue';
+          const cle = `${statut} - ${message}`;
+          bilan.diagnostic_google[cle] = (bilan.diagnostic_google[cle] || 0) + 1;
+        }
 
         if (client.apple_wallet_serial) {
           try {

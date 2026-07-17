@@ -197,6 +197,60 @@ async function synchroniserObjetWallet(client) {
   return creerObjetWallet(client);
 }
 
+function resumerErreurGoogle(erreur) {
+  const statut = Number(erreur?.response?.status || erreur?.code || 0) || null;
+  const messageApi = erreur?.response?.data?.error?.message;
+  const message = String(messageApi || erreur?.message || 'Erreur Google Wallet inconnue')
+    .replace(/[\r\n]+/g, ' ')
+    .slice(0, 240);
+
+  return { statut, message };
+}
+
+// Variante de diagnostic reservee aux routes administrateur. Elle ne renvoie
+// ni identite client, ni jeton, ni donnees de la carte : seulement le statut
+// et le message de Google, afin de regrouper proprement les echecs.
+async function diagnostiquerSynchronisationObjetWallet(client) {
+  const auth = new GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
+    },
+    scopes: ['https://www.googleapis.com/auth/wallet_object.issuer']
+  });
+  const clientAuth = await auth.getClient();
+  const objectId = getObjectId(client.id);
+  const objet = construireObjetFidelite(client);
+
+  try {
+    await clientAuth.request({
+      url: `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${objectId}`,
+      method: 'PATCH',
+      data: {
+        loyaltyPoints: objet.loyaltyPoints,
+        barcode: objet.barcode,
+        ...(objet.linksModuleData ? { linksModuleData: objet.linksModuleData } : {})
+      }
+    });
+    return { succes: true, action: 'mise_a_jour' };
+  } catch (erreurMiseAJour) {
+    try {
+      await clientAuth.request({
+        url: 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject',
+        method: 'POST',
+        data: objet
+      });
+      return { succes: true, action: 'creation' };
+    } catch (erreurCreation) {
+      return {
+        succes: false,
+        action: 'echec_creation',
+        erreur: resumerErreurGoogle(erreurCreation)
+      };
+    }
+  }
+}
+
 // Ajoute un message à la carte Google Wallet et demande à Google
 // d'afficher une vraie notification sur le téléphone du détenteur.
 async function envoyerNotificationWallet(client, titre, message, campagneId) {
@@ -234,6 +288,7 @@ module.exports = {
   mettreAJourPointsWallet,
   creerObjetWallet,
   synchroniserObjetWallet,
+  diagnostiquerSynchronisationObjetWallet,
   configurerModeleCarte,
   envoyerNotificationWallet
 };
