@@ -82,7 +82,8 @@ function ouvrirVue(nom) {
   $(`#vue-${nom}`).classList.add('active');
   document.querySelector(`.navigation[data-vue="${nom}"]`)?.classList.add('active');
   $('#titreVue').textContent = {
-    accueil: 'Vue d’ensemble', scanner: 'Scanner une carte', clients: 'Mes clients',
+    accueil: 'Vue d’ensemble', statistiques: 'Statistiques détaillées',
+    scanner: 'Scanner une carte', clients: 'Mes clients',
     parrainage: 'Parrainage', 'anti-fraude': 'Anti-fraude',
     notifications: 'Notifications', design: 'Design Wallet'
   }[nom];
@@ -180,7 +181,7 @@ async function connecter() {
     remplirDesign();
     afficherTableau();
     const vueDemandee = window.location.hash.replace('#', '');
-    if (['scanner', 'clients', 'parrainage', 'anti-fraude', 'notifications', 'design'].includes(vueDemandee)) {
+    if (['statistiques', 'scanner', 'clients', 'parrainage', 'anti-fraude', 'notifications', 'design'].includes(vueDemandee)) {
       ouvrirVue(vueDemandee);
     }
   } catch (erreur) {
@@ -215,6 +216,7 @@ function afficherTableau() {
   remplirClientsTest();
   afficherParrainage();
   afficherAntiFraude();
+  afficherStatistiques();
 
   const enCours = donneesTableau.notification_en_cours ||
     donneesTableau.notifications.some(campagne => campagne.statut === 'en_cours');
@@ -371,6 +373,102 @@ async function traiterAlerteFraude(alerteId, bouton) {
   } catch (erreur) {
     afficherMessage($('#messageAntiFraude'), erreur.message, 'erreur');
     bouton.disabled = false;
+  }
+}
+
+function bornerPourcentage(valeur) {
+  return Math.max(0, Math.min(Number(valeur || 0), 100));
+}
+
+function dessinerGraphiqueEvolution(evolution) {
+  const svg = $('#graphiqueEvolution');
+  if (!evolution?.length) {
+    svg.innerHTML = '<text x="380" y="130" text-anchor="middle" fill="#817887" font-size="13">Aucune activité sur cette période</text>';
+    return;
+  }
+
+  const largeur = 760;
+  const hauteur = 260;
+  const margeX = 34;
+  const margeY = 28;
+  const largeurUtile = largeur - margeX * 2;
+  const hauteurUtile = hauteur - margeY * 2;
+  const maximum = Math.max(1, ...evolution.flatMap(jour => [Number(jour.scans), Number(jour.inscriptions)]));
+  const x = index => margeX + (evolution.length === 1 ? 0 : index * largeurUtile / (evolution.length - 1));
+  const y = valeur => hauteur - margeY - Number(valeur || 0) * hauteurUtile / maximum;
+  const chemin = cle => evolution.map((jour, index) =>
+    `${index ? 'L' : 'M'} ${x(index).toFixed(1)} ${y(jour[cle]).toFixed(1)}`
+  ).join(' ');
+  const indexEtiquettes = [...new Set([0, Math.floor((evolution.length - 1) / 2), evolution.length - 1])];
+  const lignes = [0, .25, .5, .75, 1].map(proportion => {
+    const positionY = margeY + hauteurUtile * proportion;
+    const valeur = Math.round(maximum * (1 - proportion));
+    return `<line x1="${margeX}" y1="${positionY}" x2="${largeur - margeX}" y2="${positionY}" stroke="#eee9f1" stroke-width="1"/><text x="${margeX - 8}" y="${positionY + 4}" text-anchor="end" fill="#9a919f" font-size="9">${valeur}</text>`;
+  }).join('');
+  const etiquettes = indexEtiquettes.map(index => {
+    const date = new Date(`${evolution[index].date}T12:00:00`);
+    const libelle = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(date);
+    return `<text x="${x(index)}" y="${hauteur - 7}" text-anchor="middle" fill="#9a919f" font-size="9">${echapper(libelle)}</text>`;
+  }).join('');
+
+  svg.innerHTML = `${lignes}<path d="${chemin('scans')}" fill="none" stroke="#7a52d6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="${chemin('inscriptions')}" fill="none" stroke="#22a978" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${etiquettes}`;
+}
+
+function afficherStatistiques() {
+  const statistiques = donneesTableau.statistiques_detaillees;
+  if (!statistiques) return;
+
+  const indicateurs = statistiques.indicateurs || {};
+  const wallets = statistiques.wallets || {};
+  $('#periodeStatistiques').value = String(statistiques.periode_jours || 30);
+  $('#statNouveauxClients').textContent = Number(indicateurs.nouveaux_clients || 0);
+  $('#statVisites').textContent = Number(indicateurs.scans || 0);
+  $('#statClientsActifsDetail').textContent = Number(indicateurs.clients_actifs || 0);
+  $('#statPointsDistribues').textContent = Number(indicateurs.points_distribues || 0);
+  $('#tauxRetour').textContent = `${Number(indicateurs.taux_retour || 0)}%`;
+  $('#visitesParClient').textContent = Number(indicateurs.visites_par_client_actif || 0).toLocaleString('fr-FR');
+  $('#conversionParrainage').textContent = `${Number(indicateurs.conversion_parrainage || 0)}%`;
+
+  const totalClients = Math.max(0, Number(indicateurs.clients_total || 0));
+  const adoptionApple = totalClients ? Math.round(Number(wallets.apple || 0) * 100 / totalClients) : 0;
+  $('#adoptionApple').textContent = `${adoptionApple}%`;
+  $('#jaugeVisites').style.width = `${bornerPourcentage(Number(indicateurs.visites_par_client_actif || 0) * 10)}%`;
+  $('#jaugeParrainage').style.width = `${bornerPourcentage(indicateurs.conversion_parrainage)}%`;
+  $('#jaugeApple').style.width = `${bornerPourcentage(adoptionApple)}%`;
+  $('#anneauRetour').style.setProperty('--score', `${bornerPourcentage(indicateurs.taux_retour) * 3.6}deg`);
+  $('#walletAppleDetail').textContent = Number(wallets.apple || 0);
+  $('#walletGoogleDetail').textContent = Number(wallets.google || 0);
+
+  dessinerGraphiqueEvolution(statistiques.evolution || []);
+
+  const jours = statistiques.jours_semaine || [];
+  const maximumJour = Math.max(1, ...jours.map(jour => Number(jour.scans || 0)));
+  $('#barresJours').innerHTML = jours.map(jour => `
+    <div class="barre-jour"><span>${echapper(jour.jour)}</span><div><i style="width:${Number(jour.scans || 0) * 100 / maximumJour}%"></i></div><strong>${Number(jour.scans || 0)}</strong></div>`).join('');
+
+  const topClients = statistiques.top_clients || [];
+  $('#resumeTopClients').textContent = `${topClients.length} client${topClients.length > 1 ? 's' : ''}`;
+  $('#tableTopClients').innerHTML = topClients.map(client => {
+    const visites = Number(client.visites || 0);
+    const profil = visites >= 5 ? 'Ambassadeur' : visites >= 2 ? 'Fidèle' : 'Nouveau';
+    return `<tr><td><div class="client-cell"><span class="avatar-client">${echapper(initiales(client.nom))}</span><strong>${echapper(client.nom)}</strong></div></td><td><strong>${visites}</strong> passages</td><td><span class="points-badge">${Number(client.points_gagnes || 0)} pts</span></td><td>${formaterDate(client.derniere_visite, true)}</td><td><span class="profil-client ${profil.toLowerCase()}">${profil}</span></td></tr>`;
+  }).join('');
+  $('#aucunTopClient').style.display = topClients.length ? 'none' : 'block';
+}
+
+async function chargerStatistiques() {
+  const selecteur = $('#periodeStatistiques');
+  selecteur.disabled = true;
+  try {
+    const donnees = await api(
+      `/api/restaurateur/${encodeURIComponent(slug)}/statistiques?jours=${encodeURIComponent(selecteur.value)}`
+    );
+    donneesTableau.statistiques_detaillees = donnees.statistiques;
+    afficherStatistiques();
+  } catch (erreur) {
+    window.alert(erreur.message);
+  } finally {
+    selecteur.disabled = false;
   }
 }
 
@@ -628,6 +726,7 @@ $('#relancerScanner').addEventListener('click', demarrerScanner);
 $('#enregistrerDesign').addEventListener('click', enregistrerDesign);
 $('#enregistrerParrainage').addEventListener('click', enregistrerParrainage);
 $('#enregistrerAntiFraude').addEventListener('click', enregistrerAntiFraude);
+$('#periodeStatistiques').addEventListener('change', chargerStatistiques);
 $('#tableAlertesFraude').addEventListener('click', evenement => {
   const bouton = evenement.target.closest('[data-traiter-alerte]');
   if (bouton) traiterAlerteFraude(bouton.dataset.traiterAlerte, bouton);

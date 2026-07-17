@@ -12,6 +12,7 @@ const email = require('./emailService');
 const designRestaurant = require('./restaurantDesignService');
 const referral = require('./referralService');
 const antiFraude = require('./antiFraudService');
+const analytics = require('./analyticsService');
 
 const app = express();
 app.use(cors());
@@ -357,7 +358,7 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
     const acces = await authentifierEspaceDesign(req, res);
     if (!acces) return;
 
-    const [resultatClients, tableauParrainage, tableauAntiFraude] = await Promise.all([
+    const [resultatClients, tableauParrainage, tableauAntiFraude, statistiquesDetaillees] = await Promise.all([
       supabase
         .from('clients')
         .select(
@@ -366,7 +367,8 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
         .eq('restaurant_id', acces.restaurant.id)
         .order('date_inscription', { ascending: false }),
       referral.obtenirTableauParrainage(acces.restaurant.id),
-      antiFraude.obtenirTableauAntiFraude(acces.restaurant.id)
+      antiFraude.obtenirTableauAntiFraude(acces.restaurant.id),
+      analytics.obtenirStatistiques(acces.restaurant.id, 30)
     ]);
 
     const { data: clients, error } = resultatClients;
@@ -408,12 +410,29 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
       notifications: historique,
       parrainage: tableauParrainage,
       anti_fraude: tableauAntiFraude,
+      statistiques_detaillees: statistiquesDetaillees,
       notification_en_cours: Boolean(acces.restaurant.notification_sending),
       limite_notifications_24h: 3
     });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+app.get('/api/restaurateur/:slug/statistiques', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res);
+    if (!acces) return;
+
+    const statistiques = await analytics.obtenirStatistiques(
+      acces.restaurant.id,
+      req.query.jours
+    );
+    res.json({ statistiques });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
   }
 });
 
