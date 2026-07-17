@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bravocard - Créez votre carte de fidélité</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Work Sans', sans-serif;
+    background: #1B1030;
+    color: #FFF9F3;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .logo-page {
+    position: fixed;
+    top: 24px;
+    left: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-page .nom {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+  }
+  .logo-page .nom .accent { color: #12B886; }
+  .carte {
+    background: #241A3D;
+    border-radius: 20px;
+    padding: 36px 28px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 30px 60px rgba(27,16,48,0.4);
+    border: 1px solid #362A55;
+  }
+  h1 {
+    font-family: 'Manrope', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+  p.sous-titre {
+    color: #B8ABD0;
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: #C9C0DC;
+    margin-bottom: 6px;
+    margin-top: 16px;
+  }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #3D2F5C;
+    background: #1B1030;
+    color: #FFF9F3;
+    font-size: 15px;
+    font-family: 'Work Sans', sans-serif;
+  }
+  input:focus {
+    outline: none;
+    border-color: #6C3CE9;
+  }
+  button {
+    width: 100%;
+    margin-top: 26px;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    background: #6C3CE9;
+    color: #FFF9F3;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'Work Sans', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(108,60,233,0.35);
+    transition: transform 0.15s ease;
+  }
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  button:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+  .resultat {
+    margin-top: 24px;
+    display: none;
+  }
+  .resultat.visible { display: block; }
+  .invitation {
+    display: none;
+    margin: 0 0 22px;
+    padding: 15px;
+    border: 1px solid rgba(18,184,134,.35);
+    border-radius: 13px;
+    background: rgba(18,184,134,.1);
+  }
+  .acces-professionnels{position:fixed;top:20px;right:24px;display:flex;align-items:center;gap:13px;z-index:2}.acces-professionnels a{text-decoration:none;font-family:'Manrope',sans-serif;font-size:12px;font-weight:800}.acces-restaurateur{padding:10px 14px;border-radius:10px;background:#6C3CE9;color:#fff;box-shadow:0 10px 24px rgba(108,60,233,.25)}.acces-admin{color:#b8abd0;opacity:.8}.acces-admin:hover{opacity:1;color:#fff}@media(max-width:560px){.logo-page{top:17px;left:17px}.acces-professionnels{top:14px;right:16px;gap:8px}.acces-restaurateur{padding:8px 10px;font-size:10px}.acces-admin{font-size:9px}}
+  .invitation.visible { display: flex; gap: 12px; align-items: flex-start; }
+  .invitation .icone { font-size: 22px; }
+  .invitation strong, .invitation span { display: block; }
+  .invitation strong { font-family: 'Manrope', sans-serif; font-size: 13px; }
+  .invitation span { margin-top: 4px; color: #BFD9D0; font-size: 12px; line-height: 1.45; }
+  .lien-wallet {
+    display: block;
+    text-align: center;
+    padding: 14px;
+    border-radius: 10px;
+    margin-top: 12px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .lien-wallet.google {
+    background: #FFF9F3;
+    color: #1B1030;
+  }
+  .lien-wallet.apple {
+    background: #000000;
+    color: #ffffff;
+    border: 1px solid #444;
+  }
+  .message-erreur {
+    color: #FF8080;
+    font-size: 14px;
+    margin-top: 16px;
+    display: none;
+  }
+  .message-erreur.visible { display: block; }
+  .bonus-attente {
+    display: none;
+    margin: 14px 0 4px;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(18,184,134,.1);
+    color: #BFEBDD;
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: center;
+  }
+  .bonus-attente.visible { display: block; }
+  .partage {
+    margin-top: 20px;
+    padding: 18px;
+    border-radius: 14px;
+    background: #1B1030;
+    border: 1px solid #3D2F5C;
+    text-align: center;
+  }
+  .partage small, .partage strong, .partage span { display: block; }
+  .partage small { color: #12B886; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; }
+  .partage strong { margin: 5px 0; font: 800 20px 'Manrope', sans-serif; letter-spacing: 1px; }
+  .partage span { color: #B8ABD0; font-size: 11px; line-height: 1.45; }
+  .actions-partage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 13px; }
+  .actions-partage button { margin: 0; padding: 10px; font-size: 12px; box-shadow: none; }
+  .actions-partage .secondaire { background: #33264D; }
+</style>
+</head>
+<body>
+
+<div class="logo-page">
+  <svg width="22" height="22" viewBox="0 0 200 200"><g transform="rotate(-8 100 100)"><rect x="35" y="55" width="130" height="90" rx="18" fill="#6C3CE9"/></g><path d="M155 45 L163 62 L182 65 L168 79 L172 98 L155 88 L138 98 L142 79 L128 65 L147 62 Z" fill="#12B886"/></svg>
+  <div class="nom">Bravo<span class="accent">card</span></div>
+</div>
+
+<nav class="acces-professionnels" aria-label="Accès professionnels">
+  <a class="acces-restaurateur" href="/espace-restaurateur.html">Connexion restaurateur</a>
+  <a class="acces-admin" href="/admin-designs.html">Administration</a>
+</nav>
+
+<div class="carte">
+  <h1 id="titreRestaurant">Bienvenue chez Chez Basile</h1>
+  <p class="sous-titre">Créez votre carte de fidélité en quelques secondes</p>
+
+  <div class="invitation" id="invitationParrainage">
+    <span class="icone">🤝</span>
+    <div><strong id="titreInvitation">Une invitation vous attend</strong><span id="texteInvitation"></span></div>
+  </div>
+
+  <form id="formulaire">
+    <label for="nom">Votre prénom</label>
+    <input type="text" id="nom" required placeholder="Jean">
+
+    <label for="email">Votre email</label>
+    <input type="email" id="email" required placeholder="jean@exemple.com">
+
+    <label for="telephone">Votre téléphone (optionnel)</label>
+    <input type="tel" id="telephone" placeholder="06 00 00 00 00">
+
+    <button type="submit" id="bouton">Créer ma carte</button>
+  </form>
+
+  <div class="message-erreur" id="messageErreur"></div>
+
+  <div class="resultat" id="resultat">
+    <p style="text-align:center; margin-bottom: 8px; color:#B8ABD0; font-size:14px;">
+      Votre carte est prête ! Ajoutez-la à votre téléphone :
+    </p>
+    <a href="#" id="lienGoogle" class="lien-wallet google" target="_blank">Ajouter à Google Wallet</a>
+    <a href="#" id="lienApple" class="lien-wallet apple" target="_blank">Ajouter à Apple Wallet</a>
+    <p class="bonus-attente" id="bonusAttente"></p>
+    <div class="partage" id="partageParrainage">
+      <small>Votre code de parrainage</small>
+      <strong id="codePersonnel">BRV••••••</strong>
+      <span>Partagez votre lien. Vos points seront crédités après le premier passage de votre filleul.</span>
+      <div class="actions-partage"><button type="button" id="copierLien" class="secondaire">Copier le lien</button><button type="button" id="partagerLien">Partager</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const parametres = new URLSearchParams(window.location.search);
+const restaurantSlug = parametres.get('restaurant') || 'chez-basile';
+const codeParrainage = (parametres.get('ref') || '').trim();
+let lienParrainagePersonnel = '';
+
+async function chargerRestaurant() {
+  try {
+    const reponse = await fetch(`/api/restaurants/${encodeURIComponent(restaurantSlug)}/public`);
+    const donnees = await reponse.json();
+    if (!reponse.ok) throw new Error(donnees.erreur);
+    document.getElementById('titreRestaurant').textContent = `Bienvenue chez ${donnees.restaurant.nom}`;
+    document.title = `Carte de fidélité - ${donnees.restaurant.nom}`;
+  } catch (erreur) {
+    document.getElementById('messageErreur').textContent = erreur.message || 'Commerce introuvable.';
+    document.getElementById('messageErreur').classList.add('visible');
+    document.getElementById('bouton').disabled = true;
+  }
+}
+
+async function chargerInvitation() {
+  if (!codeParrainage) return;
+
+  try {
+    const reponse = await fetch(`/api/parrainage/${encodeURIComponent(restaurantSlug)}/${encodeURIComponent(codeParrainage)}`);
+    const donnees = await reponse.json();
+    if (!reponse.ok) throw new Error(donnees.erreur);
+
+    const invitation = donnees.invitation;
+    document.getElementById('titreInvitation').textContent = `${invitation.parrain} vous invite chez ${invitation.restaurant}`;
+    document.getElementById('texteInvitation').textContent = `Vous recevrez ${invitation.points_filleul} points après votre premier passage. Votre parrain recevra ${invitation.points_parrain} points.`;
+    document.getElementById('invitationParrainage').classList.add('visible');
+  } catch (erreur) {
+    document.getElementById('messageErreur').textContent = erreur.message || 'Invitation invalide.';
+    document.getElementById('messageErreur').classList.add('visible');
+    document.getElementById('bouton').disabled = true;
+  }
+}
+
+document.getElementById('formulaire').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const bouton = document.getElementById('bouton');
+  const messageErreur = document.getElementById('messageErreur');
+  const resultat = document.getElementById('resultat');
+
+  messageErreur.classList.remove('visible');
+  resultat.classList.remove('visible');
+  bouton.disabled = true;
+  bouton.textContent = 'Création en cours...';
+
+  const nom = document.getElementById('nom').value;
+  const email = document.getElementById('email').value;
+  const telephone = document.getElementById('telephone').value;
+
+  try {
+    const reponse = await fetch('/api/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nom,
+        email,
+        telephone,
+        restaurant_slug: restaurantSlug,
+        ...(codeParrainage ? { code_parrainage: codeParrainage } : {})
+      })
+    });
+
+    const donnees = await reponse.json();
+
+    if (!reponse.ok) {
+      throw new Error(donnees.erreur || 'Une erreur est survenue');
+    }
+
+    document.getElementById('lienGoogle').href = donnees.lienWallet;
+
+    if (donnees.lienAppleWallet) {
+      document.getElementById('lienApple').href = donnees.lienAppleWallet;
+      document.getElementById('lienApple').style.display = 'block';
+    } else {
+      document.getElementById('lienApple').style.display = 'none';
+    }
+
+    lienParrainagePersonnel = donnees.client.lien_parrainage;
+    if (lienParrainagePersonnel) {
+      document.getElementById('codePersonnel').textContent = donnees.client.code_parrainage;
+      document.getElementById('partageParrainage').style.display = 'block';
+    } else {
+      document.getElementById('partageParrainage').style.display = 'none';
+    }
+
+    if (donnees.parrainage) {
+      const bonus = document.getElementById('bonusAttente');
+      bonus.textContent = `${donnees.parrainage.points_filleul} points vous attendent. Ils seront ajoutés lors de votre premier passage scanné.`;
+      bonus.classList.add('visible');
+    }
+
+    resultat.classList.add('visible');
+    document.getElementById('formulaire').style.display = 'none';
+
+  } catch (erreur) {
+    messageErreur.textContent = erreur.message;
+    messageErreur.classList.add('visible');
+    bouton.disabled = false;
+    bouton.textContent = 'Créer ma carte';
+  }
+});
+
+document.getElementById('copierLien').addEventListener('click', async () => {
+  if (!lienParrainagePersonnel) return;
+  try {
+    await navigator.clipboard.writeText(lienParrainagePersonnel);
+    document.getElementById('copierLien').textContent = 'Lien copié ✓';
+  } catch {
+    window.prompt('Copiez votre lien de parrainage :', lienParrainagePersonnel);
+  }
+});
+
+document.getElementById('partagerLien').addEventListener('click', async () => {
+  if (!lienParrainagePersonnel) return;
+  if (navigator.share) {
+    await navigator.share({
+      title: 'Ma carte Bravocard',
+      text: 'Rejoins-moi et gagne tes premiers points de fidélité !',
+      url: lienParrainagePersonnel
+    });
+  } else {
+    document.getElementById('copierLien').click();
+  }
+});
+
+chargerRestaurant();
+chargerInvitation();
+</script>
+
+</body>
+</html>

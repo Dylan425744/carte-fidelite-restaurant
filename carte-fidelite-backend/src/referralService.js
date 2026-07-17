@@ -54,7 +54,7 @@ function construireLienParrainage(slug, code) {
     ref: normaliserCode(code)
   });
 
-  return `${obtenirBasePublique()}/?${parametres.toString()}`;
+  return `${obtenirBasePublique()}/creer-carte.html?${parametres.toString()}`;
 }
 
 async function obtenirReglages(restaurantId) {

@@ -823,6 +823,9 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
       parrainage: tableauParrainage,
       anti_fraude: tableauAntiFraude,
       statistiques_detaillees: statistiquesDetaillees,
+      roue: {
+        lots: LOTS_ROUE.map(lot => ({ label: lot.label, icone: lot.icone }))
+      },
       notification_en_cours: Boolean(acces.restaurant.notification_sending),
       limite_notifications_24h: 3
     });
@@ -1813,9 +1816,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
   }
 });
 
-// Liste des lots possibles, avec leur probabilite (doit totaliser 100)
-// NOTE : le tirage est actuellement force sur "Boisson offerte" (voir tirerUnLot),
-// la probabilite indiquee ici ne sert que si on desactive le forcage plus tard.
+// Liste des lots possibles, avec leur probabilite (doit totaliser 100).
 const LOTS_ROUE = [
   { label: 'Menu offert', icone: '🍽️', probabilite: 5 },
   { label: '-10% addition', icone: '🏷️', probabilite: 20 },
@@ -1831,11 +1832,18 @@ const DELAI_AVANT_BOISSON_JOURS = 1;
 const DUREE_VALIDITE_BOISSON_JOURS = 7;
 
 function tirerUnLot() {
-  // Le tirage est actuellement force : c'est toujours "Boisson offerte" qui sort,
-  // pour garantir que chaque client ait une raison concrete de revenir.
-  const indexForce = LOTS_ROUE.findIndex(l => l.label === 'Boisson offerte');
-  const lot = LOTS_ROUE[indexForce];
-  return { index: indexForce, label: lot.label, icone: lot.icone };
+  const total = LOTS_ROUE.reduce((somme, lot) => somme + lot.probabilite, 0);
+  let tirage = Math.random() * total;
+  for (let index = 0; index < LOTS_ROUE.length; index += 1) {
+    tirage -= LOTS_ROUE[index].probabilite;
+    if (tirage < 0) {
+      const lot = LOTS_ROUE[index];
+      return { index, label: lot.label, icone: lot.icone };
+    }
+  }
+  const dernierIndex = LOTS_ROUE.length - 1;
+  const dernierLot = LOTS_ROUE[dernierIndex];
+  return { index: dernierIndex, label: dernierLot.label, icone: dernierLot.icone };
 }
 
 function calculerValiditeCadeau() {

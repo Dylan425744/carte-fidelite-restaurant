@@ -110,7 +110,7 @@ function ouvrirVue(nom) {
     accueil: 'Vue d’ensemble', statistiques: 'Statistiques détaillées',
     scanner: 'Scanner une carte', clients: 'Mes clients',
     parrainage: 'Parrainage', 'anti-fraude': 'Anti-fraude',
-    notifications: 'Notifications', design: 'Design Wallet',
+    notifications: 'Notifications', roue: 'Roue cadeaux', design: 'Design Wallet',
     equipe: 'Mon équipe', compte: 'Mon compte'
   }[nom];
   if (nom === 'equipe') chargerEquipe();
@@ -330,7 +330,7 @@ function appliquerPermissions() {
   const correspondances = {
     accueil: 'dashboard', statistiques: 'statistics', scanner: 'scan',
     clients: 'clients', parrainage: 'referral_view', 'anti-fraude': 'fraud_view',
-    notifications: 'notifications', design: 'design_view', equipe: 'team_manage'
+    notifications: 'notifications', roue: 'dashboard', design: 'design_view', equipe: 'team_manage'
   };
   for (const [vue, permission] of Object.entries(correspondances)) {
     document.querySelector(`.navigation[data-vue="${vue}"]`)
@@ -366,7 +366,6 @@ function afficherApplication(administrateur) {
   $('#badgeAdmin').style.display = administrateur ? 'inline-flex' : 'none';
   $('#commerceNom').textContent = restaurant.nom;
   $('#commerceAvatar').textContent = initiales(restaurant.nom);
-  $('#previewResto').textContent = restaurant.nom;
   $('#messageBienvenue').textContent = `Bonjour ${restaurant.nom} 👋`;
   document.title = `${restaurant.nom} - Espace Bravocard`;
 }
@@ -386,12 +385,75 @@ function afficherTableau() {
   afficherParrainage();
   afficherAntiFraude();
   afficherStatistiques();
+  remplirApercuRoue();
 
   const enCours = donneesTableau.notification_en_cours ||
     donneesTableau.notifications.some(campagne => campagne.statut === 'en_cours');
   $('#envoyerNotification').disabled = enCours || stats.campagnes_24h >= 3;
   $('#envoyerTest').disabled = enCours || stats.campagnes_24h >= 3 || !$('#clientTest').value;
   if (enCours) programmerActualisationCampagne();
+}
+
+const lotsRoueParDefaut = [
+  { label: 'Menu offert', icone: '🍽️' },
+  { label: '-10% addition', icone: '🏷️' },
+  { label: 'Dessert offert', icone: '🍰' },
+  { label: 'Boisson offerte', icone: '🥤' },
+  { label: 'Rejouez', icone: '🔁' },
+  { label: 'Pas de gain', icone: '✨' }
+];
+let rotationApercuRoue = 0;
+
+function lotsRoue() {
+  return donneesTableau?.roue?.lots?.length
+    ? donneesTableau.roue.lots
+    : lotsRoueParDefaut;
+}
+
+function remplirApercuRoue() {
+  const segments = $('#segmentsRoueApercu');
+  const liste = $('#listeLotsRoue');
+  if (!segments || !liste) return;
+  const lots = lotsRoue();
+  const angle = 360 / lots.length;
+  segments.innerHTML = lots.map((lot, index) => {
+    const position = index * angle + angle / 2;
+    return `<div class="roue-label" style="transform:rotate(${position}deg) translateY(-100px) rotate(${-position}deg) translate(-50%,-50%)"><i>${echapper(lot.icone)}</i><span>${echapper(lot.label)}</span></div>`;
+  }).join('');
+  const teintes = ['#f1e8ff', '#fff0dd', '#e4f7ee', '#e7f0ff', '#ffe9ed', '#eeeaff'];
+  liste.innerHTML = lots.map((lot, index) =>
+    `<div class="lot-roue" style="--teinte:${teintes[index % teintes.length]}"><i>${echapper(lot.icone)}</i><strong>${echapper(lot.label)}</strong></div>`
+  ).join('');
+}
+
+function lancerApercuRoue() {
+  const bouton = $('#lancerApercuRoue');
+  const resultat = $('#resultatApercuRoue');
+  const roue = $('#roueApercu');
+  const lots = lotsRoue();
+  if (!roue || !lots.length || bouton.disabled) return;
+  const index = Math.floor(Math.random() * lots.length);
+  const angle = 360 / lots.length;
+  rotationApercuRoue += 360 * 5 + (360 - (index * angle + angle / 2));
+  bouton.disabled = true;
+  resultat.textContent = 'La roue tourne…';
+  roue.style.setProperty('--angle', `${rotationApercuRoue}deg`);
+  window.setTimeout(() => {
+    resultat.textContent = `Aperçu : ${lots[index].icone} ${lots[index].label}`;
+    bouton.disabled = false;
+  }, 4250);
+}
+
+async function copierLienCreationCarte() {
+  const bouton = $('#copierLienCarte');
+  const lien = `${window.location.origin}/creer-carte.html?restaurant=${encodeURIComponent(slug)}`;
+  try {
+    await navigator.clipboard.writeText(lien);
+    bouton.textContent = 'Lien copié ✓';
+  } catch {
+    window.prompt('Copiez le lien de création de carte :', lien);
+  }
+  window.setTimeout(() => { bouton.textContent = 'Copier le lien client'; }, 2600);
 }
 
 function libelleStatutParrainage(statut) {
@@ -889,7 +951,10 @@ const modelesWallet = {
   signature: { preset: 'dark', color: '#17171D', points: 'POINTS', card: 'MEMBRE', program: 'Carte privilège', reward: 'Votre récompense vous attend' },
   violet: { preset: 'purple', color: '#2B174A', points: 'POINTS', card: 'CLUB', program: 'Le Club Maison', reward: 'Un avantage à 100 points' },
   foret: { preset: 'green', color: '#0E3B2E', points: 'POINTS', card: 'FIDÉLITÉ', program: 'Les habitués', reward: 'Une attention à débloquer' },
-  neon: { preset: 'blue', color: '#071049', points: 'CRÉDITS', card: 'VIP', program: 'Night rewards', reward: 'Votre surprise approche', strip: '/BANNER%20V3.png', icon: '/avatar-bravocard.png', logo: '/logo-bravocard-encadre.png' }
+  neon: { preset: 'blue', color: '#071049', points: 'CRÉDITS', card: 'VIP', program: 'Night rewards', reward: 'Votre surprise approche', strip: '/BANNER%20V3.png', icon: '/avatar-bravocard.png', logo: '/logo-bravocard-encadre.png' },
+  bistrot: { preset: 'orange', color: '#7B3023', points: 'POINTS', card: 'TABLE', program: 'Les bons vivants', reward: 'Votre prochaine attention maison' },
+  azur: { preset: 'blue', color: '#07547A', points: 'SOLEILS', card: 'CLUB', program: 'Escapade gourmande', reward: 'Une parenthèse offerte à 100 soleils' },
+  patissier: { preset: 'red', color: '#74324B', points: 'DOUCEURS', card: 'PRIVILÈGE', program: 'Le salon des habitués', reward: 'Une douceur maison vous attend' }
 };
 
 function appliquerModeleWallet(nom) {
@@ -1083,6 +1148,8 @@ $('#envoyerNotification').addEventListener('click', () => envoyerNotification(fa
 $('#envoyerTest').addEventListener('click', () => envoyerNotification(true));
 document.querySelectorAll('[name="plateforme"]').forEach(input => input.addEventListener('change', remplirClientsTest));
 $('#actualiserCampagnes').addEventListener('click', () => actualiserTableau());
+$('#copierLienCarte').addEventListener('click', copierLienCreationCarte);
+$('#lancerApercuRoue').addEventListener('click', lancerApercuRoue);
 $('#demarrerScanner').addEventListener('click', demarrerScanner);
 $('#relancerScanner').addEventListener('click', demarrerScanner);
 $('#enregistrerDesign').addEventListener('click', enregistrerDesign);

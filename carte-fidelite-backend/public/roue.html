@@ -89,6 +89,26 @@
   .resultat-final .validite b { color: #FFF9F3; }
 
   .message-info { margin-top: 20px; color: #B8ABD0; font-size: 14px; max-width: 300px; }
+
+  /* Direction artistique de la roue : une scène de jeu, pas un simple disque. */
+  body { background: radial-gradient(circle at 50% 14%, #50357c 0, transparent 28%), radial-gradient(circle at 84% 84%, #145f51 0, transparent 26%), #120c20; }
+  .logo-page { position: relative; z-index: 1; }
+  .sous-titre { position: relative; z-index: 1; }
+  .zone-roue { width: 340px; height: 340px; margin: 4px 0 34px; isolation: isolate; }
+  .zone-roue:before { content: ''; position: absolute; inset: 1px; z-index: -2; border-radius: 50%; background: radial-gradient(circle, rgba(255,210,100,.16) 0, rgba(136,83,244,.14) 48%, transparent 70%); filter: blur(7px); animation: respiration 3.1s ease-in-out infinite; }
+  .zone-roue:after { content: ''; position: absolute; inset: -12px; z-index: -1; border: 1px solid rgba(255,255,255,.13); border-radius: 50%; box-shadow: 0 0 0 10px rgba(255,255,255,.025), 0 0 42px rgba(123,78,221,.32); }
+  @keyframes respiration { 50% { transform: scale(1.08); opacity: .55; } }
+  .pointeur { top: -5px; border-left-width: 17px; border-right-width: 17px; border-top: 34px solid #ffe08a; filter: drop-shadow(0 4px 4px rgba(0,0,0,.42)); }
+  .roue { width: 330px; height: 330px; margin: 5px; border: 8px solid #21162e; box-shadow: 0 0 0 3px #ead3ff, 0 0 0 8px #7148e8, 0 28px 58px rgba(4,1,10,.48); transition: transform 5.2s cubic-bezier(.12,.8,.18,1); overflow: hidden; }
+  .roue:before { content: ''; position: absolute; inset: 8px; border: 1px solid rgba(255,255,255,.32); border-radius: 50%; pointer-events: none; }
+  .segment-contenu { width: 84px; left: -42px; gap: 5px; }
+  .segment-contenu .icone-lot { font-size: 23px; }
+  .segment-contenu .texte-lot { font-size: 10px; letter-spacing: -.1px; }
+  .centre-roue { width: 62px; height: 62px; border: 5px solid #fff7d4; background: radial-gradient(circle at 35% 30%, #fff6b3, #f2b944); font-size: 24px; box-shadow: 0 5px 14px rgba(0,0,0,.34); }
+  .bouton { position: relative; overflow: hidden; min-width: 250px; padding: 16px 40px; background: linear-gradient(120deg, #7448df, #9b6bff); box-shadow: 0 13px 30px rgba(101,58,207,.42); }
+  .bouton:before { content: ''; position: absolute; top: -80%; left: -25%; width: 25%; height: 260%; background: rgba(255,255,255,.22); transform: rotate(22deg); transition: left .4s ease; }
+  .bouton:hover:not(:disabled):before { left: 115%; }
+  .resultat-final { border-color: rgba(93,230,167,.75); box-shadow: 0 19px 43px rgba(0,0,0,.25); }
 </style>
 </head>
 <body>
@@ -99,7 +119,7 @@
 </div>
 
 <h1>Merci pour votre avis !</h1>
-<p class="sous-titre">Tournez la roue, un cadeau vous attend peut-être.</p>
+<p class="sous-titre">Tournez la roue, un cadeau vous attend peut-être.<br><small>Un seul tour sécurisé pour votre passage.</small></p>
 
 <div class="zone-roue">
   <div class="pointeur"></div>
@@ -148,7 +168,7 @@ function afficherValidite(valideDu, valideAu) {
 }
 
 let lots = [];
-const RAYON_TEXTE = 100; // distance du centre a laquelle placer le texte
+const RAYON_TEXTE = 112; // distance du centre a laquelle placer le texte
 
 function dessinerRoue(listeLots) {
   const nb = listeLots.length;
@@ -275,7 +295,7 @@ boutonJouer.addEventListener('click', async () => {
       afficherValidite(donnees.valideDu, donnees.valideAu);
       resultatFinal.classList.add('visible');
       lancerConfettis();
-    }, 4600);
+    }, 5300);
 
   } catch (erreur) {
     messageInfo.textContent = "Une erreur est survenue.";

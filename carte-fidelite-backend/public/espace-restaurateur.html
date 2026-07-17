@@ -64,6 +64,7 @@
         <button class="navigation" data-vue="parrainage"><span>↗</span>Parrainage</button>
         <button class="navigation" data-vue="anti-fraude"><span>⊙</span>Anti-fraude</button>
         <button class="navigation" data-vue="notifications"><span>●</span>Notifications</button>
+        <button class="navigation" data-vue="roue"><span>✦</span>Roue cadeaux</button>
         <button class="navigation" data-vue="design"><span>◈</span>Design Wallet</button>
         <button class="navigation" data-vue="equipe"><span>♥</span>Mon équipe</button>
         <button class="navigation" data-vue="compte"><span>○</span>Mon compte</button>
@@ -75,7 +76,7 @@
       <header class="entete-app"><div><span class="fil-ariane">Espace restaurateur</span><h1 id="titreVue">Vue d’ensemble</h1></div><div class="entete-actions"><span class="badge-admin" id="badgeAdmin">Administrateur</span><button class="bouton principal" data-ouvrir-vue="notifications">+ Nouvelle notification</button><button class="bouton secondaire bouton-deconnexion-entete" id="deconnexionEntete">Se déconnecter</button></div></header>
 
       <section class="vue active" id="vue-accueil">
-        <div class="bienvenue"><div><span class="eyebrow">Aujourd’hui</span><h2 id="messageBienvenue">Bonjour 👋</h2><p>Voici ce qui se passe dans votre programme de fidélité.</p></div><div class="bienvenue-actions"><button class="bouton clair" data-ouvrir-vue="scanner">Scanner une carte</button><button class="bouton clair discret" data-ouvrir-vue="notifications">Prévenir mes clients</button></div></div>
+        <div class="bienvenue"><div><span class="eyebrow">Aujourd’hui</span><h2 id="messageBienvenue">Bonjour 👋</h2><p>Voici ce qui se passe dans votre programme de fidélité.</p></div><div class="bienvenue-actions"><button class="bouton clair" data-ouvrir-vue="scanner">Scanner une carte</button><button class="bouton clair discret" id="copierLienCarte">Copier le lien client</button><button class="bouton clair discret" data-ouvrir-vue="notifications">Prévenir mes clients</button></div></div>
         <div class="grille-stats">
           <article class="stat"><span class="stat-icone violet">♙</span><div><small>Clients inscrits</small><strong id="statClients">0</strong><em id="statActifs">0 actifs</em></div></article>
           <article class="stat"><span class="stat-icone vert">✦</span><div><small>Points en circulation</small><strong id="statPoints">0</strong><em>Programme en temps réel</em></div></article>
@@ -240,6 +241,19 @@
         <article class="panneau historique"><div class="panneau-titre"><div><span class="eyebrow">Suivi</span><h3>Historique des campagnes</h3></div><button class="lien-bouton" id="actualiserCampagnes">Actualiser</button></div><div id="historiqueNotifications"></div></article>
       </section>
 
+      <section class="vue" id="vue-roue">
+        <div class="roue-hero"><div><span class="eyebrow">Expérience après visite</span><h2>Une roue qui donne envie de revenir.</h2><p>Après un passage, le client peut recevoir votre invitation à laisser un avis, puis découvrir son cadeau avec une animation premium.</p></div><div class="roue-hero-badge"><strong>1</strong><span>tour par<br>passage</span></div></div>
+        <div class="grille-roue">
+          <article class="panneau apercu-roue-panneau">
+            <div class="panneau-titre"><div><span class="eyebrow">Aperçu consommateur</span><h3>La roue des cadeaux</h3></div><span class="badge-doux">Démo</span></div>
+            <div class="roue-demo-zone"><div class="roue-halo"></div><div class="roue-pointeur"></div><div class="roue-demo" id="roueApercu"><div class="roue-demo-segments" id="segmentsRoueApercu"></div><div class="roue-demo-centre">✦<small>JOUER</small></div></div></div>
+            <div class="roue-demo-actions"><button class="bouton principal" id="lancerApercuRoue">Lancer l’aperçu</button><span id="resultatApercuRoue">Choisissez un tour pour visualiser l’animation.</span></div>
+          </article>
+          <article class="panneau lots-roue-panneau"><span class="eyebrow">Cadeaux affichés</span><h3>Ce que vos clients peuvent gagner</h3><p class="texte-secondaire">Le tirage est sécurisé côté serveur et chaque lien ne permet qu’un seul tour.</p><div class="liste-lots-roue" id="listeLotsRoue"></div><div class="info-envoi roue-info"><span>✓</span><p>Le cadeau gagné est conservé avec le passage du client et peut être présenté au comptoir pendant sa période de validité.</p></div></article>
+        </div>
+        <article class="panneau parcours-roue"><div><span class="eyebrow">Parcours automatique</span><h3>Du passage à la prochaine visite</h3></div><div class="etapes-roue"><div><i>01</i><strong>Passage validé</strong><span>Votre équipe scanne la carte.</span></div><div><i>02</i><strong>Invitation envoyée</strong><span>Le client reçoit son lien personnel.</span></div><div><i>03</i><strong>Un cadeau à découvrir</strong><span>La roue révèle une raison de revenir.</span></div><div><i>04</i><strong>Avantage présenté</strong><span>Le gain est vérifiable au comptoir.</span></div></div></article>
+      </section>
+
       <section class="vue" id="vue-design">
         <div class="grille-design">
           <article class="panneau editeur-design">
@@ -249,6 +263,9 @@
               <button type="button" data-modele-wallet="violet"><span class="modele-visuel violet"></span><strong>Violet Prestige</strong><small>Élégant et distinctif</small></button>
               <button type="button" data-modele-wallet="foret"><span class="modele-visuel foret"></span><strong>Forêt Moderne</strong><small>Naturel et chaleureux</small></button>
               <button type="button" data-modele-wallet="neon"><span class="modele-visuel neon"></span><strong>Néon City</strong><small>Visuel et nocturne</small></button>
+              <button type="button" data-modele-wallet="bistrot"><span class="modele-visuel bistrot"></span><strong>Bistrot Terracotta</strong><small>Chaleureux et gourmand</small></button>
+              <button type="button" data-modele-wallet="azur"><span class="modele-visuel azur"></span><strong>Azur Solaire</strong><small>Lumineux et méditerranéen</small></button>
+              <button type="button" data-modele-wallet="patissier"><span class="modele-visuel patissier"></span><strong>Pâtisserie Chic</strong><small>Doux et raffiné</small></button>
             </div>
             <span class="eyebrow">Identité visuelle</span><h3>Design Apple Wallet</h3><p class="texte-secondaire">Les nouvelles cartes utilisent immédiatement ce design. Les autres se mettront à jour au prochain changement.</p>
             <label>Couleur de la carte</label><div class="palette"><label class="pastille-couleur dark" title="Noir"><input type="radio" name="preset" value="dark"></label><label class="pastille-couleur blue" title="Bleu"><input type="radio" name="preset" value="blue"></label><label class="pastille-couleur green" title="Vert"><input type="radio" name="preset" value="green"></label><label class="pastille-couleur red" title="Rouge"><input type="radio" name="preset" value="red"></label><label class="pastille-couleur purple" title="Violet"><input type="radio" name="preset" value="purple"></label><label class="pastille-couleur orange" title="Orange"><input type="radio" name="preset" value="orange"></label></div>
