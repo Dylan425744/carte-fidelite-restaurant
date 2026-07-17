@@ -25,12 +25,22 @@
       <div class="connexion-boite">
         <span class="pastille">Espace sécurisé</span>
         <h2 id="titreConnexion">Bienvenue</h2>
-        <p id="texteConnexion">Entrez le code privé transmis par Bravocard pour accéder à votre établissement.</p>
-        <label for="codeAcces">Code d’accès</label>
-        <input id="codeAcces" type="password" autocomplete="current-password" placeholder="bravo_••••••••••">
-        <button class="bouton principal large" id="boutonConnexion">Accéder à mon espace</button>
+        <p id="texteConnexion">Connectez-vous avec le compte transmis par Bravocard ou par le propriétaire de votre établissement.</p>
+        <div id="connexionCompte">
+          <label for="emailConnexion">Adresse email</label>
+          <input id="emailConnexion" type="email" autocomplete="username" placeholder="vous@restaurant.fr">
+          <label for="motDePasseConnexion">Mot de passe</label>
+          <input id="motDePasseConnexion" type="password" autocomplete="current-password" placeholder="Votre mot de passe">
+          <button class="bouton principal large" id="boutonConnexion">Se connecter</button>
+          <button class="lien-bouton acces-historique" id="afficherAccesHistorique" type="button">Utiliser temporairement mon ancien code d’accès</button>
+        </div>
+        <div id="connexionHistorique" class="connexion-historique">
+          <label for="codeAcces">Ancien code d’accès</label>
+          <input id="codeAcces" type="password" autocomplete="off" placeholder="bravo_••••••••••">
+          <button class="bouton secondaire large" id="boutonConnexionHistorique">Continuer avec le code</button>
+        </div>
         <p class="message" id="messageConnexion"></p>
-        <small class="securite">Votre code n’est jamais communiqué à vos consommateurs.</small>
+        <small class="securite">Chaque membre dispose désormais de son propre compte et de droits adaptés.</small>
       </div>
     </div>
   </section>
@@ -38,7 +48,8 @@
   <div class="application" id="application">
     <aside class="barre-laterale">
       <a class="marque" href="/"><span class="marque-icone">✦</span>Bravo<span>card</span></a>
-      <div class="commerce-identite"><div class="commerce-avatar" id="commerceAvatar">CB</div><div><strong id="commerceNom">Commerce</strong><span>Compte commerçant</span></div></div>
+      <div class="commerce-identite"><div class="commerce-avatar" id="commerceAvatar">CB</div><div><strong id="commerceNom">Commerce</strong><span id="libelleRole">Compte commerçant</span></div></div>
+      <label class="select-etablissement" id="zoneEtablissement"><span>Établissement</span><select id="selectEtablissement"></select></label>
       <nav>
         <button class="navigation active" data-vue="accueil"><span>⌂</span>Vue d’ensemble</button>
         <button class="navigation" data-vue="statistiques"><span>⌁</span>Statistiques</button>
@@ -48,6 +59,8 @@
         <button class="navigation" data-vue="anti-fraude"><span>⊙</span>Anti-fraude</button>
         <button class="navigation" data-vue="notifications"><span>●</span>Notifications</button>
         <button class="navigation" data-vue="design"><span>◈</span>Design Wallet</button>
+        <button class="navigation" data-vue="equipe"><span>♥</span>Mon équipe</button>
+        <button class="navigation" data-vue="compte"><span>○</span>Mon compte</button>
       </nav>
       <div class="sidebar-bas"><div class="aide-bloc"><strong>Besoin d’aide ?</strong><span>L’équipe Bravocard reste disponible.</span></div><button class="deconnexion" id="deconnexion">Se déconnecter</button></div>
     </aside>
@@ -232,6 +245,28 @@
             <button class="bouton principal" id="enregistrerDesign">Enregistrer le design</button><span class="message" id="messageDesign"></span>
           </article>
           <div class="apercu-wallet"><div class="wallet" id="wallet"><div class="wallet-entete"><strong id="previewLogo">Bravocard</strong><div><small>RESTAURANT</small><span id="previewResto">Mon commerce</span></div></div><div class="wallet-points"><small id="previewPointsLabel">POINTS SUR 100</small><strong>60</strong></div><div class="wallet-bas"><div><small>CLIENT</small><strong>CLIENT TEST</strong><small id="previewCardLabel">FIDÉLITÉ</small></div><div class="codebarres"></div></div></div><p class="legende">Aperçu Apple Wallet</p></div>
+        </div>
+      </section>
+
+      <section class="vue" id="vue-equipe">
+        <div class="equipe-hero"><div><span class="eyebrow">Accès et responsabilités</span><h2>La bonne personne, avec les bons droits.</h2><p>Ajoutez les membres de votre équipe et choisissez ce qu’ils peuvent faire dans cet établissement.</p></div><span class="badge-doux" id="resumeEquipe">0 membre</span></div>
+        <div class="grille-equipe">
+          <article class="panneau">
+            <div class="panneau-titre"><div><span class="eyebrow">Nouvel accès</span><h3>Ajouter un membre</h3></div></div>
+            <div class="deux-colonnes"><div><label for="nomMembre">Nom complet</label><input id="nomMembre" type="text" maxlength="100" placeholder="Marie Dupont"></div><div><label for="emailMembre">Adresse email</label><input id="emailMembre" type="email" maxlength="254" placeholder="marie@restaurant.fr"></div></div>
+            <label for="roleMembre">Rôle dans cet établissement</label>
+            <select id="roleMembre" class="champ-select"><option value="employee">Employé - scanner uniquement</option><option value="manager">Manager - pilotage opérationnel</option><option value="owner">Propriétaire - accès complet</option></select>
+            <button class="bouton principal" id="ajouterMembre">Créer l’accès</button><span class="message" id="messageEquipe"></span>
+          </article>
+          <article class="panneau roles-explication"><span class="eyebrow">Rôles</span><h3>Qui peut faire quoi ?</h3><div><strong>Employé</strong><p>Scanne les cartes au passage en caisse.</p></div><div><strong>Manager</strong><p>Suit les clients, statistiques, alertes et envoie les notifications.</p></div><div><strong>Propriétaire</strong><p>Gère le programme, le design et les membres de l’équipe.</p></div><div><strong>Super-administrateur</strong><p>Vous seul supervisez tous les établissements depuis la console Bravocard.</p></div></article>
+        </div>
+        <article class="panneau"><div class="panneau-titre"><div><span class="eyebrow">Comptes autorisés</span><h3>Membres de l’établissement</h3></div><button class="lien-bouton" id="actualiserEquipe">Actualiser</button></div><div class="table-conteneur"><table><thead><tr><th>Membre</th><th>Email</th><th>Rôle</th><th>État</th><th>Action</th></tr></thead><tbody id="tableEquipe"></tbody></table></div><div class="etat-vide" id="aucunMembre">Aucun membre n’est encore associé.</div></article>
+      </section>
+
+      <section class="vue" id="vue-compte">
+        <div class="grille-compte">
+          <article class="panneau"><span class="eyebrow">Votre session</span><h3>Mon compte Bravocard</h3><div class="profil-compte"><div class="avatar-client" id="avatarCompte">BC</div><div><strong id="nomCompte">Compte commerçant</strong><span id="emailCompte">-</span></div></div><p class="texte-secondaire">Ce compte est personnel. Ne transmettez jamais votre mot de passe à un autre membre de l’équipe.</p></article>
+          <article class="panneau"><span class="eyebrow">Sécurité</span><h3>Changer mon mot de passe</h3><label for="nouveauMotDePasse">Nouveau mot de passe</label><input id="nouveauMotDePasse" type="password" minlength="10" autocomplete="new-password" placeholder="10 caractères minimum"><button class="bouton principal" id="changerMotDePasse">Enregistrer</button><span class="message" id="messageMotDePasse"></span></article>
         </div>
       </section>
     </main>

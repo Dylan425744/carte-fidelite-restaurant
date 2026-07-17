@@ -13,6 +13,7 @@ const designRestaurant = require('./restaurantDesignService');
 const referral = require('./referralService');
 const antiFraude = require('./antiFraudService');
 const analytics = require('./analyticsService');
+const auth = require('./authService');
 
 const app = express();
 app.use(cors());
@@ -46,7 +47,7 @@ const CHAMPS_RESTAURANT = [
   'notification_sending'
 ].join(', ');
 
-function estAdministrateur(req) {
+function estAdministrateurHistorique(req) {
   const motDePasse = req.headers['x-dashboard-password'];
   return Boolean(
     process.env.DASHBOARD_PASSWORD &&
@@ -54,12 +55,23 @@ function estAdministrateur(req) {
   );
 }
 
-function exigerAdministrateur(req, res, next) {
-  if (!estAdministrateur(req)) {
-    return res.status(401).json({ erreur: 'Mot de passe administrateur incorrect.' });
-  }
+async function exigerAdministrateur(req, res, next) {
+  try {
+    if (estAdministrateurHistorique(req)) {
+      req.bravocardAdmin = { historique: true };
+      return next();
+    }
 
-  next();
+    const contexte = await auth.obtenirContexteUtilisateur(req);
+    if (!contexte?.profil?.is_super_admin) {
+      return res.status(401).json({ erreur: 'Accès réservé au super-administrateur.' });
+    }
+    req.bravocardAdmin = contexte;
+    return next();
+  } catch (erreur) {
+    console.error(erreur);
+    return res.status(401).json({ erreur: 'Session administrateur invalide.' });
+  }
 }
 
 async function trouverRestaurantParSlug(slug) {
@@ -74,7 +86,7 @@ async function trouverRestaurantParSlug(slug) {
   return data;
 }
 
-async function authentifierEspaceDesign(req, res) {
+async function authentifierEspaceDesign(req, res, permission = 'dashboard') {
   let restaurant;
 
   try {
@@ -89,8 +101,29 @@ async function authentifierEspaceDesign(req, res) {
     return null;
   }
 
-  if (estAdministrateur(req)) {
-    return { restaurant, administrateur: true };
+  if (estAdministrateurHistorique(req)) {
+    return {
+      restaurant,
+      administrateur: true,
+      role: 'super_admin',
+      permissions: auth.permissionsPourRole('super_admin'),
+      historique: true
+    };
+  }
+
+  const accesCompte = await auth.accesEtablissement(req, restaurant, permission);
+  if (accesCompte?.interdit) {
+    res.status(403).json({ erreur: 'Votre rôle ne permet pas cette action.' });
+    return null;
+  }
+  if (accesCompte) {
+    return {
+      restaurant,
+      administrateur: accesCompte.contexte.profil.is_super_admin,
+      role: accesCompte.etablissement.role,
+      permissions: accesCompte.etablissement.permissions,
+      contexte: accesCompte.contexte
+    };
   }
 
   if (restaurant.design_enabled === false) {
@@ -104,7 +137,13 @@ async function authentifierEspaceDesign(req, res) {
     return null;
   }
 
-  return { restaurant, administrateur: false };
+  return {
+    restaurant,
+    administrateur: false,
+    role: 'owner',
+    permissions: auth.permissionsPourRole('owner'),
+    historique: true
+  };
 }
 
 function validerNotification(donnees) {
@@ -126,6 +165,147 @@ function validerNotification(donnees) {
 
   return { titre, message, plateforme };
 }
+
+const tentativesConnexion = new Map();
+
+function cleTentativeConnexion(req) {
+  const adresse = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
+    .split(',')[0]
+    .trim();
+  return crypto.createHash('sha256').update(adresse || 'inconnue').digest('hex');
+}
+
+function verifierLimiteConnexion(req) {
+  const cle = cleTentativeConnexion(req);
+  const entree = tentativesConnexion.get(cle);
+  const maintenant = Date.now();
+  if (!entree || entree.reinitialisation < maintenant) {
+    tentativesConnexion.set(cle, { echecs: 0, reinitialisation: maintenant + 15 * 60 * 1000 });
+    return cle;
+  }
+  if (entree.echecs >= 8) {
+    throw new Error('Trop de tentatives. Réessayez dans quelques minutes.');
+  }
+  return cle;
+}
+
+app.post('/api/auth/connexion', async (req, res) => {
+  let cle;
+  try {
+    cle = verifierLimiteConnexion(req);
+    const resultat = await auth.connexion(req.body.email, req.body.password);
+    const contexteFactice = {
+      utilisateur: resultat.user,
+      profil: { is_super_admin: false }
+    };
+    auth.ecrireSession(res, resultat.session);
+    tentativesConnexion.delete(cle);
+    await auth.journaliser('auth.login', contexteFactice, null, { succes: true });
+    res.json({ succes: true });
+  } catch (erreur) {
+    if (cle) {
+      const entree = tentativesConnexion.get(cle) || {
+        echecs: 0,
+        reinitialisation: Date.now() + 15 * 60 * 1000
+      };
+      entree.echecs += 1;
+      tentativesConnexion.set(cle, entree);
+    }
+    const limite = erreur.message.startsWith('Trop de tentatives');
+    res.status(limite ? 429 : 401).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/auth/actualiser', async (req, res) => {
+  try {
+    const resultat = await auth.rafraichirSession(req);
+    auth.ecrireSession(res, resultat.session);
+    res.json({ succes: true });
+  } catch (erreur) {
+    auth.effacerSession(res);
+    res.status(401).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/auth/deconnexion', async (req, res) => {
+  const contexte = await auth.obtenirContexteUtilisateur(req).catch(() => null);
+  auth.effacerSession(res);
+  await auth.journaliser('auth.logout', contexte, null, {});
+  res.json({ succes: true });
+});
+
+app.get('/api/auth/moi', async (req, res) => {
+  try {
+    const contexte = await auth.obtenirContexteUtilisateur(req);
+    if (!contexte) return res.status(401).json({ erreur: 'Session absente ou expirée.' });
+    res.set('Cache-Control', 'private, no-store');
+    res.json({
+      utilisateur: {
+        id: contexte.utilisateur.id,
+        email: contexte.profil.email,
+        nom: contexte.profil.full_name,
+        super_admin: contexte.profil.is_super_admin
+      },
+      etablissements: contexte.etablissements
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(401).json({ erreur: 'Session invalide.' });
+  }
+});
+
+app.post('/api/auth/changer-mot-de-passe', async (req, res) => {
+  try {
+    const contexte = await auth.obtenirContexteUtilisateur(req);
+    if (!contexte) return res.status(401).json({ erreur: 'Reconnectez-vous.' });
+    const motDePasse = auth.verifierMotDePasse(req.body.password);
+    const { error } = await supabase.auth.admin.updateUserById(
+      contexte.utilisateur.id,
+      { password: motDePasse }
+    );
+    if (error) throw error;
+    await auth.journaliser('auth.password_changed', contexte, null, {});
+    res.json({ succes: true, message: 'Votre mot de passe a été modifié.' });
+  } catch (erreur) {
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/auth/initialiser-super-admin', async (req, res) => {
+  try {
+    const { count, error } = await supabase
+      .from('user_profiles')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('is_super_admin', true);
+    if (error) throw error;
+
+    const contexte = await auth.obtenirContexteUtilisateur(req).catch(() => null);
+    const autorise = Number(count || 0) === 0
+      ? estAdministrateurHistorique(req)
+      : Boolean(contexte?.profil?.is_super_admin);
+    if (!autorise) {
+      return res.status(403).json({ erreur: 'Initialisation non autorisée.' });
+    }
+
+    const resultat = await auth.creerOuAssocierUtilisateur({
+      email: req.body.email,
+      fullName: req.body.nom,
+      superAdmin: true,
+      invitedBy: contexte?.utilisateur?.id || null
+    });
+    await auth.journaliser('admin.super_admin_created', contexte, null, {
+      user_id: resultat.profil.user_id
+    });
+    res.status(201).json({
+      succes: true,
+      compte: resultat.profil,
+      mot_de_passe_temporaire: resultat.mot_de_passe_temporaire
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
 
 function obtenirHistoriqueNotifications(restaurant) {
   return Array.isArray(restaurant.notification_history)
@@ -301,7 +481,7 @@ app.get('/api/parrainage/:slug/:code', async (req, res) => {
 // Espace commerçant. Le code privé reste dans l'en-tête et n'est jamais renvoyé.
 app.get('/api/design/:slug', async (req, res) => {
   try {
-    const acces = await authentifierEspaceDesign(req, res);
+    const acces = await authentifierEspaceDesign(req, res, 'design_view');
     if (!acces) return;
 
     res.json({
@@ -319,7 +499,7 @@ app.get('/api/design/:slug', async (req, res) => {
 
 app.put('/api/design/:slug', async (req, res) => {
   try {
-    const acces = await authentifierEspaceDesign(req, res);
+    const acces = await authentifierEspaceDesign(req, res, 'design_manage');
     if (!acces) return;
 
     const proAutorise = Boolean(
@@ -356,7 +536,7 @@ app.put('/api/design/:slug', async (req, res) => {
 // Tableau de bord unifié du restaurateur : statistiques, clients et campagnes.
 app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
   try {
-    const acces = await authentifierEspaceDesign(req, res);
+    const acces = await authentifierEspaceDesign(req, res, 'dashboard');
     if (!acces) return;
 
     const [resultatClients, tableauParrainage, tableauAntiFraude, statistiquesDetaillees] = await Promise.all([
@@ -384,6 +564,17 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
 
     res.json({
       administrateur: acces.administrateur,
+      acces: {
+        role: acces.role,
+        permissions: acces.permissions,
+        utilisateur: acces.contexte
+          ? {
+              id: acces.contexte.utilisateur.id,
+              nom: acces.contexte.profil.full_name,
+              email: acces.contexte.profil.email
+            }
+          : null
+      },
       restaurant: designRestaurant.serialiserRestaurant(
         acces.restaurant,
         appleWallet.designProDisponible()
@@ -423,7 +614,7 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
 
 app.get('/api/restaurateur/:slug/statistiques', async (req, res) => {
   try {
-    const acces = await authentifierEspaceDesign(req, res);
+    const acces = await authentifierEspaceDesign(req, res, 'statistics');
     if (!acces) return;
 
     const statistiques = await analytics.obtenirStatistiques(
@@ -439,7 +630,7 @@ app.get('/api/restaurateur/:slug/statistiques', async (req, res) => {
 
 app.post('/api/restaurateur/:slug/cartes/actualiser', async (req, res) => {
   try {
-    const acces = await authentifierEspaceDesign(req, res);
+    const acces = await authentifierEspaceDesign(req, res, 'cards_sync');
     if (!acces) return;
 
     const [resultatClients, resultatCodes] = await Promise.all([
@@ -522,7 +713,7 @@ app.post('/api/restaurateur/:slug/cartes/actualiser', async (req, res) => {
 
 app.put('/api/restaurateur/:slug/parrainage', async (req, res) => {
   try {
-    const acces = await authentifierEspaceDesign(req, res);
+    const acces = await authentifierEspaceDesign(req, res, 'referral_manage');
     if (!acces) return;
 
     const reglages = await referral.enregistrerReglages(
@@ -543,7 +734,7 @@ app.put('/api/restaurateur/:slug/parrainage', async (req, res) => {
 
 app.put('/api/restaurateur/:slug/anti-fraude', async (req, res) => {
   try {
-    const acces = await authentifierEspaceDesign(req, res);
+    const acces = await authentifierEspaceDesign(req, res, 'fraud_manage');
     if (!acces) return;
 
     const reglages = await antiFraude.enregistrerReglages(
@@ -564,7 +755,7 @@ app.put('/api/restaurateur/:slug/anti-fraude', async (req, res) => {
 
 app.post('/api/restaurateur/:slug/anti-fraude/:alerteId/traiter', async (req, res) => {
   try {
-    const acces = await authentifierEspaceDesign(req, res);
+    const acces = await authentifierEspaceDesign(req, res, 'fraud_review');
     if (!acces) return;
 
     const alerte = await antiFraude.traiterAlerte(
@@ -582,7 +773,7 @@ app.post('/api/restaurateur/:slug/anti-fraude/:alerteId/traiter', async (req, re
 
 app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
   try {
-    const acces = await authentifierEspaceDesign(req, res);
+    const acces = await authentifierEspaceDesign(req, res, 'notifications');
     if (!acces) return;
 
     const notification = validerNotification(req.body);
@@ -734,21 +925,136 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
 });
 
 // Console Bravocard. Seul l'administrateur principal peut gérer les commerces.
+app.get('/api/restaurateur/:slug/equipe', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'team_manage');
+    if (!acces) return;
+    const membres = await auth.listerEquipe(acces.restaurant.id);
+    res.json({
+      membres,
+      roles: auth.ROLES,
+      peut_nommer_proprietaire: acces.administrateur
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/restaurateur/:slug/equipe', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'team_manage');
+    if (!acces) return;
+    const role = String(req.body.role || 'employee');
+    if (role === 'owner' && !acces.administrateur) {
+      return res.status(403).json({
+        erreur: 'Seul le super-administrateur peut nommer un propriétaire.'
+      });
+    }
+    const resultat = await auth.creerOuAssocierUtilisateur({
+      email: req.body.email,
+      fullName: req.body.nom,
+      restaurantId: acces.restaurant.id,
+      role,
+      invitedBy: acces.contexte?.utilisateur?.id || null
+    });
+    await auth.journaliser(
+      'team.member_added',
+      acces.contexte,
+      acces.restaurant.id,
+      { user_id: resultat.profil.user_id, role }
+    );
+    res.status(201).json({
+      succes: true,
+      membre: {
+        ...resultat.appartenance,
+        email: resultat.profil.email,
+        full_name: resultat.profil.full_name
+      },
+      nouveau_compte: resultat.nouveau_compte,
+      mot_de_passe_temporaire: resultat.mot_de_passe_temporaire
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    const conflit = erreur.code === '23505';
+    res.status(conflit ? 409 : 400).json({ erreur: erreur.message });
+  }
+});
+
+app.patch('/api/restaurateur/:slug/equipe/:membershipId', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'team_manage');
+    if (!acces) return;
+    if (req.body.role === 'owner' && !acces.administrateur) {
+      return res.status(403).json({
+        erreur: 'Seul le super-administrateur peut nommer un propriétaire.'
+      });
+    }
+    const appartenance = await auth.modifierAppartenance(
+      acces.restaurant.id,
+      req.params.membershipId,
+      {
+        ...(typeof req.body.role === 'string' ? { role: req.body.role } : {}),
+        ...(typeof req.body.active === 'boolean' ? { active: req.body.active } : {})
+      }
+    );
+    await auth.journaliser(
+      'team.member_updated',
+      acces.contexte,
+      acces.restaurant.id,
+      { membership_id: appartenance.id, role: appartenance.role, active: appartenance.active }
+    );
+    res.json({ succes: true, appartenance });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
 app.get('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('restaurants')
-      .select(CHAMPS_RESTAURANT)
-      .order('nom', { ascending: true });
+    const [resultatRestaurants, resultatAppartenances] = await Promise.all([
+      supabase
+        .from('restaurants')
+        .select(CHAMPS_RESTAURANT)
+        .order('nom', { ascending: true }),
+      supabase
+        .from('restaurant_memberships')
+        .select('restaurant_id, user_id, role, active')
+        .eq('active', true)
+    ]);
 
-    if (error) throw error;
+    if (resultatRestaurants.error) throw resultatRestaurants.error;
+    if (resultatAppartenances.error) throw resultatAppartenances.error;
+    const appartenances = resultatAppartenances.data || [];
+    const idsProprietaires = appartenances
+      .filter(entree => entree.role === 'owner')
+      .map(entree => entree.user_id);
+    let profils = [];
+    if (idsProprietaires.length) {
+      const resultatProfils = await supabase
+        .from('user_profiles')
+        .select('user_id, email, full_name')
+        .in('user_id', idsProprietaires);
+      if (resultatProfils.error) throw resultatProfils.error;
+      profils = resultatProfils.data || [];
+    }
+    const profilsParId = new Map(profils.map(profil => [profil.user_id, profil]));
     res.json({
-      restaurants: data.map(restaurant =>
-        designRestaurant.serialiserRestaurant(
+      restaurants: resultatRestaurants.data.map(restaurant => {
+        const equipe = appartenances.filter(entree => entree.restaurant_id === restaurant.id);
+        return {
+          ...designRestaurant.serialiserRestaurant(
           restaurant,
           appleWallet.designProDisponible()
-        )
-      )
+          ),
+          membres_actifs: equipe.length,
+          proprietaires: equipe
+            .filter(entree => entree.role === 'owner')
+            .map(entree => profilsParId.get(entree.user_id))
+            .filter(Boolean)
+        };
+      })
     });
   } catch (erreur) {
     console.error(erreur);
@@ -787,6 +1093,40 @@ app.post('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
     res.status(conflit ? 409 : 400).json({
       erreur: conflit ? 'Ce lien de commerce existe déjà.' : erreur.message
     });
+  }
+});
+
+app.post('/api/admin/restaurants/:id/proprietaires', exigerAdministrateur, async (req, res) => {
+  try {
+    const { data: restaurant, error } = await supabase
+      .from('restaurants')
+      .select('id, nom, slug')
+      .eq('id', req.params.id)
+      .single();
+    if (error) throw error;
+    const resultat = await auth.creerOuAssocierUtilisateur({
+      email: req.body.email,
+      fullName: req.body.nom,
+      restaurantId: restaurant.id,
+      role: 'owner',
+      invitedBy: req.bravocardAdmin?.utilisateur?.id || null
+    });
+    await auth.journaliser(
+      'admin.owner_assigned',
+      req.bravocardAdmin?.utilisateur ? req.bravocardAdmin : null,
+      restaurant.id,
+      { user_id: resultat.profil.user_id }
+    );
+    res.status(201).json({
+      succes: true,
+      restaurant,
+      compte: resultat.profil,
+      nouveau_compte: resultat.nouveau_compte,
+      mot_de_passe_temporaire: resultat.mot_de_passe_temporaire
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
   }
 });
 
@@ -1044,7 +1384,7 @@ app.post('/api/clients', async (req, res) => {
 // Enregistrer un scan depuis l'espace sécurisé du restaurateur.
 app.post('/api/restaurateur/:slug/scan', async (req, res) => {
   try {
-    const acces = await authentifierEspaceDesign(req, res);
+    const acces = await authentifierEspaceDesign(req, res, 'scan');
     if (!acces) return;
 
     const codeScanne = String(req.body.client_id || '').trim();

@@ -1,5 +1,5 @@
 const parametres = new URLSearchParams(window.location.search);
-const slug = parametres.get('restaurant') || 'chez-basile';
+let slug = parametres.get('restaurant') || 'chez-basile';
 const modeAdmin = parametres.get('admin') === '1';
 const couleursWallet = {
   dark: '#111111', blue: '#1378d1', green: '#128b66',
@@ -15,6 +15,10 @@ let donneesTableau = null;
 let minuteurCampagne = null;
 let lecteurScanner = null;
 let scanEnCours = false;
+let utilisationCompte = false;
+let sessionUtilisateur = null;
+let etablissements = [];
+let permissions = [];
 
 const $ = selecteur => document.querySelector(selecteur);
 
@@ -36,14 +40,17 @@ function initiales(nom) {
 
 function entetes(avecJson = false) {
   return {
-    ...(modeAdmin
+    ...(!utilisationCompte && modeAdmin
       ? { 'x-dashboard-password': motDePasseAdmin }
-      : { 'x-restaurant-access-code': codeAcces }),
+      : {}),
+    ...(!utilisationCompte && !modeAdmin && codeAcces
+      ? { 'x-restaurant-access-code': codeAcces }
+      : {}),
     ...(avecJson ? { 'Content-Type': 'application/json' } : {})
   };
 }
 
-async function api(url, options = {}) {
+async function api(url, options = {}, autoriserRafraichissement = true) {
   const reponse = await fetch(url, {
     ...options,
     headers: {
@@ -51,9 +58,22 @@ async function api(url, options = {}) {
       ...(options.headers || {})
     }
   });
+  if (
+    reponse.status === 401 &&
+    utilisationCompte &&
+    autoriserRafraichissement &&
+    !url.startsWith('/api/auth/')
+  ) {
+    const actualisation = await fetch('/api/auth/actualiser', { method: 'POST' });
+    if (actualisation.ok) return api(url, options, false);
+  }
   const donnees = await reponse.json();
   if (!reponse.ok) throw new Error(donnees.erreur || 'Une erreur est survenue.');
   return donnees;
+}
+
+function aPermission(permission) {
+  return permissions.includes('*') || permissions.includes(permission);
 }
 
 function afficherMessage(element, texte, type = '') {
@@ -73,20 +93,25 @@ function nomPlateforme(plateforme) {
 }
 
 function ouvrirVue(nom) {
+  const cible = $(`#vue-${nom}`);
+  const navigation = document.querySelector(`.navigation[data-vue="${nom}"]`);
+  if (!cible || navigation?.classList.contains('masquee')) return;
   if (nom !== 'scanner' && lecteurScanner && scanEnCours) {
     lecteurScanner.stop().catch(() => {});
     scanEnCours = false;
   }
   document.querySelectorAll('.vue').forEach(vue => vue.classList.remove('active'));
   document.querySelectorAll('.navigation').forEach(bouton => bouton.classList.remove('active'));
-  $(`#vue-${nom}`).classList.add('active');
-  document.querySelector(`.navigation[data-vue="${nom}"]`)?.classList.add('active');
+  cible.classList.add('active');
+  navigation?.classList.add('active');
   $('#titreVue').textContent = {
     accueil: 'Vue d’ensemble', statistiques: 'Statistiques détaillées',
     scanner: 'Scanner une carte', clients: 'Mes clients',
     parrainage: 'Parrainage', 'anti-fraude': 'Anti-fraude',
-    notifications: 'Notifications', design: 'Design Wallet'
+    notifications: 'Notifications', design: 'Design Wallet',
+    equipe: 'Mon équipe', compte: 'Mon compte'
   }[nom];
+  if (nom === 'equipe') chargerEquipe();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -161,40 +186,145 @@ async function traiterCodeScanne(code) {
       `${Number(donnees.points_ajoutes || 10)} points ajoutés`,
       contenu
     );
-    await actualiserTableau(true);
+    if (aPermission('dashboard')) await actualiserTableau(true);
   } catch (erreur) {
     afficherResultatScan('erreur', 'Scan refusé', `<p>${echapper(erreur.message)}</p>`);
   }
 }
 
-async function connecter() {
-  const bouton = $('#boutonConnexion');
-  bouton.disabled = true;
-  afficherMessage($('#messageConnexion'), 'Connexion en cours...');
+async function chargerEspace() {
+  const requetes = [api(`/api/restaurants/${encodeURIComponent(slug)}/public`)];
+  const indexTableau = aPermission('dashboard') ? requetes.push(
+    api(`/api/restaurateur/${encodeURIComponent(slug)}/tableau-de-bord`)
+  ) - 1 : -1;
+  const indexDesign = aPermission('design_view') ? requetes.push(
+    api(`/api/design/${encodeURIComponent(slug)}`)
+  ) - 1 : -1;
+  const resultats = await Promise.all(requetes);
+  donneesTableau = indexTableau >= 0 ? resultats[indexTableau] : null;
+  const design = indexDesign >= 0 ? resultats[indexDesign] : null;
+  restaurant = design?.restaurant || donneesTableau?.restaurant || resultats[0].restaurant;
 
-  try {
-    const [design, tableau] = await Promise.all([
-      api(`/api/design/${encodeURIComponent(slug)}`),
-      api(`/api/restaurateur/${encodeURIComponent(slug)}/tableau-de-bord`)
-    ]);
-    restaurant = design.restaurant;
-    donneesTableau = tableau;
+  if (!utilisationCompte) {
     sessionStorage.setItem(
       modeAdmin ? 'bravocard_admin_password' : `bravocard_design_${slug}`,
       modeAdmin ? motDePasseAdmin : codeAcces
     );
-    afficherApplication(tableau.administrateur);
-    remplirDesign();
-    afficherTableau();
-    const vueDemandee = window.location.hash.replace('#', '');
-    if (['statistiques', 'scanner', 'clients', 'parrainage', 'anti-fraude', 'notifications', 'design'].includes(vueDemandee)) {
-      ouvrirVue(vueDemandee);
-    }
+  }
+  afficherApplication(Boolean(donneesTableau?.administrateur || sessionUtilisateur?.super_admin));
+  appliquerPermissions();
+  if (design) remplirDesign();
+  if (donneesTableau) afficherTableau();
+
+  const vueDemandee = window.location.hash.replace('#', '');
+  const vueParDefaut = aPermission('dashboard') ? 'accueil' : (aPermission('scan') ? 'scanner' : 'compte');
+  const navigationDemandee = document.querySelector(`.navigation[data-vue="${vueDemandee}"]`);
+  ouvrirVue(vueDemandee && !navigationDemandee?.classList.contains('masquee')
+    ? vueDemandee
+    : vueParDefaut);
+}
+
+async function restaurerCompte() {
+  utilisationCompte = true;
+  let moi;
+  try {
+    moi = await api('/api/auth/moi');
+  } catch (erreur) {
+    const actualisation = await fetch('/api/auth/actualiser', { method: 'POST' });
+    if (!actualisation.ok) throw erreur;
+    moi = await api('/api/auth/moi');
+  }
+  sessionUtilisateur = moi.utilisateur;
+  etablissements = moi.etablissements || [];
+  if (etablissements.length === 0) {
+    throw new Error('Aucun établissement n’est associé à ce compte.');
+  }
+  const demande = etablissements.find(entree => entree.slug === slug);
+  const choisi = demande || etablissements[0];
+  slug = choisi.slug;
+  permissions = choisi.permissions || [];
+  await chargerEspace();
+}
+
+async function connecterCompte() {
+  const bouton = $('#boutonConnexion');
+  bouton.disabled = true;
+  afficherMessage($('#messageConnexion'), 'Connexion en cours...');
+  try {
+    const reponse = await fetch('/api/auth/connexion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: $('#emailConnexion').value,
+        password: $('#motDePasseConnexion').value
+      })
+    });
+    const donnees = await reponse.json();
+    if (!reponse.ok) throw new Error(donnees.erreur || 'Connexion impossible.');
+    await restaurerCompte();
+  } catch (erreur) {
+    utilisationCompte = false;
+    afficherMessage($('#messageConnexion'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
+async function connecterHistorique() {
+  const bouton = $('#boutonConnexionHistorique');
+  bouton.disabled = true;
+  afficherMessage($('#messageConnexion'), 'Vérification du code...');
+  try {
+    utilisationCompte = false;
+    permissions = ['*'];
+    if (modeAdmin) motDePasseAdmin = $('#codeAcces').value;
+    else codeAcces = $('#codeAcces').value.trim();
+    await chargerEspace();
   } catch (erreur) {
     afficherMessage($('#messageConnexion'), erreur.message, 'erreur');
   } finally {
     bouton.disabled = false;
   }
+}
+
+function libelleRole(role) {
+  return {
+    super_admin: 'Super-administrateur', owner: 'Propriétaire',
+    manager: 'Manager', employee: 'Employé'
+  }[role] || 'Compte commerçant';
+}
+
+function appliquerPermissions() {
+  const correspondances = {
+    accueil: 'dashboard', statistiques: 'statistics', scanner: 'scan',
+    clients: 'clients', parrainage: 'referral_view', 'anti-fraude': 'fraud_view',
+    notifications: 'notifications', design: 'design_view', equipe: 'team_manage'
+  };
+  for (const [vue, permission] of Object.entries(correspondances)) {
+    document.querySelector(`.navigation[data-vue="${vue}"]`)
+      ?.classList.toggle('masquee', !aPermission(permission));
+  }
+  document.querySelectorAll('[data-ouvrir-vue="notifications"]').forEach(element =>
+    element.classList.toggle('masquee', !aPermission('notifications'))
+  );
+  document.querySelector('.navigation[data-vue="compte"]')
+    ?.classList.toggle('masquee', !sessionUtilisateur);
+  $('#enregistrerParrainage').style.display = aPermission('referral_manage') ? '' : 'none';
+  $('#enregistrerAntiFraude').style.display = aPermission('fraud_manage') ? '' : 'none';
+  $('#enregistrerDesign').style.display = aPermission('design_manage') ? '' : 'none';
+  $('#roleMembre').querySelector('option[value="owner"]').hidden = !sessionUtilisateur?.super_admin;
+
+  if (sessionUtilisateur) {
+    $('#nomCompte').textContent = sessionUtilisateur.nom;
+    $('#emailCompte').textContent = sessionUtilisateur.email;
+    $('#avatarCompte').textContent = initiales(sessionUtilisateur.nom);
+  }
+  const etablissement = etablissements.find(entree => entree.slug === slug);
+  $('#libelleRole').textContent = libelleRole(etablissement?.role);
+  $('#selectEtablissement').innerHTML = etablissements.map(entree =>
+    `<option value="${echapper(entree.slug)}" ${entree.slug === slug ? 'selected' : ''}>${echapper(entree.nom)} - ${echapper(libelleRole(entree.role))}</option>`
+  ).join('');
+  $('#zoneEtablissement').classList.toggle('visible', etablissements.length > 1);
 }
 
 function afficherApplication(administrateur) {
@@ -718,6 +848,94 @@ async function enregistrerDesign() {
   }
 }
 
+function libelleRoleCourt(role) {
+  return { owner: 'Propriétaire', manager: 'Manager', employee: 'Employé' }[role] || role;
+}
+
+async function chargerEquipe() {
+  if (!aPermission('team_manage')) return;
+  try {
+    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/equipe`);
+    const membres = donnees.membres || [];
+    $('#resumeEquipe').textContent = `${membres.length} membre${membres.length > 1 ? 's' : ''}`;
+    $('#roleMembre').querySelector('option[value="owner"]').hidden = !donnees.peut_nommer_proprietaire;
+    $('#tableEquipe').innerHTML = membres.map(membre => {
+      const afficherProprietaire = donnees.peut_nommer_proprietaire || membre.role === 'owner';
+      const options = ['employee', 'manager', ...(afficherProprietaire ? ['owner'] : [])]
+        .map(role => `<option value="${role}" ${membre.role === role ? 'selected' : ''} ${role === 'owner' && !donnees.peut_nommer_proprietaire ? 'disabled' : ''}>${echapper(libelleRoleCourt(role))}</option>`)
+        .join('');
+      return `<tr data-membership="${Number(membre.id)}">
+        <td><div class="client-cell"><span class="avatar-client">${echapper(initiales(membre.full_name))}</span><strong>${echapper(membre.full_name)}</strong></div></td>
+        <td>${echapper(membre.email)}</td>
+        <td><select class="role-select" data-role-membre>${options}</select></td>
+        <td><span class="etat-membre ${membre.active ? 'actif' : 'inactif'}">${membre.active ? 'Actif' : 'Suspendu'}</span></td>
+        <td><button class="bouton-table" data-basculer-membre="${membre.active ? 'false' : 'true'}">${membre.active ? 'Suspendre' : 'Réactiver'}</button></td>
+      </tr>`;
+    }).join('');
+    $('#aucunMembre').style.display = membres.length ? 'none' : 'block';
+  } catch (erreur) {
+    afficherMessage($('#messageEquipe'), erreur.message, 'erreur');
+  }
+}
+
+async function ajouterMembre() {
+  const bouton = $('#ajouterMembre');
+  bouton.disabled = true;
+  afficherMessage($('#messageEquipe'), 'Création du compte...');
+  try {
+    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/equipe`, {
+      method: 'POST',
+      body: JSON.stringify({
+        nom: $('#nomMembre').value,
+        email: $('#emailMembre').value,
+        role: $('#roleMembre').value
+      })
+    });
+    $('#nomMembre').value = '';
+    $('#emailMembre').value = '';
+    const precision = donnees.mot_de_passe_temporaire
+      ? `<span class="mot-de-passe-temporaire">${echapper(donnees.mot_de_passe_temporaire)}</span>Copiez ce mot de passe maintenant : il ne sera plus affiché.`
+      : 'Le compte existant a été associé à cet établissement.';
+    $('#messageEquipe').className = 'message succes';
+    $('#messageEquipe').innerHTML = `Accès créé. ${precision}`;
+    await chargerEquipe();
+  } catch (erreur) {
+    afficherMessage($('#messageEquipe'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
+async function modifierMembre(ligne, changements) {
+  const id = ligne.dataset.membership;
+  try {
+    await api(`/api/restaurateur/${encodeURIComponent(slug)}/equipe/${encodeURIComponent(id)}`, {
+      method: 'PATCH', body: JSON.stringify(changements)
+    });
+    await chargerEquipe();
+  } catch (erreur) {
+    afficherMessage($('#messageEquipe'), erreur.message, 'erreur');
+    await chargerEquipe();
+  }
+}
+
+async function changerMotDePasse() {
+  const bouton = $('#changerMotDePasse');
+  bouton.disabled = true;
+  afficherMessage($('#messageMotDePasse'), 'Enregistrement...');
+  try {
+    const donnees = await api('/api/auth/changer-mot-de-passe', {
+      method: 'POST', body: JSON.stringify({ password: $('#nouveauMotDePasse').value })
+    });
+    $('#nouveauMotDePasse').value = '';
+    afficherMessage($('#messageMotDePasse'), donnees.message, 'succes');
+  } catch (erreur) {
+    afficherMessage($('#messageMotDePasse'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
 document.querySelectorAll('.navigation').forEach(bouton => bouton.addEventListener('click', () => ouvrirVue(bouton.dataset.vue)));
 document.querySelectorAll('[data-ouvrir-vue]').forEach(bouton => bouton.addEventListener('click', () => ouvrirVue(bouton.dataset.ouvrirVue)));
 $('#rechercheClients').addEventListener('input', () => afficherClients(donneesTableau.clients));
@@ -741,24 +959,60 @@ document.querySelectorAll('.editeur-design input').forEach(input => input.addEve
 $('#logoFile').addEventListener('change', evenement => lireFichier(evenement.target, 'logoUrl'));
 $('#stripFile').addEventListener('change', evenement => lireFichier(evenement.target, 'stripUrl'));
 $('#iconFile').addEventListener('change', evenement => lireFichier(evenement.target, 'iconUrl'));
-$('#deconnexion').addEventListener('click', () => {
+$('#ajouterMembre').addEventListener('click', ajouterMembre);
+$('#actualiserEquipe').addEventListener('click', chargerEquipe);
+$('#changerMotDePasse').addEventListener('click', changerMotDePasse);
+$('#tableEquipe').addEventListener('change', evenement => {
+  if (evenement.target.matches('[data-role-membre]')) {
+    modifierMembre(evenement.target.closest('tr'), { role: evenement.target.value });
+  }
+});
+$('#tableEquipe').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-basculer-membre]');
+  if (bouton) {
+    modifierMembre(bouton.closest('tr'), { active: bouton.dataset.basculerMembre === 'true' });
+  }
+});
+$('#selectEtablissement').addEventListener('change', evenement => {
+  const url = new URL(window.location.href);
+  url.searchParams.set('restaurant', evenement.target.value);
+  url.hash = '';
+  window.location.href = url.toString();
+});
+$('#deconnexion').addEventListener('click', async () => {
+  if (utilisationCompte) {
+    await fetch('/api/auth/deconnexion', { method: 'POST' }).catch(() => {});
+  }
   sessionStorage.removeItem(modeAdmin ? 'bravocard_admin_password' : `bravocard_design_${slug}`);
   window.location.reload();
 });
 
-$('#boutonConnexion').addEventListener('click', () => {
-  if (modeAdmin) motDePasseAdmin = $('#codeAcces').value;
-  else codeAcces = $('#codeAcces').value.trim();
-  connecter();
+$('#boutonConnexion').addEventListener('click', connecterCompte);
+$('#boutonConnexionHistorique').addEventListener('click', connecterHistorique);
+$('#afficherAccesHistorique').addEventListener('click', () => {
+  $('#connexionHistorique').classList.toggle('visible');
+});
+$('#motDePasseConnexion').addEventListener('keydown', evenement => {
+  if (evenement.key === 'Enter') connecterCompte();
 });
 $('#codeAcces').addEventListener('keydown', evenement => {
-  if (evenement.key === 'Enter') $('#boutonConnexion').click();
+  if (evenement.key === 'Enter') connecterHistorique();
 });
 
 if (modeAdmin && !motDePasseAdmin) {
-  $('#titreConnexion').textContent = 'Accès administrateur';
-  $('#texteConnexion').textContent = 'Entrez votre mot de passe principal Bravocard pour superviser cet établissement.';
+  $('#titreConnexion').textContent = 'Accès super-administrateur';
+  $('#texteConnexion').textContent = 'Connectez-vous avec votre compte Bravocard ou utilisez temporairement le mot de passe principal.';
   $('#codeAcces').placeholder = 'Mot de passe administrateur';
-} else if (codeAcces || motDePasseAdmin) {
-  connecter();
 }
+
+(async () => {
+  try {
+    await restaurerCompte();
+  } catch {
+    utilisationCompte = false;
+    if (codeAcces || motDePasseAdmin) {
+      permissions = ['*'];
+      await chargerEspace().catch(() => {});
+    }
+  }
+})();
