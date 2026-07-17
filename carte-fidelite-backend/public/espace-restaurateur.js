@@ -294,6 +294,48 @@ function remplirClientsTest() {
   $('#envoyerTest').disabled = !clients.length;
 }
 
+function attendre(duree) {
+  return new Promise(resolve => setTimeout(resolve, duree));
+}
+
+async function envoyerCampagneAvecReprise(corps, campagneId) {
+  const url = `/api/restaurateur/${encodeURIComponent(slug)}/notifications`;
+
+  try {
+    return await api(url, { method: 'POST', body: JSON.stringify(corps) });
+  } catch (premiereErreur) {
+    const erreurReseau = /failed to fetch|networkerror|connexion/i.test(
+      premiereErreur.message
+    );
+    if (!erreurReseau) throw premiereErreur;
+
+    await attendre(1200);
+
+    try {
+      return await api(url, { method: 'POST', body: JSON.stringify(corps) });
+    } catch (secondeErreur) {
+      try {
+        const verification = await api(
+          `/api/restaurateur/${encodeURIComponent(slug)}/tableau-de-bord`
+        );
+        const campagneTrouvee = verification.notifications.find(
+          campagne => campagne.id === campagneId
+        );
+        if (campagneTrouvee) {
+          donneesTableau = verification;
+          return { succes: true, campagne: campagneTrouvee };
+        }
+      } catch {
+        // Le message clair ci-dessous remplace l'erreur technique du navigateur.
+      }
+
+      throw new Error(
+        'La connexion au serveur a été interrompue. Aucun nouvel envoi ne sera relancé automatiquement.'
+      );
+    }
+  }
+}
+
 async function envoyerNotification(estTest = false) {
   const titre = $('#titreNotification').value.trim();
   const message = $('#messageNotification').value.trim();
@@ -314,15 +356,17 @@ async function envoyerNotification(estTest = false) {
   bouton.disabled = true;
   afficherMessage($('#messageEnvoi'), 'Démarrage de la campagne...');
   try {
-    await api(`/api/restaurateur/${encodeURIComponent(slug)}/notifications`, {
-      method: 'POST',
-      body: JSON.stringify({
+    const campagneId = crypto.randomUUID();
+    await envoyerCampagneAvecReprise(
+      {
+        request_id: campagneId,
         titre,
         message,
         plateforme,
         ...(estTest ? { client_id_test: $('#clientTest').value } : {})
-      })
-    });
+      },
+      campagneId
+    );
     afficherMessage(
       $('#messageEnvoi'),
       estTest ? 'Test en cours sur la carte sélectionnée.' : 'Envoi en cours. Vous pouvez suivre sa progression ci-dessous.',

@@ -386,10 +386,27 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
     if (!acces) return;
 
     const notification = validerNotification(req.body);
+    const identifiantRequete = String(req.body.request_id || '').trim();
+    const campagneId = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      identifiantRequete
+    )
+      ? identifiantRequete
+      : crypto.randomUUID();
     const clientTestId = req.body.client_id_test
       ? String(req.body.client_id_test).trim()
       : null;
     const historique = obtenirHistoriqueNotifications(acces.restaurant);
+    const campagneExistante = historique.find(
+      campagne => campagne.id === campagneId
+    );
+
+    if (campagneExistante) {
+      return res.status(202).json({
+        succes: true,
+        message: 'Cette campagne a déjà été prise en compte.',
+        campagne: campagneExistante
+      });
+    }
     const maintenant = new Date();
     const campagnes24h = historique.filter(campagne => {
       const date = new Date(campagne.created_at).getTime();
@@ -444,7 +461,7 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
     }
 
     const campagne = {
-      id: crypto.randomUUID(),
+      id: campagneId,
       titre: notification.titre,
       message: notification.message,
       plateforme: notification.plateforme,
