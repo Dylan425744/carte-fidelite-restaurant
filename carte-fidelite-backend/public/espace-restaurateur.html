@@ -44,6 +44,7 @@
         <button class="navigation" data-vue="scanner"><span>▣</span>Scanner</button>
         <button class="navigation" data-vue="clients"><span>♙</span>Mes clients</button>
         <button class="navigation" data-vue="parrainage"><span>↗</span>Parrainage</button>
+        <button class="navigation" data-vue="anti-fraude"><span>⊙</span>Anti-fraude</button>
         <button class="navigation" data-vue="notifications"><span>●</span>Notifications</button>
         <button class="navigation" data-vue="design"><span>◈</span>Design Wallet</button>
       </nav>
@@ -121,6 +122,45 @@
         </div>
 
         <article class="panneau historique-parrainage"><div class="panneau-titre"><div><span class="eyebrow">Suivi</span><h3>Invitations récentes</h3></div><span class="badge-doux" id="resumeParrainage">0 invitation</span></div><div class="table-conteneur"><table><thead><tr><th>Parrain</th><th>Filleul</th><th>Code</th><th>Date</th><th>Récompense</th><th>Statut</th></tr></thead><tbody id="tableParrainages"></tbody></table></div><div class="etat-vide" id="aucunParrainage">Les premières invitations apparaîtront ici.</div></article>
+      </section>
+
+      <section class="vue" id="vue-anti-fraude">
+        <div class="fraude-hero">
+          <div><span class="eyebrow">Protection automatique</span><h2>Chaque point est vérifié avant d’être crédité.</h2><p>Bravocard bloque les doubles scans et les rythmes anormaux, tout en conservant un historique lisible pour votre équipe.</p></div>
+          <div class="bouclier-fraude"><span>✓</span><small>Protection<br>active</small></div>
+        </div>
+
+        <div class="grille-stats fraude-stats">
+          <article class="stat"><span class="stat-icone vert">✓</span><div><small>Scans protégés</small><strong id="statScansProteges">0</strong><em>Contrôles effectués</em></div></article>
+          <article class="stat"><span class="stat-icone orange">!</span><div><small>Bloqués aujourd’hui</small><strong id="statBloquesAujourdhui">0</strong><em>Points non crédités</em></div></article>
+          <article class="stat"><span class="stat-icone bleu">7j</span><div><small>Alertes sur 7 jours</small><strong id="statAlertes7j">0</strong><em>Activité récente</em></div></article>
+          <article class="stat"><span class="stat-icone violet">↑</span><div><small>À vérifier</small><strong id="statAlertesCritiques">0</strong><em>Alertes importantes</em></div></article>
+        </div>
+
+        <div class="grille-fraude">
+          <article class="panneau reglage-fraude">
+            <div class="panneau-titre"><div><span class="eyebrow">Règles intelligentes</span><h3>Niveau de protection</h3></div><label class="interrupteur"><input id="antiFraudeActif" type="checkbox"><span></span></label></div>
+            <p class="texte-secondaire">Ces limites s’appliquent séparément à chaque carte. Les tentatives bloquées n’ajoutent aucun point.</p>
+            <div class="grille-reglages-fraude">
+              <div><label for="delaiAntiFraude">Délai entre deux scans</label><div class="champ-points"><input id="delaiAntiFraude" type="number" min="1" max="1440"><span>min</span></div></div>
+              <div><label for="maxScansJour">Scans maximum par jour</label><div class="champ-points"><input id="maxScansJour" type="number" min="1" max="100"><span>scans</span></div></div>
+              <div><label for="maxPointsScan">Points maximum par scan</label><div class="champ-points"><input id="maxPointsScan" type="number" min="1" max="500"><span>pts</span></div></div>
+              <div><label for="maxPointsJour">Points maximum par jour</label><div class="champ-points"><input id="maxPointsJour" type="number" min="1" max="5000"><span>pts</span></div></div>
+            </div>
+            <div class="info-envoi"><span>i</span><p>Le contrôle est atomique : même deux scans lancés exactement au même moment ne peuvent pas doubler les points.</p></div>
+            <button class="bouton principal" id="enregistrerAntiFraude">Enregistrer la protection</button><span class="message" id="messageAntiFraude"></span>
+          </article>
+
+          <article class="panneau couverture-fraude">
+            <span class="eyebrow">Ce qui est contrôlé</span><h3>Quatre barrières automatiques</h3>
+            <div class="controle-fraude"><span>01</span><div><strong>Double scan immédiat</strong><p>La même carte ne peut pas être créditée plusieurs fois à quelques minutes d’intervalle.</p></div></div>
+            <div class="controle-fraude"><span>02</span><div><strong>Fréquence quotidienne</strong><p>Un nombre anormal de passages dans la journée déclenche un blocage.</p></div></div>
+            <div class="controle-fraude"><span>03</span><div><strong>Montants inhabituels</strong><p>Les ajouts trop élevés par opération ou sur la journée sont refusés.</p></div></div>
+            <div class="controle-fraude"><span>04</span><div><strong>Journal de preuve</strong><p>Chaque tentative bloquée reste visible et peut être marquée comme vérifiée.</p></div></div>
+          </article>
+        </div>
+
+        <article class="panneau historique-fraude"><div class="panneau-titre"><div><span class="eyebrow">Centre de contrôle</span><h3>Alertes récentes</h3></div><span class="badge-doux" id="resumeAlertesFraude">0 alerte</span></div><div class="table-conteneur"><table><thead><tr><th>Client</th><th>Détection</th><th>Date</th><th>Points</th><th>Niveau</th><th>Action</th></tr></thead><tbody id="tableAlertesFraude"></tbody></table></div><div class="etat-vide" id="aucuneAlerteFraude">Aucune activité suspecte. Toutes les opérations sont normales.</div></article>
       </section>
 
       <section class="vue" id="vue-notifications">

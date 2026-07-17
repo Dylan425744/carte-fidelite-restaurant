@@ -83,7 +83,8 @@ function ouvrirVue(nom) {
   document.querySelector(`.navigation[data-vue="${nom}"]`)?.classList.add('active');
   $('#titreVue').textContent = {
     accueil: 'Vue d’ensemble', scanner: 'Scanner une carte', clients: 'Mes clients',
-    parrainage: 'Parrainage', notifications: 'Notifications', design: 'Design Wallet'
+    parrainage: 'Parrainage', 'anti-fraude': 'Anti-fraude',
+    notifications: 'Notifications', design: 'Design Wallet'
   }[nom];
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -179,7 +180,7 @@ async function connecter() {
     remplirDesign();
     afficherTableau();
     const vueDemandee = window.location.hash.replace('#', '');
-    if (['scanner', 'clients', 'parrainage', 'notifications', 'design'].includes(vueDemandee)) {
+    if (['scanner', 'clients', 'parrainage', 'anti-fraude', 'notifications', 'design'].includes(vueDemandee)) {
       ouvrirVue(vueDemandee);
     }
   } catch (erreur) {
@@ -213,6 +214,7 @@ function afficherTableau() {
   afficherDerniereCampagne();
   remplirClientsTest();
   afficherParrainage();
+  afficherAntiFraude();
 
   const enCours = donneesTableau.notification_en_cours ||
     donneesTableau.notifications.some(campagne => campagne.statut === 'en_cours');
@@ -288,6 +290,86 @@ async function enregistrerParrainage() {
   } catch (erreur) {
     afficherMessage($('#messageParrainage'), erreur.message, 'erreur');
   } finally {
+    bouton.disabled = false;
+  }
+}
+
+function libelleAlerteFraude(type) {
+  return {
+    duplicate_scan: 'Double scan immédiat',
+    daily_scan_limit: 'Trop de scans dans la journée',
+    points_per_scan_limit: 'Montant trop élevé par scan',
+    daily_points_limit: 'Trop de points dans la journée'
+  }[type] || type;
+}
+
+function afficherAntiFraude() {
+  const antiFraude = donneesTableau.anti_fraude;
+  if (!antiFraude) return;
+
+  const stats = antiFraude.statistiques;
+  const reglages = antiFraude.reglages;
+  $('#statScansProteges').textContent = stats.scans_proteges;
+  $('#statBloquesAujourdhui').textContent = stats.bloques_aujourdhui;
+  $('#statAlertes7j').textContent = stats.alertes_7j;
+  $('#statAlertesCritiques').textContent = stats.critiques_a_traiter;
+  $('#antiFraudeActif').checked = reglages.enabled;
+  $('#delaiAntiFraude').value = reglages.cooldown_minutes;
+  $('#maxScansJour').value = reglages.max_scans_per_day;
+  $('#maxPointsScan').value = reglages.max_points_per_scan;
+  $('#maxPointsJour').value = reglages.max_points_per_day;
+
+  const alertes = antiFraude.alertes || [];
+  $('#resumeAlertesFraude').textContent = `${alertes.length} alerte${alertes.length > 1 ? 's' : ''}`;
+  $('#tableAlertesFraude').innerHTML = alertes.map(alerte => `
+    <tr>
+      <td><div class="client-cell"><span class="avatar-client">${echapper(initiales(alerte.client))}</span><strong>${echapper(alerte.client)}</strong></div></td>
+      <td><strong>${echapper(libelleAlerteFraude(alerte.type))}</strong></td>
+      <td>${formaterDate(alerte.date, true)}</td>
+      <td><span class="points-badge">${Number(alerte.points_tentes)} pts</span></td>
+      <td><span class="risque ${echapper(alerte.gravite)}">${alerte.gravite === 'high' ? 'Important' : 'Modéré'}</span></td>
+      <td>${alerte.statut === 'new'
+        ? `<button class="bouton-table" data-traiter-alerte="${echapper(alerte.id)}">Marquer vérifiée</button>`
+        : '<span class="statut validated">Vérifiée</span>'}</td>
+    </tr>`).join('');
+  $('#aucuneAlerteFraude').style.display = alertes.length ? 'none' : 'block';
+}
+
+async function enregistrerAntiFraude() {
+  const bouton = $('#enregistrerAntiFraude');
+  bouton.disabled = true;
+  afficherMessage($('#messageAntiFraude'), 'Enregistrement...');
+
+  try {
+    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/anti-fraude`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        enabled: $('#antiFraudeActif').checked,
+        cooldown_minutes: Number($('#delaiAntiFraude').value),
+        max_scans_per_day: Number($('#maxScansJour').value),
+        max_points_per_scan: Number($('#maxPointsScan').value),
+        max_points_per_day: Number($('#maxPointsJour').value)
+      })
+    });
+    donneesTableau.anti_fraude.reglages = donnees.reglages;
+    afficherMessage($('#messageAntiFraude'), 'Protection enregistrée.', 'succes');
+  } catch (erreur) {
+    afficherMessage($('#messageAntiFraude'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
+async function traiterAlerteFraude(alerteId, bouton) {
+  bouton.disabled = true;
+  try {
+    await api(
+      `/api/restaurateur/${encodeURIComponent(slug)}/anti-fraude/${encodeURIComponent(alerteId)}/traiter`,
+      { method: 'POST', body: JSON.stringify({ statut: 'reviewed' }) }
+    );
+    await actualiserTableau(true);
+  } catch (erreur) {
+    afficherMessage($('#messageAntiFraude'), erreur.message, 'erreur');
     bouton.disabled = false;
   }
 }
@@ -545,6 +627,11 @@ $('#demarrerScanner').addEventListener('click', demarrerScanner);
 $('#relancerScanner').addEventListener('click', demarrerScanner);
 $('#enregistrerDesign').addEventListener('click', enregistrerDesign);
 $('#enregistrerParrainage').addEventListener('click', enregistrerParrainage);
+$('#enregistrerAntiFraude').addEventListener('click', enregistrerAntiFraude);
+$('#tableAlertesFraude').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-traiter-alerte]');
+  if (bouton) traiterAlerteFraude(bouton.dataset.traiterAlerte, bouton);
+});
 document.querySelectorAll('.editeur-design input').forEach(input => input.addEventListener('input', actualiserApercuWallet));
 $('#logoFile').addEventListener('change', evenement => lireFichier(evenement.target, 'logoUrl'));
 $('#stripFile').addEventListener('change', evenement => lireFichier(evenement.target, 'stripUrl'));

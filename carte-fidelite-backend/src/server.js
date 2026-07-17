@@ -11,6 +11,7 @@ const appleWallet = require('./appleWalletService');
 const email = require('./emailService');
 const designRestaurant = require('./restaurantDesignService');
 const referral = require('./referralService');
+const antiFraude = require('./antiFraudService');
 
 const app = express();
 app.use(cors());
@@ -356,7 +357,7 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
     const acces = await authentifierEspaceDesign(req, res);
     if (!acces) return;
 
-    const [resultatClients, tableauParrainage] = await Promise.all([
+    const [resultatClients, tableauParrainage, tableauAntiFraude] = await Promise.all([
       supabase
         .from('clients')
         .select(
@@ -364,7 +365,8 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
         )
         .eq('restaurant_id', acces.restaurant.id)
         .order('date_inscription', { ascending: false }),
-      referral.obtenirTableauParrainage(acces.restaurant.id)
+      referral.obtenirTableauParrainage(acces.restaurant.id),
+      antiFraude.obtenirTableauAntiFraude(acces.restaurant.id)
     ]);
 
     const { data: clients, error } = resultatClients;
@@ -405,6 +407,7 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
       })),
       notifications: historique,
       parrainage: tableauParrainage,
+      anti_fraude: tableauAntiFraude,
       notification_en_cours: Boolean(acces.restaurant.notification_sending),
       limite_notifications_24h: 3
     });
@@ -429,6 +432,45 @@ app.put('/api/restaurateur/:slug/parrainage', async (req, res) => {
       message: 'Le programme de parrainage a bien été enregistré.',
       reglages
     });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.put('/api/restaurateur/:slug/anti-fraude', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res);
+    if (!acces) return;
+
+    const reglages = await antiFraude.enregistrerReglages(
+      acces.restaurant.id,
+      req.body || {}
+    );
+
+    res.json({
+      succes: true,
+      message: 'La protection anti-fraude a bien été enregistrée.',
+      reglages
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/restaurateur/:slug/anti-fraude/:alerteId/traiter', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res);
+    if (!acces) return;
+
+    const alerte = await antiFraude.traiterAlerte(
+      acces.restaurant.id,
+      req.params.alerteId,
+      req.body?.statut || 'reviewed'
+    );
+
+    res.json({ succes: true, alerte });
   } catch (erreur) {
     console.error(erreur);
     res.status(400).json({ erreur: erreur.message });
@@ -925,22 +967,24 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       });
     }
 
-    const nouveauSolde = client.points + pointsAAjouter;
+    const controleScan = await antiFraude.enregistrerScan(
+      acces.restaurant.id,
+      client_id,
+      pointsAAjouter
+    );
 
-    const { error: erreurMaj } = await supabase
-      .from('clients')
-      .update({ points: nouveauSolde })
-      .eq('id', client_id);
+    if (!controleScan.autorise) {
+      return res.status(409).json({
+        erreur: controleScan.message,
+        anti_fraude: {
+          bloque: true,
+          motif: controleScan.motif,
+          prochaine_autorisation: controleScan.prochaine_autorisation
+        }
+      });
+    }
 
-    if (erreurMaj) throw erreurMaj;
-
-    const { data: scan, error: erreurScan } = await supabase
-      .from('scans')
-      .insert([{ client_id, points_ajoutes: pointsAAjouter }])
-      .select('id')
-      .single();
-
-    if (erreurScan) throw erreurScan;
+    const scan = { id: controleScan.scan_id };
 
     let parrainageValide = null;
     try {
@@ -951,13 +995,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       }
     }
 
-    const { data: clientActualise, error: erreurSolde } = await supabase
-      .from('clients')
-      .select('points')
-      .eq('id', client_id)
-      .single();
-
-    if (erreurSolde) throw erreurSolde;
+    const clientActualise = { points: controleScan.nouveau_solde };
 
     // Verifie si le client vient d'atteindre le seuil de recompense
     const restaurant = client.restaurants || null;
@@ -1066,7 +1104,8 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       recompenseAtteinte,
       parrainage_valide: Boolean(parrainageValide),
       bonus_filleul: Number(parrainageValide?.referee_points_awarded || 0),
-      bonus_parrain: Number(parrainageValide?.sponsor_points_awarded || 0)
+      bonus_parrain: Number(parrainageValide?.sponsor_points_awarded || 0),
+      anti_fraude: { protege: true }
     });
   } catch (erreur) {
     console.error(erreur);
