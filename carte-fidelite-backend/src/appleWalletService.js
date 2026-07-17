@@ -210,6 +210,7 @@ function construireChampsCarte(client, restaurant = null) {
 
   const nomClient = obtenirNomCompletClient(client).toUpperCase();
   const points = obtenirNombrePoints(client);
+  const lienParrainage = client.referral_link || null;
 
   const champs = {
     barcodeValue: String(client.id),
@@ -307,6 +308,13 @@ function construireChampsCarte(client, restaurant = null) {
       }
     ]
   };
+
+  if (lienParrainage) {
+    champs.backFields.push({
+      label: 'PARRAINER UN PROCHE',
+      value: lienParrainage
+    });
+  }
 
   // Le dernier message reste dans les détails de la carte. Apple exige que le
   // modèle changeMessage contienne %@, remplacé par la nouvelle valeur du

@@ -43,6 +43,7 @@
         <button class="navigation active" data-vue="accueil"><span>⌂</span>Vue d’ensemble</button>
         <button class="navigation" data-vue="scanner"><span>▣</span>Scanner</button>
         <button class="navigation" data-vue="clients"><span>♙</span>Mes clients</button>
+        <button class="navigation" data-vue="parrainage"><span>↗</span>Parrainage</button>
         <button class="navigation" data-vue="notifications"><span>●</span>Notifications</button>
         <button class="navigation" data-vue="design"><span>◈</span>Design Wallet</button>
       </nav>
@@ -87,6 +88,39 @@
           <div class="table-conteneur"><table><thead><tr><th>Client</th><th>Contact</th><th>Wallet</th><th>Points</th><th>Inscription</th></tr></thead><tbody id="tableClients"></tbody></table></div>
           <div class="etat-vide" id="aucunClient">Aucun client ne correspond à cette recherche.</div>
         </div>
+      </section>
+
+      <section class="vue" id="vue-parrainage">
+        <div class="parrainage-hero">
+          <div><span class="eyebrow">Croissance organique</span><h2>Vos meilleurs clients deviennent vos ambassadeurs.</h2><p>Les points ne sont crédités qu’après le premier passage réellement scanné du filleul.</p></div>
+          <div class="parrainage-symbole"><span>↗</span><small>Acquisition<br>mesurable</small></div>
+        </div>
+
+        <div class="grille-stats parrainage-stats">
+          <article class="stat"><span class="stat-icone violet">↗</span><div><small>Filleuls acquis</small><strong id="statFilleuls">0</strong><em>Parrainages validés</em></div></article>
+          <article class="stat"><span class="stat-icone orange">…</span><div><small>En attente</small><strong id="statParrainagesAttente">0</strong><em>Avant le premier scan</em></div></article>
+          <article class="stat"><span class="stat-icone vert">+</span><div><small>Points offerts</small><strong id="statPointsParrainage">0</strong><em>Parrain + filleul</em></div></article>
+          <article class="stat"><span class="stat-icone bleu">♙</span><div><small>Ambassadeurs</small><strong id="statAmbassadeurs">0</strong><em>Codes personnels actifs</em></div></article>
+        </div>
+
+        <div class="grille-parrainage">
+          <article class="panneau reglage-parrainage">
+            <div class="panneau-titre"><div><span class="eyebrow">Réglages</span><h3>Récompense de parrainage</h3></div><label class="interrupteur"><input id="parrainageActif" type="checkbox"><span></span></label></div>
+            <p class="texte-secondaire">Choisissez une récompense assez attractive pour être partagée, sans dépasser la valeur d’une visite.</p>
+            <div class="deux-colonnes"><div><label for="pointsParrain">Points pour le parrain</label><div class="champ-points"><input id="pointsParrain" type="number" min="1" max="500"><span>pts</span></div></div><div><label for="pointsFilleul">Points pour le filleul</label><div class="champ-points"><input id="pointsFilleul" type="number" min="1" max="500"><span>pts</span></div></div></div>
+            <div class="info-envoi"><span>✓</span><p>Aucun point à la simple inscription. Le scan du restaurateur valide automatiquement les deux bonus.</p></div>
+            <button class="bouton principal" id="enregistrerParrainage">Enregistrer le programme</button><span class="message" id="messageParrainage"></span>
+          </article>
+
+          <article class="panneau parcours-parrainage">
+            <span class="eyebrow">Automatique</span><h3>Du partage au nouveau client</h3>
+            <div class="etape-parrainage"><span>1</span><div><strong>Le client partage son lien</strong><p>Son code personnel est disponible après la création de sa carte et dans les détails Wallet.</p></div></div>
+            <div class="etape-parrainage"><span>2</span><div><strong>Le filleul crée sa carte</strong><p>L’invitation est reconnue, mais aucun point n’est encore distribué.</p></div></div>
+            <div class="etape-parrainage"><span>3</span><div><strong>Vous validez le premier passage</strong><p>Un seul scan crédite le parrain et le filleul, puis verrouille l’invitation.</p></div></div>
+          </article>
+        </div>
+
+        <article class="panneau historique-parrainage"><div class="panneau-titre"><div><span class="eyebrow">Suivi</span><h3>Invitations récentes</h3></div><span class="badge-doux" id="resumeParrainage">0 invitation</span></div><div class="table-conteneur"><table><thead><tr><th>Parrain</th><th>Filleul</th><th>Code</th><th>Date</th><th>Récompense</th><th>Statut</th></tr></thead><tbody id="tableParrainages"></tbody></table></div><div class="etat-vide" id="aucunParrainage">Les premières invitations apparaîtront ici.</div></article>
       </section>
 
       <section class="vue" id="vue-notifications">

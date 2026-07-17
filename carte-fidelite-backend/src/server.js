@@ -10,6 +10,7 @@ const wallet = require('./walletService');
 const appleWallet = require('./appleWalletService');
 const email = require('./emailService');
 const designRestaurant = require('./restaurantDesignService');
+const referral = require('./referralService');
 
 const app = express();
 app.use(cors());
@@ -267,6 +268,33 @@ app.get('/api/restaurants/:slug/public', async (req, res) => {
   }
 });
 
+// Vérifie un code sans exposer les coordonnées personnelles du parrain.
+app.get('/api/parrainage/:slug/:code', async (req, res) => {
+  try {
+    const restaurant = await trouverRestaurantParSlug(req.params.slug);
+    if (!restaurant || restaurant.actif === false) {
+      return res.status(404).json({ erreur: 'Commerce introuvable.' });
+    }
+
+    const invitation = await referral.obtenirInvitation(
+      restaurant.id,
+      req.params.code
+    );
+
+    res.json({
+      invitation: {
+        code: invitation.code,
+        parrain: String(invitation.sponsor.nom || 'Un client').split(/\s+/)[0],
+        points_parrain: invitation.sponsor_points,
+        points_filleul: invitation.referee_points,
+        restaurant: restaurant.nom
+      }
+    });
+  } catch (erreur) {
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
 // Espace commerçant. Le code privé reste dans l'en-tête et n'est jamais renvoyé.
 app.get('/api/design/:slug', async (req, res) => {
   try {
@@ -328,13 +356,18 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
     const acces = await authentifierEspaceDesign(req, res);
     if (!acces) return;
 
-    const { data: clients, error } = await supabase
-      .from('clients')
-      .select(
-        'id, nom, email, telephone, points, apple_wallet_serial, google_wallet_object_id, date_inscription'
-      )
-      .eq('restaurant_id', acces.restaurant.id)
-      .order('date_inscription', { ascending: false });
+    const [resultatClients, tableauParrainage] = await Promise.all([
+      supabase
+        .from('clients')
+        .select(
+          'id, nom, email, telephone, points, apple_wallet_serial, google_wallet_object_id, date_inscription'
+        )
+        .eq('restaurant_id', acces.restaurant.id)
+        .order('date_inscription', { ascending: false }),
+      referral.obtenirTableauParrainage(acces.restaurant.id)
+    ]);
+
+    const { data: clients, error } = resultatClients;
 
     if (error) throw error;
 
@@ -371,12 +404,34 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
         google_wallet: true
       })),
       notifications: historique,
+      parrainage: tableauParrainage,
       notification_en_cours: Boolean(acces.restaurant.notification_sending),
       limite_notifications_24h: 3
     });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+app.put('/api/restaurateur/:slug/parrainage', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res);
+    if (!acces) return;
+
+    const reglages = await referral.enregistrerReglages(
+      acces.restaurant.id,
+      req.body || {}
+    );
+
+    res.json({
+      succes: true,
+      message: 'Le programme de parrainage a bien été enregistré.',
+      reglages
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
   }
 });
 
@@ -692,15 +747,28 @@ app.get('/api/clients', exigerAdministrateur, async (req, res) => {
   }
 });
 
-// Creer un nouveau client + sa carte Google Wallet
+// Crée un nouveau client, son parrainage éventuel et ses cartes Wallet.
 app.post('/api/clients', async (req, res) => {
   try {
     const {
       nom,
       email: emailClient,
       telephone,
-      restaurant_slug: slugRecu
+      restaurant_slug: slugRecu,
+      code_parrainage: codeParrainage
     } = req.body;
+    const nomNettoye = String(nom || '').trim();
+    const emailNettoye = String(emailClient || '').trim().toLowerCase();
+    const telephoneNettoye = String(telephone || '').trim();
+
+    if (!nomNettoye || nomNettoye.length > 80) {
+      return res.status(400).json({ erreur: 'Le prénom est obligatoire.' });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNettoye)) {
+      return res.status(400).json({ erreur: 'L’adresse email est invalide.' });
+    }
+
     const slugRestaurant =
       slugRecu || process.env.DEFAULT_RESTAURANT_SLUG || 'chez-basile';
     const restaurant = await trouverRestaurantParSlug(slugRestaurant);
@@ -709,12 +777,34 @@ app.post('/api/clients', async (req, res) => {
       return res.status(404).json({ erreur: 'Ce commerce est introuvable.' });
     }
 
+    const { data: clientExistant, error: erreurDoublon } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('restaurant_id', restaurant.id)
+      .ilike('email', emailNettoye)
+      .maybeSingle();
+
+    if (erreurDoublon) throw erreurDoublon;
+    if (clientExistant) {
+      return res.status(409).json({
+        erreur: 'Une carte existe déjà avec cette adresse email dans ce commerce.'
+      });
+    }
+
+    const invitation = codeParrainage
+      ? await referral.obtenirInvitation(restaurant.id, codeParrainage)
+      : null;
+    referral.verifierIdentiteDistincte(invitation, {
+      email: emailNettoye,
+      telephone: telephoneNettoye
+    });
+
     const { data: nouveauClient, error } = await supabase
       .from('clients')
       .insert([{
-        nom,
-        email: emailClient,
-        telephone,
+        nom: nomNettoye,
+        email: emailNettoye,
+        telephone: telephoneNettoye || null,
         points: 0,
         restaurant_id: restaurant.id
       }])
@@ -723,16 +813,42 @@ app.post('/api/clients', async (req, res) => {
 
     if (error) throw error;
 
+    let codePersonnel;
+    try {
+      codePersonnel = await referral.assurerCodeClient(
+        nouveauClient.id,
+        restaurant.id
+      );
+      await referral.enregistrerInvitation(
+        restaurant.id,
+        nouveauClient.id,
+        invitation
+      );
+    } catch (erreurParrainage) {
+      await supabase.from('clients').delete().eq('id', nouveauClient.id);
+      throw erreurParrainage;
+    }
+
+    const lienParrainage = referral.construireLienParrainage(
+      restaurant.slug,
+      codePersonnel
+    );
+    const clientWallet = {
+      ...nouveauClient,
+      referral_code: codePersonnel,
+      referral_link: lienParrainage
+    };
+
     // On cree l'objet cote Google, puis on genere le lien a envoyer au client
-    await wallet.creerObjetWallet(nouveauClient);
-    const lienWallet = wallet.creerLienGoogleWallet(nouveauClient);
+    await wallet.creerObjetWallet(clientWallet);
+    const lienWallet = wallet.creerLienGoogleWallet(clientWallet);
 
     // On cree aussi la carte Apple Wallet, et on garde son serialNumber
     // pour pouvoir la mettre a jour plus tard (scan, points, etc.)
     let lienAppleWallet = null;
     try {
       const passeApple = await appleWallet.creerPasseApple(
-        nouveauClient,
+        clientWallet,
         restaurant
       );
       lienAppleWallet = passeApple.shareUrl;
@@ -744,13 +860,28 @@ app.post('/api/clients', async (req, res) => {
       console.error('Erreur creation Apple Wallet:', erreurApple.message);
     }
 
-    await email.envoyerEmailBienvenue(emailClient, nom, lienWallet, lienAppleWallet);
-
-    res.json({
-      client: nouveauClient,
-      restaurant: { nom: restaurant.nom, slug: restaurant.slug },
+    await email.envoyerEmailBienvenue(
+      emailNettoye,
+      nomNettoye,
       lienWallet,
       lienAppleWallet
+    );
+
+    res.json({
+      client: {
+        ...nouveauClient,
+        code_parrainage: codePersonnel,
+        lien_parrainage: lienParrainage
+      },
+      restaurant: { nom: restaurant.nom, slug: restaurant.slug },
+      lienWallet,
+      lienAppleWallet,
+      parrainage: invitation
+        ? {
+            statut: 'en_attente_premier_scan',
+            points_filleul: invitation.referee_points
+          }
+        : null
     });
   } catch (erreur) {
     console.error(erreur);
@@ -765,7 +896,13 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
     if (!acces) return;
 
     const { client_id, points_ajoutes } = req.body;
-    const pointsAAjouter = points_ajoutes || 1;
+    const pointsAAjouter = Number.parseInt(points_ajoutes || 1, 10);
+
+    if (!Number.isInteger(pointsAAjouter) || pointsAAjouter < 1 || pointsAAjouter > 100) {
+      return res.status(400).json({
+        erreur: 'Le nombre de points doit être compris entre 1 et 100.'
+      });
+    }
 
     const { data: client, error: erreurLecture } = await supabase
       .from('clients')
@@ -790,7 +927,26 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
 
     if (erreurMaj) throw erreurMaj;
 
-    await supabase.from('scans').insert([{ client_id, points_ajoutes: pointsAAjouter }]);
+    const { data: scan, error: erreurScan } = await supabase
+      .from('scans')
+      .insert([{ client_id, points_ajoutes: pointsAAjouter }])
+      .select('id')
+      .single();
+
+    if (erreurScan) throw erreurScan;
+
+    const parrainageValide = await referral.validerAuPremierScan(
+      client_id,
+      scan.id
+    );
+
+    const { data: clientActualise, error: erreurSolde } = await supabase
+      .from('clients')
+      .select('points')
+      .eq('id', client_id)
+      .single();
+
+    if (erreurSolde) throw erreurSolde;
 
     // Verifie si le client vient d'atteindre le seuil de recompense
     const restaurant = client.restaurants || null;
@@ -799,9 +955,9 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       10
     );
     let recompenseAtteinte = false;
-    let soldeFinal = nouveauSolde;
+    let soldeFinal = Number(clientActualise.points || 0);
 
-    if (client.points < seuil && nouveauSolde >= seuil) {
+    if (soldeFinal >= seuil) {
       recompenseAtteinte = true;
       soldeFinal = 0; // On remet le compteur a zero apres la recompense
 
@@ -818,14 +974,28 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
     }
 
     // On met a jour la carte Google Wallet en temps reel
-    await wallet.mettreAJourPointsWallet({ ...client, points: soldeFinal });
+    const codeClient = await referral.assurerCodeClient(
+      client.id,
+      restaurant.id
+    );
+    const clientPourWallet = {
+      ...client,
+      points: soldeFinal,
+      referral_code: codeClient,
+      referral_link: referral.construireLienParrainage(
+        restaurant.slug,
+        codeClient
+      )
+    };
+
+    await wallet.mettreAJourPointsWallet(clientPourWallet);
 
     // On met aussi a jour la carte Apple Wallet, si le client en a une
     if (client.apple_wallet_serial) {
       try {
         await appleWallet.mettreAJourPasseApple(
           client.apple_wallet_serial,
-          { ...client, points: soldeFinal },
+          clientPourWallet,
           restaurant
         );
       } catch (erreurApple) {
@@ -833,11 +1003,55 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       }
     }
 
+    if (parrainageValide?.sponsor_client_id) {
+      const { data: parrain, error: erreurParrain } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', parrainageValide.sponsor_client_id)
+        .single();
+
+      if (erreurParrain) throw erreurParrain;
+
+      const codeParrain = await referral.assurerCodeClient(
+        parrain.id,
+        restaurant.id
+      );
+      const parrainPourWallet = {
+        ...parrain,
+        points: parrainageValide.sponsor_balance,
+        referral_code: codeParrain,
+        referral_link: referral.construireLienParrainage(
+          restaurant.slug,
+          codeParrain
+        )
+      };
+
+      await wallet.mettreAJourPointsWallet(parrainPourWallet);
+
+      if (parrain.apple_wallet_serial) {
+        try {
+          await appleWallet.mettreAJourPasseApple(
+            parrain.apple_wallet_serial,
+            parrainPourWallet,
+            restaurant
+          );
+        } catch (erreurApple) {
+          console.error(
+            'Erreur mise à jour Apple Wallet du parrain:',
+            erreurApple.message
+          );
+        }
+      }
+    }
+
     res.json({
       succes: true,
       client_nom: client.nom,
       nouveauSolde: soldeFinal,
-      recompenseAtteinte
+      recompenseAtteinte,
+      parrainage_valide: Boolean(parrainageValide),
+      bonus_filleul: Number(parrainageValide?.referee_points_awarded || 0),
+      bonus_parrain: Number(parrainageValide?.sponsor_points_awarded || 0)
     });
   } catch (erreur) {
     console.error(erreur);

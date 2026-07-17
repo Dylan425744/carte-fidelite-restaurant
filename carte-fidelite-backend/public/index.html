@@ -101,6 +101,19 @@
     display: none;
   }
   .resultat.visible { display: block; }
+  .invitation {
+    display: none;
+    margin: 0 0 22px;
+    padding: 15px;
+    border: 1px solid rgba(18,184,134,.35);
+    border-radius: 13px;
+    background: rgba(18,184,134,.1);
+  }
+  .invitation.visible { display: flex; gap: 12px; align-items: flex-start; }
+  .invitation .icone { font-size: 22px; }
+  .invitation strong, .invitation span { display: block; }
+  .invitation strong { font-family: 'Manrope', sans-serif; font-size: 13px; }
+  .invitation span { margin-top: 4px; color: #BFD9D0; font-size: 12px; line-height: 1.45; }
   .lien-wallet {
     display: block;
     text-align: center;
@@ -127,6 +140,33 @@
     display: none;
   }
   .message-erreur.visible { display: block; }
+  .bonus-attente {
+    display: none;
+    margin: 14px 0 4px;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(18,184,134,.1);
+    color: #BFEBDD;
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: center;
+  }
+  .bonus-attente.visible { display: block; }
+  .partage {
+    margin-top: 20px;
+    padding: 18px;
+    border-radius: 14px;
+    background: #1B1030;
+    border: 1px solid #3D2F5C;
+    text-align: center;
+  }
+  .partage small, .partage strong, .partage span { display: block; }
+  .partage small { color: #12B886; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; }
+  .partage strong { margin: 5px 0; font: 800 20px 'Manrope', sans-serif; letter-spacing: 1px; }
+  .partage span { color: #B8ABD0; font-size: 11px; line-height: 1.45; }
+  .actions-partage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 13px; }
+  .actions-partage button { margin: 0; padding: 10px; font-size: 12px; box-shadow: none; }
+  .actions-partage .secondaire { background: #33264D; }
 </style>
 </head>
 <body>
@@ -139,6 +179,11 @@
 <div class="carte">
   <h1 id="titreRestaurant">Bienvenue chez Chez Basile</h1>
   <p class="sous-titre">Créez votre carte de fidélité en quelques secondes</p>
+
+  <div class="invitation" id="invitationParrainage">
+    <span class="icone">🤝</span>
+    <div><strong id="titreInvitation">Une invitation vous attend</strong><span id="texteInvitation"></span></div>
+  </div>
 
   <form id="formulaire">
     <label for="nom">Votre prénom</label>
@@ -161,12 +206,21 @@
     </p>
     <a href="#" id="lienGoogle" class="lien-wallet google" target="_blank">Ajouter à Google Wallet</a>
     <a href="#" id="lienApple" class="lien-wallet apple" target="_blank">Ajouter à Apple Wallet</a>
+    <p class="bonus-attente" id="bonusAttente"></p>
+    <div class="partage" id="partageParrainage">
+      <small>Votre code de parrainage</small>
+      <strong id="codePersonnel">BRV••••••</strong>
+      <span>Partagez votre lien. Vos points seront crédités après le premier passage de votre filleul.</span>
+      <div class="actions-partage"><button type="button" id="copierLien" class="secondaire">Copier le lien</button><button type="button" id="partagerLien">Partager</button></div>
+    </div>
   </div>
 </div>
 
 <script>
 const parametres = new URLSearchParams(window.location.search);
 const restaurantSlug = parametres.get('restaurant') || 'chez-basile';
+const codeParrainage = (parametres.get('ref') || '').trim();
+let lienParrainagePersonnel = '';
 
 async function chargerRestaurant() {
   try {
@@ -177,6 +231,25 @@ async function chargerRestaurant() {
     document.title = `Carte de fidélité - ${donnees.restaurant.nom}`;
   } catch (erreur) {
     document.getElementById('messageErreur').textContent = erreur.message || 'Commerce introuvable.';
+    document.getElementById('messageErreur').classList.add('visible');
+    document.getElementById('bouton').disabled = true;
+  }
+}
+
+async function chargerInvitation() {
+  if (!codeParrainage) return;
+
+  try {
+    const reponse = await fetch(`/api/parrainage/${encodeURIComponent(restaurantSlug)}/${encodeURIComponent(codeParrainage)}`);
+    const donnees = await reponse.json();
+    if (!reponse.ok) throw new Error(donnees.erreur);
+
+    const invitation = donnees.invitation;
+    document.getElementById('titreInvitation').textContent = `${invitation.parrain} vous invite chez ${invitation.restaurant}`;
+    document.getElementById('texteInvitation').textContent = `Vous recevrez ${invitation.points_filleul} points après votre premier passage. Votre parrain recevra ${invitation.points_parrain} points.`;
+    document.getElementById('invitationParrainage').classList.add('visible');
+  } catch (erreur) {
+    document.getElementById('messageErreur').textContent = erreur.message || 'Invitation invalide.';
     document.getElementById('messageErreur').classList.add('visible');
     document.getElementById('bouton').disabled = true;
   }
@@ -202,7 +275,13 @@ document.getElementById('formulaire').addEventListener('submit', async function(
     const reponse = await fetch('/api/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nom, email, telephone, restaurant_slug: restaurantSlug })
+      body: JSON.stringify({
+        nom,
+        email,
+        telephone,
+        restaurant_slug: restaurantSlug,
+        ...(codeParrainage ? { code_parrainage: codeParrainage } : {})
+      })
     });
 
     const donnees = await reponse.json();
@@ -220,6 +299,15 @@ document.getElementById('formulaire').addEventListener('submit', async function(
       document.getElementById('lienApple').style.display = 'none';
     }
 
+    document.getElementById('codePersonnel').textContent = donnees.client.code_parrainage;
+    lienParrainagePersonnel = donnees.client.lien_parrainage;
+
+    if (donnees.parrainage) {
+      const bonus = document.getElementById('bonusAttente');
+      bonus.textContent = `${donnees.parrainage.points_filleul} points vous attendent. Ils seront ajoutés lors de votre premier passage scanné.`;
+      bonus.classList.add('visible');
+    }
+
     resultat.classList.add('visible');
     document.getElementById('formulaire').style.display = 'none';
 
@@ -231,7 +319,31 @@ document.getElementById('formulaire').addEventListener('submit', async function(
   }
 });
 
+document.getElementById('copierLien').addEventListener('click', async () => {
+  if (!lienParrainagePersonnel) return;
+  try {
+    await navigator.clipboard.writeText(lienParrainagePersonnel);
+    document.getElementById('copierLien').textContent = 'Lien copié ✓';
+  } catch {
+    window.prompt('Copiez votre lien de parrainage :', lienParrainagePersonnel);
+  }
+});
+
+document.getElementById('partagerLien').addEventListener('click', async () => {
+  if (!lienParrainagePersonnel) return;
+  if (navigator.share) {
+    await navigator.share({
+      title: 'Ma carte Bravocard',
+      text: 'Rejoins-moi et gagne tes premiers points de fidélité !',
+      url: lienParrainagePersonnel
+    });
+  } else {
+    document.getElementById('copierLien').click();
+  }
+});
+
 chargerRestaurant();
+chargerInvitation();
 </script>
 
 </body>

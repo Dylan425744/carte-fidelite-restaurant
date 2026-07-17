@@ -16,7 +16,7 @@ function getObjectId(clientId) {
 }
 
 function construireObjetFidelite(client) {
-  return {
+  const objet = {
     id: getObjectId(client.id),
     classId: getClassId(),
     state: 'ACTIVE',
@@ -36,6 +36,18 @@ function construireObjetFidelite(client) {
       { id: 'type_carte', header: 'CARTE', body: 'FIDÉLITÉ' }
     ]
   };
+
+  if (client.referral_link) {
+    objet.linksModuleData = {
+      uris: [{
+        id: 'parrainage',
+        uri: client.referral_link,
+        description: 'Parrainer un proche'
+      }]
+    };
+  }
+
+  return objet;
 }
 
 // A appeler UNE SEULE FOIS pour configurer la disposition personnalisee
@@ -131,14 +143,15 @@ async function mettreAJourPointsWallet(client) {
   const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${objectId}`;
 
   try {
+    const objetActualise = construireObjetFidelite(client);
     await client_auth.request({
       url,
       method: 'PATCH',
       data: {
-        loyaltyPoints: {
-          label: 'Points',
-          balance: { int: client.points }
-        }
+        loyaltyPoints: objetActualise.loyaltyPoints,
+        ...(objetActualise.linksModuleData
+          ? { linksModuleData: objetActualise.linksModuleData }
+          : {})
       }
     });
     return true;

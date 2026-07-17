@@ -83,7 +83,7 @@ function ouvrirVue(nom) {
   document.querySelector(`.navigation[data-vue="${nom}"]`)?.classList.add('active');
   $('#titreVue').textContent = {
     accueil: 'Vue d’ensemble', scanner: 'Scanner une carte', clients: 'Mes clients',
-    notifications: 'Notifications', design: 'Design Wallet'
+    parrainage: 'Parrainage', notifications: 'Notifications', design: 'Design Wallet'
   }[nom];
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -146,9 +146,12 @@ async function traiterCodeScanne(code) {
     const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/scan`, {
       method: 'POST', body: JSON.stringify({ client_id: code })
     });
-    const contenu = donnees.recompenseAtteinte
+    let contenu = donnees.recompenseAtteinte
       ? '<div class="solde-scan">Récompense !</div><p>Le compteur a été remis à zéro.</p>'
       : `<div class="solde-scan">${Number(donnees.nouveauSolde)} points</div><p>Nouveau solde de ${echapper(donnees.client_nom)}.</p>`;
+    if (donnees.parrainage_valide) {
+      contenu += `<div class="info-envoi"><span>✓</span><p>Parrainage validé : ${Number(donnees.bonus_filleul)} points pour le filleul et ${Number(donnees.bonus_parrain)} points pour le parrain.</p></div>`;
+    }
     afficherResultatScan('succes', 'Point ajouté', contenu);
     await actualiserTableau(true);
   } catch (erreur) {
@@ -176,7 +179,7 @@ async function connecter() {
     remplirDesign();
     afficherTableau();
     const vueDemandee = window.location.hash.replace('#', '');
-    if (['scanner', 'clients', 'notifications', 'design'].includes(vueDemandee)) {
+    if (['scanner', 'clients', 'parrainage', 'notifications', 'design'].includes(vueDemandee)) {
       ouvrirVue(vueDemandee);
     }
   } catch (erreur) {
@@ -209,12 +212,72 @@ function afficherTableau() {
   afficherHistorique();
   afficherDerniereCampagne();
   remplirClientsTest();
+  afficherParrainage();
 
   const enCours = donneesTableau.notification_en_cours ||
     donneesTableau.notifications.some(campagne => campagne.statut === 'en_cours');
   $('#envoyerNotification').disabled = enCours || stats.campagnes_24h >= 3;
   $('#envoyerTest').disabled = enCours || stats.campagnes_24h >= 3 || !$('#clientTest').value;
   if (enCours) programmerActualisationCampagne();
+}
+
+function libelleStatutParrainage(statut) {
+  return {
+    pending: 'En attente',
+    validated: 'Validé',
+    rejected: 'Refusé'
+  }[statut] || statut;
+}
+
+function afficherParrainage() {
+  const parrainage = donneesTableau.parrainage;
+  if (!parrainage) return;
+
+  const stats = parrainage.statistiques;
+  const reglages = parrainage.reglages;
+  $('#statFilleuls').textContent = stats.clients_acquis;
+  $('#statParrainagesAttente').textContent = stats.en_attente;
+  $('#statPointsParrainage').textContent = stats.points_distribues;
+  $('#statAmbassadeurs').textContent = stats.codes_actifs;
+  $('#parrainageActif').checked = reglages.enabled;
+  $('#pointsParrain').value = reglages.sponsor_points;
+  $('#pointsFilleul').value = reglages.referee_points;
+
+  const invitations = parrainage.invitations;
+  $('#resumeParrainage').textContent = `${invitations.length} invitation${invitations.length > 1 ? 's' : ''}`;
+  $('#tableParrainages').innerHTML = invitations.map(invitation => `
+    <tr>
+      <td><div class="client-cell"><span class="avatar-client">${echapper(initiales(invitation.parrain))}</span><strong>${echapper(invitation.parrain)}</strong></div></td>
+      <td><strong>${echapper(invitation.filleul)}</strong></td>
+      <td><span class="code-parrainage">${echapper(invitation.code)}</span></td>
+      <td>${formaterDate(invitation.validated_at || invitation.created_at, Boolean(invitation.validated_at))}</td>
+      <td>${invitation.statut === 'validated' ? `+${Number(invitation.points_parrain)} / +${Number(invitation.points_filleul)} pts` : 'Après le premier scan'}</td>
+      <td><span class="statut ${echapper(invitation.statut)}">${echapper(libelleStatutParrainage(invitation.statut))}</span></td>
+    </tr>`).join('');
+  $('#aucunParrainage').style.display = invitations.length ? 'none' : 'block';
+}
+
+async function enregistrerParrainage() {
+  const bouton = $('#enregistrerParrainage');
+  bouton.disabled = true;
+  afficherMessage($('#messageParrainage'), 'Enregistrement...');
+
+  try {
+    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/parrainage`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        enabled: $('#parrainageActif').checked,
+        sponsor_points: Number($('#pointsParrain').value),
+        referee_points: Number($('#pointsFilleul').value)
+      })
+    });
+    donneesTableau.parrainage.reglages = donnees.reglages;
+    afficherMessage($('#messageParrainage'), 'Programme enregistré.', 'succes');
+  } catch (erreur) {
+    afficherMessage($('#messageParrainage'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
 }
 
 function afficherClients(clients) {
@@ -469,6 +532,7 @@ $('#actualiserCampagnes').addEventListener('click', () => actualiserTableau());
 $('#demarrerScanner').addEventListener('click', demarrerScanner);
 $('#relancerScanner').addEventListener('click', demarrerScanner);
 $('#enregistrerDesign').addEventListener('click', enregistrerDesign);
+$('#enregistrerParrainage').addEventListener('click', enregistrerParrainage);
 document.querySelectorAll('.editeur-design input').forEach(input => input.addEventListener('input', actualiserApercuWallet));
 $('#logoFile').addEventListener('change', evenement => lireFichier(evenement.target, 'logoUrl'));
 $('#stripFile').addEventListener('change', evenement => lireFichier(evenement.target, 'stripUrl'));
