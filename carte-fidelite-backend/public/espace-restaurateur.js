@@ -235,6 +235,7 @@ function afficherParrainage() {
 
   const stats = parrainage.statistiques;
   const reglages = parrainage.reglages;
+  const indisponible = Boolean(parrainage.indisponible);
   $('#statFilleuls').textContent = stats.clients_acquis;
   $('#statParrainagesAttente').textContent = stats.en_attente;
   $('#statPointsParrainage').textContent = stats.points_distribues;
@@ -242,6 +243,17 @@ function afficherParrainage() {
   $('#parrainageActif').checked = reglages.enabled;
   $('#pointsParrain').value = reglages.sponsor_points;
   $('#pointsFilleul').value = reglages.referee_points;
+  $('#parrainageActif').disabled = indisponible;
+  $('#pointsParrain').disabled = indisponible;
+  $('#pointsFilleul').disabled = indisponible;
+  $('#enregistrerParrainage').disabled = indisponible;
+  if (indisponible) {
+    afficherMessage(
+      $('#messageParrainage'),
+      'Activation serveur en cours. Les autres fonctions restent disponibles.',
+      'erreur'
+    );
+  }
 
   const invitations = parrainage.invitations;
   $('#resumeParrainage').textContent = `${invitations.length} invitation${invitations.length > 1 ? 's' : ''}`;

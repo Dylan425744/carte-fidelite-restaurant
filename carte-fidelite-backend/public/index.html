@@ -299,8 +299,13 @@ document.getElementById('formulaire').addEventListener('submit', async function(
       document.getElementById('lienApple').style.display = 'none';
     }
 
-    document.getElementById('codePersonnel').textContent = donnees.client.code_parrainage;
     lienParrainagePersonnel = donnees.client.lien_parrainage;
+    if (lienParrainagePersonnel) {
+      document.getElementById('codePersonnel').textContent = donnees.client.code_parrainage;
+      document.getElementById('partageParrainage').style.display = 'block';
+    } else {
+      document.getElementById('partageParrainage').style.display = 'none';
+    }
 
     if (donnees.parrainage) {
       const bonus = document.getElementById('bonusAttente');

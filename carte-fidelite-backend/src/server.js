@@ -825,8 +825,15 @@ app.post('/api/clients', async (req, res) => {
         invitation
       );
     } catch (erreurParrainage) {
-      await supabase.from('clients').delete().eq('id', nouveauClient.id);
-      throw erreurParrainage;
+      if (referral.estErreurPermission(erreurParrainage) && !invitation) {
+        codePersonnel = null;
+        console.warn(
+          'Parrainage désactivé : configurez une clé Supabase service_role sur le backend.'
+        );
+      } else {
+        await supabase.from('clients').delete().eq('id', nouveauClient.id);
+        throw erreurParrainage;
+      }
     }
 
     const lienParrainage = referral.construireLienParrainage(
@@ -935,10 +942,14 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
 
     if (erreurScan) throw erreurScan;
 
-    const parrainageValide = await referral.validerAuPremierScan(
-      client_id,
-      scan.id
-    );
+    let parrainageValide = null;
+    try {
+      parrainageValide = await referral.validerAuPremierScan(client_id, scan.id);
+    } catch (erreurParrainage) {
+      if (!referral.estErreurPermission(erreurParrainage)) {
+        throw erreurParrainage;
+      }
+    }
 
     const { data: clientActualise, error: erreurSolde } = await supabase
       .from('clients')
@@ -974,10 +985,14 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
     }
 
     // On met a jour la carte Google Wallet en temps reel
-    const codeClient = await referral.assurerCodeClient(
-      client.id,
-      restaurant.id
-    );
+    let codeClient = null;
+    try {
+      codeClient = await referral.assurerCodeClient(client.id, restaurant.id);
+    } catch (erreurParrainage) {
+      if (!referral.estErreurPermission(erreurParrainage)) {
+        throw erreurParrainage;
+      }
+    }
     const clientPourWallet = {
       ...client,
       points: soldeFinal,

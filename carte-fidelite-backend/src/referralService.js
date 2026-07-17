@@ -8,6 +8,10 @@ const REGLAGES_PAR_DEFAUT = Object.freeze({
   referee_points: 20
 });
 
+function estErreurPermission(erreur) {
+  return erreur?.code === '42501' || /permission denied/i.test(erreur?.message || '');
+}
+
 function normaliserCode(code) {
   return String(code || '')
     .toUpperCase()
@@ -191,21 +195,42 @@ async function validerAuPremierScan(filleulId, scanId) {
 }
 
 async function obtenirTableauParrainage(restaurantId) {
-  const [reglages, codes, parrainages] = await Promise.all([
-    obtenirReglages(restaurantId),
-    supabase
-      .from('referral_codes')
-      .select('client_id', { count: 'exact', head: true })
-      .eq('restaurant_id', restaurantId),
-    supabase
-      .from('referrals')
-      .select(
-        'id, status, referral_code, sponsor_points_awarded, referee_points_awarded, created_at, validated_at, parrain:clients!referrals_sponsor_client_id_fkey(id, nom), filleul:clients!referrals_referred_client_id_fkey(id, nom)'
-      )
-      .eq('restaurant_id', restaurantId)
-      .order('created_at', { ascending: false })
-      .limit(50)
-  ]);
+  let reglages;
+  let codes;
+  let parrainages;
+
+  try {
+    [reglages, codes, parrainages] = await Promise.all([
+      obtenirReglages(restaurantId),
+      supabase
+        .from('referral_codes')
+        .select('client_id', { count: 'exact', head: true })
+        .eq('restaurant_id', restaurantId),
+      supabase
+        .from('referrals')
+        .select(
+          'id, status, referral_code, sponsor_points_awarded, referee_points_awarded, created_at, validated_at, parrain:clients!referrals_sponsor_client_id_fkey(id, nom), filleul:clients!referrals_referred_client_id_fkey(id, nom)'
+        )
+        .eq('restaurant_id', restaurantId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+    ]);
+  } catch (erreur) {
+    if (!estErreurPermission(erreur)) throw erreur;
+
+    return {
+      indisponible: true,
+      reglages: { restaurant_id: restaurantId, ...REGLAGES_PAR_DEFAUT },
+      statistiques: {
+        codes_actifs: 0,
+        en_attente: 0,
+        valides: 0,
+        clients_acquis: 0,
+        points_distribues: 0
+      },
+      invitations: []
+    };
+  }
 
   if (codes.error) throw codes.error;
   if (parrainages.error) throw parrainages.error;
@@ -245,6 +270,7 @@ module.exports = {
   construireLienParrainage,
   enregistrerInvitation,
   enregistrerReglages,
+  estErreurPermission,
   obtenirInvitation,
   obtenirReglages,
   obtenirTableauParrainage,
