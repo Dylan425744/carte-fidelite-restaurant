@@ -386,6 +386,9 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
     if (!acces) return;
 
     const notification = validerNotification(req.body);
+    const clientTestId = req.body.client_id_test
+      ? String(req.body.client_id_test).trim()
+      : null;
     const historique = obtenirHistoriqueNotifications(acces.restaurant);
     const maintenant = new Date();
     const campagnes24h = historique.filter(campagne => {
@@ -404,7 +407,7 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
     }
 
     const derniereDate = new Date(
-      acces.restaurant.last_notification_sent_at || 0
+      historique[0]?.created_at || acces.restaurant.last_notification_sent_at || 0
     ).getTime();
     const envoiBloque =
       acces.restaurant.notification_sending &&
@@ -424,12 +427,15 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
 
     if (erreurClients) throw erreurClients;
 
-    const clientsEligibles = clients.filter(client => {
+    const clientsPlateforme = clients.filter(client => {
       if (notification.plateforme === 'apple') {
         return Boolean(client.apple_wallet_serial);
       }
       return true;
     });
+    const clientsEligibles = clientTestId
+      ? clientsPlateforme.filter(client => client.id === clientTestId)
+      : clientsPlateforme;
 
     if (clientsEligibles.length === 0) {
       return res.status(400).json({
@@ -450,19 +456,27 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
       google_echecs: 0,
       created_at: maintenant.toISOString(),
       completed_at: null,
-      creee_par_admin: acces.administrateur
+      creee_par_admin: acces.administrateur,
+      test: Boolean(clientTestId)
     };
     const nouvelHistorique = [campagne, ...historique].slice(0, 50);
 
+    const miseAJourRestaurant = {
+      notification_history: nouvelHistorique,
+      notification_sending: true
+    };
+
+    // Un test ne doit pas devenir le dernier message officiel du commerce,
+    // sinon les autres cartes le recevraient lors d'une future mise à jour.
+    if (!clientTestId) {
+      miseAJourRestaurant.last_notification_title = campagne.titre;
+      miseAJourRestaurant.last_notification_message = campagne.message;
+      miseAJourRestaurant.last_notification_sent_at = campagne.created_at;
+    }
+
     const { data: restaurantMisAJour, error: erreurMiseAJour } = await supabase
       .from('restaurants')
-      .update({
-        last_notification_title: campagne.titre,
-        last_notification_message: campagne.message,
-        last_notification_sent_at: campagne.created_at,
-        notification_history: nouvelHistorique,
-        notification_sending: true
-      })
+      .update(miseAJourRestaurant)
       .eq('id', acces.restaurant.id)
       .select(CHAMPS_RESTAURANT)
       .single();
@@ -471,10 +485,19 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
 
     // La réponse part immédiatement. Le serveur poursuit les envois par lots
     // et l'interface actualise ensuite l'historique automatiquement.
+    const restaurantPourEnvoi = clientTestId
+      ? {
+          ...restaurantMisAJour,
+          last_notification_title: campagne.titre,
+          last_notification_message: campagne.message,
+          last_notification_sent_at: campagne.created_at
+        }
+      : restaurantMisAJour;
+
     void traiterCampagneWallet(
       campagne,
       clientsEligibles,
-      restaurantMisAJour
+      restaurantPourEnvoi
     );
 
     res.status(202).json({

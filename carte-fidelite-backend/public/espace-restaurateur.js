@@ -208,10 +208,12 @@ function afficherTableau() {
   afficherDerniersClients();
   afficherHistorique();
   afficherDerniereCampagne();
+  remplirClientsTest();
 
   const enCours = donneesTableau.notification_en_cours ||
     donneesTableau.notifications.some(campagne => campagne.statut === 'en_cours');
   $('#envoyerNotification').disabled = enCours || stats.campagnes_24h >= 3;
+  $('#envoyerTest').disabled = enCours || stats.campagnes_24h >= 3 || !$('#clientTest').value;
   if (enCours) programmerActualisationCampagne();
 }
 
@@ -253,7 +255,8 @@ function afficherHistorique() {
   $('#historiqueNotifications').innerHTML = campagnes.length
     ? campagnes.map(campagne => {
         const reussies = Number(campagne.apple_reussies || 0) + Number(campagne.google_reussies || 0);
-        return `<div class="campagne-ligne"><div><strong>${echapper(campagne.titre)}</strong><span>${formaterDate(campagne.created_at, true)}</span></div><div><strong>${echapper(campagne.message)}</strong><span>${echapper(nomPlateforme(campagne.plateforme))}</span></div><div><strong>${reussies}</strong><span>cartes mises à jour</span></div><span class="statut ${echapper(campagne.statut)}">${echapper(campagne.statut.replace('_', ' '))}</span></div>`;
+        const typeCampagne = campagne.test ? `Test · ${nomPlateforme(campagne.plateforme)}` : nomPlateforme(campagne.plateforme);
+        return `<div class="campagne-ligne"><div><strong>${echapper(campagne.titre)}</strong><span>${formaterDate(campagne.created_at, true)}</span></div><div><strong>${echapper(campagne.message)}</strong><span>${echapper(typeCampagne)}</span></div><div><strong>${reussies}</strong><span>cartes mises à jour</span></div><span class="statut ${echapper(campagne.statut)}">${echapper(campagne.statut.replace('_', ' '))}</span></div>`;
       }).join('')
     : '<div class="campagne-vide">Votre historique de notifications apparaîtra ici.</div>';
 }
@@ -278,7 +281,20 @@ function programmerActualisationCampagne() {
   }, 4000);
 }
 
-async function envoyerNotification() {
+function remplirClientsTest() {
+  const plateforme = document.querySelector('[name="plateforme"]:checked')?.value || 'toutes';
+  const clients = donneesTableau.clients.filter(client =>
+    plateforme !== 'apple' || client.apple_wallet
+  );
+  const ancienneValeur = $('#clientTest').value;
+  $('#clientTest').innerHTML = clients.map(client =>
+    `<option value="${echapper(client.id)}">${echapper(client.nom)}${client.apple_wallet ? ' · Apple' : ' · Google'}</option>`
+  ).join('');
+  if (clients.some(client => client.id === ancienneValeur)) $('#clientTest').value = ancienneValeur;
+  $('#envoyerTest').disabled = !clients.length;
+}
+
+async function envoyerNotification(estTest = false) {
   const titre = $('#titreNotification').value.trim();
   const message = $('#messageNotification').value.trim();
   const plateforme = document.querySelector('[name="plateforme"]:checked').value;
@@ -286,22 +302,37 @@ async function envoyerNotification() {
     afficherMessage($('#messageEnvoi'), 'Ajoutez un titre et un message.', 'erreur');
     return;
   }
-  const destinatairesEstimes = plateforme === 'apple'
+  const destinatairesEstimes = estTest ? 1 : plateforme === 'apple'
     ? donneesTableau.statistiques.cartes_apple
     : donneesTableau.statistiques.clients;
-  if (!window.confirm(`Envoyer cette notification aux ${destinatairesEstimes} clients concernés ?`)) return;
+  const confirmation = estTest
+    ? `Envoyer ce test uniquement à ${$('#clientTest').selectedOptions[0]?.textContent || 'la carte choisie'} ?`
+    : `Envoyer cette notification aux ${destinatairesEstimes} clients concernés ?`;
+  if (!window.confirm(confirmation)) return;
 
-  const bouton = $('#envoyerNotification');
+  const bouton = estTest ? $('#envoyerTest') : $('#envoyerNotification');
   bouton.disabled = true;
   afficherMessage($('#messageEnvoi'), 'Démarrage de la campagne...');
   try {
     await api(`/api/restaurateur/${encodeURIComponent(slug)}/notifications`, {
-      method: 'POST', body: JSON.stringify({ titre, message, plateforme })
+      method: 'POST',
+      body: JSON.stringify({
+        titre,
+        message,
+        plateforme,
+        ...(estTest ? { client_id_test: $('#clientTest').value } : {})
+      })
     });
-    afficherMessage($('#messageEnvoi'), 'Envoi en cours. Vous pouvez suivre sa progression ci-dessous.', 'succes');
-    $('#titreNotification').value = '';
-    $('#messageNotification').value = '';
-    actualiserApercuNotification();
+    afficherMessage(
+      $('#messageEnvoi'),
+      estTest ? 'Test en cours sur la carte sélectionnée.' : 'Envoi en cours. Vous pouvez suivre sa progression ci-dessous.',
+      'succes'
+    );
+    if (!estTest) {
+      $('#titreNotification').value = '';
+      $('#messageNotification').value = '';
+      actualiserApercuNotification();
+    }
     await actualiserTableau(true);
     programmerActualisationCampagne();
   } catch (erreur) {
@@ -387,7 +418,9 @@ document.querySelectorAll('[data-ouvrir-vue]').forEach(bouton => bouton.addEvent
 $('#rechercheClients').addEventListener('input', () => afficherClients(donneesTableau.clients));
 $('#messageNotification').addEventListener('input', actualiserApercuNotification);
 $('#titreNotification').addEventListener('input', actualiserApercuNotification);
-$('#envoyerNotification').addEventListener('click', envoyerNotification);
+$('#envoyerNotification').addEventListener('click', () => envoyerNotification(false));
+$('#envoyerTest').addEventListener('click', () => envoyerNotification(true));
+document.querySelectorAll('[name="plateforme"]').forEach(input => input.addEventListener('change', remplirClientsTest));
 $('#actualiserCampagnes').addEventListener('click', () => actualiserTableau());
 $('#demarrerScanner').addEventListener('click', demarrerScanner);
 $('#relancerScanner').addEventListener('click', demarrerScanner);
