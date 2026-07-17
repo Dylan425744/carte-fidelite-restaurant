@@ -191,6 +191,12 @@ async function creerObjetWallet(client) {
   }
 }
 
+async function synchroniserObjetWallet(client) {
+  const misAJour = await mettreAJourPointsWallet(client);
+  if (misAJour) return true;
+  return creerObjetWallet(client);
+}
+
 // Ajoute un message à la carte Google Wallet et demande à Google
 // d'afficher une vraie notification sur le téléphone du détenteur.
 async function envoyerNotificationWallet(client, titre, message, campagneId) {
@@ -227,6 +233,7 @@ module.exports = {
   creerLienGoogleWallet,
   mettreAJourPointsWallet,
   creerObjetWallet,
+  synchroniserObjetWallet,
   configurerModeleCarte,
   envoyerNotificationWallet
 };

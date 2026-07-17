@@ -480,7 +480,7 @@ app.post('/api/restaurateur/:slug/cartes/actualiser', async (req, res) => {
           )
         };
 
-        const googleMisAJour = await wallet.mettreAJourPointsWallet(clientWallet);
+        const googleMisAJour = await wallet.synchroniserObjetWallet(clientWallet);
         if (googleMisAJour) bilan.google_reussies += 1;
         else bilan.google_echecs += 1;
 
@@ -1150,7 +1150,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       )
     };
 
-    await wallet.mettreAJourPointsWallet(clientPourWallet);
+    await wallet.synchroniserObjetWallet(clientPourWallet);
 
     // On met aussi a jour la carte Apple Wallet, si le client en a une
     if (client.apple_wallet_serial) {
