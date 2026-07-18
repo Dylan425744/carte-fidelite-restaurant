@@ -125,6 +125,8 @@ function ouvrirVue(nom) {
 
 function afficherOffreDemandee() {
   const zone = $('#offreSelectionnee');
+  const lienCreation = $('#creerComptePaiement');
+  if (lienCreation) lienCreation.href = `/inscription.html?plan=${planDemande || 'pro'}`;
   if (!zone || !planDemande || modeAdmin) return;
   zone.classList.add('visible');
   $('#nomOffreSelectionnee').textContent = offres[planDemande].nom;
