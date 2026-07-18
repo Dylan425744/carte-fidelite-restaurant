@@ -1,0 +1,8 @@
+[build]
+  publish = "carte-fidelite-backend/public"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://carte-fidelite-restaurant.onrender.com/api/:splat"
+  status = 200
+  force = true
