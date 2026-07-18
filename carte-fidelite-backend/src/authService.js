@@ -23,6 +23,7 @@ const PERMISSIONS_PAR_ROLE = {
 const COOKIE_ACCES = 'bravocard_access';
 const COOKIE_REFRESH = 'bravocard_refresh';
 const STATUTS_ABONNEMENT_ACTIFS = ['active', 'trialing'];
+const DELAI_GRACE_IMPAYE_JOURS = 7;
 
 function creerClientAuth() {
   const cle = process.env.SUPABASE_PUBLISHABLE_KEY ||
@@ -134,6 +135,16 @@ function abonnementActif(profil) {
   return Boolean(STATUTS_ABONNEMENT_ACTIFS.includes(profil?.stripe_subscription_status));
 }
 
+function accesFacturationRestaurant(restaurant) {
+  const statut = String(restaurant?.billing_status || 'inactive');
+  if (STATUTS_ABONNEMENT_ACTIFS.includes(statut)) return true;
+  if (statut !== 'past_due') return false;
+  const echeance = restaurant?.billing_current_period_end
+    ? new Date(restaurant.billing_current_period_end).getTime()
+    : 0;
+  return echeance + DELAI_GRACE_IMPAYE_JOURS * 24 * 60 * 60 * 1000 > Date.now();
+}
+
 function limiteEtablissements(profil) {
   if (!abonnementActif(profil)) return LIMITES_ETABLISSEMENTS_PAR_PLAN.starter;
   return LIMITES_ETABLISSEMENTS_PAR_PLAN[profil?.subscription_plan] || LIMITES_ETABLISSEMENTS_PAR_PLAN.starter;
@@ -208,7 +219,8 @@ async function obtenirContexteUtilisateur(req) {
   if (profil.is_super_admin) {
     const { data, error } = await supabase
       .from('restaurants')
-      .select('id, nom, slug, actif')
+      .select('id, nom, slug, actif, deleted_at, billing_status, billing_locked_at, billing_current_period_end')
+      .is('deleted_at', null)
       .order('nom');
     if (error) throw error;
     etablissements = (data || []).map(restaurant => ({
@@ -219,17 +231,20 @@ async function obtenirContexteUtilisateur(req) {
   } else {
     const { data, error } = await supabase
       .from('restaurant_memberships')
-      .select('restaurant_id, role, active, created_at, restaurants(id, nom, slug, actif)')
+      .select('restaurant_id, role, active, created_at, restaurants(id, nom, slug, actif, deleted_at, billing_status, billing_locked_at, billing_current_period_end)')
       .eq('user_id', utilisateur.id)
       .eq('active', true)
       .order('created_at');
     if (error) throw error;
     const tousLesEtablissements = (data || [])
-      .filter(entree => entree.restaurants)
+      .filter(entree => entree.restaurants && !entree.restaurants.deleted_at)
       .map(entree => ({
         ...entree.restaurants,
         role: entree.role,
-        permissions: permissionsPourRole(entree.role),
+        billing_locked: !accesFacturationRestaurant(entree.restaurants),
+        permissions: accesFacturationRestaurant(entree.restaurants)
+          ? permissionsPourRole(entree.role)
+          : [],
         membership_created_at: entree.created_at
       }))
       .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
@@ -329,6 +344,9 @@ async function accesEtablissement(req, restaurant, permission) {
     entree => entree.id === restaurant.id && entree.actif !== false
   );
   if (!etablissement) return null;
+  if (!contexte.profil.is_super_admin && etablissement.billing_locked) {
+    return { abonnementBloque: true, contexte, etablissement };
+  }
   if (permission && !possedePermission(contexte, etablissement.role, permission)) {
     return { interdit: true, contexte, etablissement };
   }
@@ -362,7 +380,7 @@ async function creerOuAssocierUtilisateur({
 
   let { data: profil, error: erreurProfil } = await supabase
     .from('user_profiles')
-    .select('user_id, email, full_name, is_super_admin')
+    .select('user_id, email, full_name, is_super_admin, subscription_plan, stripe_subscription_status, subscription_current_period_end')
     .eq('email', emailNormalise)
     .maybeSingle();
   if (erreurProfil) throw erreurProfil;
@@ -391,7 +409,7 @@ async function creerOuAssocierUtilisateur({
         full_name: nomNormalise,
         is_super_admin: superAdmin
       })
-      .select('user_id, email, full_name, is_super_admin')
+      .select('user_id, email, full_name, is_super_admin, subscription_plan, stripe_subscription_status, subscription_current_period_end')
       .single();
     if (erreurNouveauProfil) {
       await supabase.auth.admin.deleteUser(creation.user.id);
@@ -428,6 +446,22 @@ async function creerOuAssocierUtilisateur({
       throw error;
     }
     appartenance = data;
+
+    if (role === 'owner') {
+      const statut = profil.stripe_subscription_status || 'inactive';
+      const ouvert = STATUTS_ABONNEMENT_ACTIFS.includes(statut);
+      const { error: erreurFacturation } = await supabase
+        .from('restaurants')
+        .update({
+          billing_owner_user_id: profil.user_id,
+          billing_status: statut,
+          billing_current_period_end: profil.subscription_current_period_end || null,
+          billing_locked_at: ouvert ? null : new Date().toISOString(),
+          billing_updated_at: new Date().toISOString()
+        })
+        .eq('id', restaurantId);
+      if (erreurFacturation) throw erreurFacturation;
+    }
   }
 
   return {
@@ -521,7 +555,11 @@ async function inscrireProprietaire({
         nom: nomRestaurant,
         slug: slugDisponible,
         design_access_token_hash: designRestaurant.hacherCodeAcces(codeAcces),
-        apple_pro_design: plan === 'premium'
+        apple_pro_design: plan === 'premium',
+        billing_owner_user_id: creation.user.id,
+        billing_status: 'incomplete',
+        billing_locked_at: new Date().toISOString(),
+        billing_updated_at: new Date().toISOString()
       })
       .select('id, nom, slug')
       .single();
@@ -618,6 +656,7 @@ module.exports = {
   permissionsPourRole,
   abonnementPremiumActif,
   abonnementActif,
+  accesFacturationRestaurant,
   limiteEtablissements,
   possedePermission,
   connexion,

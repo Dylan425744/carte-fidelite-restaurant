@@ -116,30 +116,75 @@ async function creerPortail(profil, urlBase) {
   return session.url;
 }
 
+async function trouverProfilAbonnement(customerId, userId) {
+  let requete = supabase.from('user_profiles').select('user_id');
+  requete = customerId
+    ? requete.eq('stripe_customer_id', customerId)
+    : requete.eq('user_id', userId);
+  const { data, error } = await requete.maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('Aucun compte Bravocard ne correspond à cet abonnement Stripe.');
+  return data;
+}
+
+function abonnementDonneAcces(statut, echeance) {
+  if (['active', 'trialing'].includes(statut)) return true;
+  if (statut !== 'past_due' || !echeance) return false;
+  return new Date(echeance).getTime() + 7 * 24 * 60 * 60 * 1000 > Date.now();
+}
+
+async function synchroniserRestaurantsDuProprietaire(userId, miseAJour) {
+  const { data: appartenances, error } = await supabase
+    .from('restaurant_memberships')
+    .select('restaurant_id')
+    .eq('user_id', userId)
+    .eq('role', 'owner')
+    .eq('active', true);
+  if (error) throw error;
+  const restaurantIds = (appartenances || []).map(entree => entree.restaurant_id);
+  if (!restaurantIds.length) return;
+
+  const accesActif = abonnementDonneAcces(
+    miseAJour.stripe_subscription_status,
+    miseAJour.subscription_current_period_end
+  );
+  const { error: erreurRestaurants } = await supabase
+    .from('restaurants')
+    .update({
+      billing_owner_user_id: userId,
+      billing_status: miseAJour.stripe_subscription_status,
+      billing_current_period_end: miseAJour.subscription_current_period_end,
+      billing_locked_at: accesActif ? null : new Date().toISOString(),
+      billing_updated_at: new Date().toISOString(),
+      apple_pro_design: miseAJour.subscription_plan === 'premium'
+    })
+    .in('id', restaurantIds);
+  if (erreurRestaurants) throw erreurRestaurants;
+}
+
 async function mettreAJourAbonnement(abonnement) {
   const customerId = identifiant(abonnement.customer);
+  const userIdMetadata = abonnement.metadata?.bravocard_user_id || null;
+  if (!customerId && !userIdMetadata) {
+    throw new Error('Abonnement Stripe impossible à associer à un compte Bravocard.');
+  }
   const item = abonnement.items?.data?.[0] || null;
   const priceId = item?.price?.id || null;
-  const plan = planDepuisPrix(priceId);
   const miseAJour = {
     stripe_subscription_id: abonnement.id,
     stripe_subscription_status: abonnement.status || 'inactive',
     stripe_price_id: priceId,
-    subscription_plan: plan,
+    subscription_plan: planDepuisPrix(priceId),
     subscription_current_period_end: dateDepuisSecondes(item?.current_period_end),
     subscription_updated_at: new Date().toISOString()
   };
-
-  let requete = supabase.from('user_profiles').update(miseAJour);
-  if (customerId) {
-    requete = requete.eq('stripe_customer_id', customerId);
-  } else if (abonnement.metadata?.bravocard_user_id) {
-    requete = requete.eq('user_id', abonnement.metadata.bravocard_user_id);
-  } else {
-    throw new Error('Abonnement Stripe impossible à associer à un compte Bravocard.');
-  }
-  const { error } = await requete;
+  const profil = await trouverProfilAbonnement(customerId, userIdMetadata);
+  const { error } = await supabase
+    .from('user_profiles')
+    .update(miseAJour)
+    .eq('user_id', profil.user_id);
   if (error) throw error;
+  await synchroniserRestaurantsDuProprietaire(profil.user_id, miseAJour);
 }
 
 async function traiterWebhook(corpsBrut, signature) {

@@ -339,10 +339,15 @@ function afficherAbonnement() {
   const libelles = { starter: 'Essentiel', pro: 'Croissance', premium: 'Signature' };
   const plan = abonnement?.plan || 'starter';
   const actif = Boolean(abonnement?.actif);
+  const statuts = {
+    inactive: 'À activer', incomplete: 'Paiement à finaliser',
+    incomplete_expired: 'Paiement expiré', past_due: 'À régulariser',
+    unpaid: 'Impayé', canceled: 'Résilié', paused: 'Suspendu'
+  };
   $('#nomForfait').textContent = libelles[plan] || 'Essentiel';
   $('#statutForfait').textContent = actif
     ? (abonnement?.statut === 'trialing' ? 'Essai en cours' : 'Actif')
-    : 'À activer';
+    : (statuts[abonnement?.statut] || 'À activer');
   $('#texteForfait').textContent = actif
     ? `Votre forfait permet de piloter jusqu’à ${abonnement.limite_etablissements} établissement${abonnement.limite_etablissements > 1 ? 's' : ''}.`
     : 'Essai de 14 jours, sans engagement. Vous choisissez le forfait adapté à votre croissance.';
@@ -404,6 +409,13 @@ function appliquerPermissions() {
     $('#avatarCompte').textContent = initiales(sessionUtilisateur.nom);
   }
   const etablissement = etablissements.find(entree => entree.slug === slug);
+  $('#consoleSuperAdmin').hidden = !sessionUtilisateur?.super_admin;
+  $('#alerteAbonnementBloque').hidden = !etablissement?.billing_locked;
+  if (etablissement?.billing_locked) {
+    $('#texteAbonnementBloque').textContent = etablissement.role === 'owner'
+      ? 'Les fonctions du restaurant sont suspendues. Choisissez ou régularisez votre forfait ci-dessous pour les réactiver immédiatement.'
+      : 'Les fonctions du restaurant sont suspendues. Demandez au propriétaire de régulariser l’abonnement Bravocard.';
+  }
   $('#libelleRole').textContent = libelleRole(etablissement?.role);
   $('#selectEtablissement').innerHTML = etablissements.map(entree =>
     `<option value="${echapper(entree.slug)}" ${entree.slug === slug ? 'selected' : ''}>${echapper(entree.nom)} - ${echapper(libelleRole(entree.role))}</option>`
@@ -1153,7 +1165,7 @@ async function ouvrirCheckout(plan) {
   const bouton = document.querySelector(`[data-plan="${plan}"]`);
   if (bouton) bouton.disabled = true;
   const messageAbonnement = $('#messageAbonnement');
-  const abonnementExistant = Boolean(abonnement?.actif && abonnement?.client_stripe);
+  const abonnementExistant = Boolean(abonnement?.abonnement_stripe && abonnement?.client_stripe);
   afficherMessage(
     messageAbonnement,
     abonnementExistant

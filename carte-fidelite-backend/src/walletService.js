@@ -1,30 +1,124 @@
-// Ce fichier gere tout ce qui concerne Google Wallet :
-// - creer le lien "Ajouter a Google Wallet" pour un nouveau client
-// - mettre a jour le solde de points sur une carte deja enregistree
-
 const jwt = require('jsonwebtoken');
 const { GoogleAuth } = require('google-auth-library');
+const supabase = require('./supabaseClient');
 
-function getClassId() {
+const PORTEE_GOOGLE = 'https://www.googleapis.com/auth/wallet_object.issuer';
+const CACHE_CLASSE_MS = 10 * 60 * 1000;
+const cacheClasses = new Map();
+
+const COULEURS_PRESET = Object.freeze({
+  dark: '#17171D', blue: '#07547A', green: '#0E3B2E',
+  red: '#74324B', purple: '#2B174A', orange: '#7B3023'
+});
+
+function verifierConfigurationGoogle() {
+  for (const nom of ['GOOGLE_ISSUER_ID', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GOOGLE_PRIVATE_KEY']) {
+    if (!process.env[nom]) throw new Error(`Configuration Google Wallet absente : ${nom}.`);
+  }
+}
+
+function getLegacyClassId() {
   return `${process.env.GOOGLE_ISSUER_ID}.${process.env.GOOGLE_ISSUER_ID}.carte_fidelite_coin_des_amis`;
 }
 
+function getRestaurantClassId(restaurant) {
+  if (!restaurant?.id) throw new Error('Le restaurant est obligatoire pour Google Wallet.');
+  if (restaurant.google_wallet_class_id) return restaurant.google_wallet_class_id;
+  const suffixe = String(restaurant.id).replace(/[^a-zA-Z0-9_-]/g, '');
+  return `${process.env.GOOGLE_ISSUER_ID}.restaurant_${suffixe}`;
+}
+
 function getObjectId(clientId) {
-  // Google Wallet impose des identifiants sans tirets, on nettoie l'UUID
-  const idPropre = clientId.replace(/-/g, '');
+  const idPropre = String(clientId || '').replace(/-/g, '');
+  if (!idPropre) throw new Error('Le client est obligatoire pour Google Wallet.');
   return `${process.env.GOOGLE_ISSUER_ID}.client_${idPropre}`;
 }
 
-function construireObjetFidelite(client) {
+function urlPublique(valeur) {
+  const texte = String(valeur || '').trim();
+  try {
+    const url = new URL(texte);
+    return url.protocol === 'https:' ? texte : null;
+  } catch {
+    return null;
+  }
+}
+
+function imageGoogle(url, description) {
+  const uri = urlPublique(url);
+  if (!uri) return null;
+  return {
+    sourceUri: { uri },
+    contentDescription: {
+      defaultValue: { language: 'fr-FR', value: description }
+    }
+  };
+}
+
+function couleurRestaurant(restaurant) {
+  const personnalisee = String(restaurant.apple_custom_color || '').toUpperCase();
+  if (/^#[0-9A-F]{6}$/.test(personnalisee)) return personnalisee;
+  return COULEURS_PRESET[restaurant.apple_color_preset] || COULEURS_PRESET.dark;
+}
+
+function logoParDefaut() {
+  const base = String(process.env.PUBLIC_BASE_URL || 'https://bravocard.fr').replace(/\/$/, '');
+  return `${base}/logo-bravocard-encadre.png`;
+}
+
+function construireClasseFidelite(restaurant) {
+  const nom = String(restaurant.nom || 'Bravocard').trim().slice(0, 80);
+  const programme = String(
+    restaurant.apple_program_name || restaurant.apple_logo_text || `Carte fidélité ${nom}`
+  ).trim().slice(0, 80);
+  const logo = imageGoogle(restaurant.apple_logo_url, `Logo ${nom}`) ||
+    imageGoogle(logoParDefaut(), 'Logo Bravocard');
+  const banniere = imageGoogle(restaurant.apple_strip_url, `Bannière ${nom}`);
+
+  return {
+    id: getRestaurantClassId(restaurant),
+    issuerName: nom.slice(0, 20),
+    programName: programme.slice(0, 20),
+    programLogo: logo,
+    reviewStatus: 'UNDER_REVIEW',
+    hexBackgroundColor: couleurRestaurant(restaurant),
+    accountNameLabel: 'CLIENT',
+    accountIdLabel: 'IDENTIFIANT',
+    ...(banniere ? { heroImage: banniere } : {}),
+    classTemplateInfo: {
+      cardTemplateOverride: {
+        cardRowTemplateInfos: [
+          {
+            oneItem: {
+              item: { firstValue: { fields: [{ fieldPath: 'object.loyaltyPoints.balance' }] } }
+            }
+          },
+          {
+            twoItems: {
+              startItem: {
+                firstValue: { fields: [{ fieldPath: "object.textModulesData['client']" }] }
+              },
+              endItem: {
+                firstValue: { fields: [{ fieldPath: "object.textModulesData['type_carte']" }] }
+              }
+            }
+          }
+        ]
+      }
+    }
+  };
+}
+
+function construireObjetFidelite(client, restaurant) {
   const objet = {
     id: getObjectId(client.id),
-    classId: getClassId(),
+    classId: getRestaurantClassId(restaurant),
     state: 'ACTIVE',
     accountId: client.id,
     accountName: client.nom,
     loyaltyPoints: {
-      label: 'Points sur 100',
-      balance: { int: client.points }
+      label: restaurant.apple_points_label || 'Points sur 100',
+      balance: { int: Number.parseInt(client.points || 0, 10) }
     },
     barcode: {
       type: 'CODE_128',
@@ -33,262 +127,258 @@ function construireObjetFidelite(client) {
     },
     textModulesData: [
       { id: 'client', header: 'CLIENT', body: client.nom },
-      { id: 'type_carte', header: 'CARTE', body: 'FIDÉLITÉ' }
+      { id: 'type_carte', header: 'CARTE', body: restaurant.apple_card_label || 'FIDÉLITÉ' }
     ]
   };
 
   if (client.referral_link) {
     objet.linksModuleData = {
-      uris: [{
-        id: 'parrainage',
-        uri: client.referral_link,
-        description: 'Parrainer un proche'
-      }]
+      uris: [{ id: 'parrainage', uri: client.referral_link, description: 'Parrainer un proche' }]
     };
   }
-
   return objet;
 }
 
-// A appeler UNE SEULE FOIS pour configurer la disposition personnalisee
-// de la carte (positionne les lignes Client / Carte cote a cote, sous les points).
-// Ne pas rappeler a chaque client, ça configure la classe entiere une fois pour toutes.
-async function configurerModeleCarte() {
+async function obtenirClientGoogle() {
+  verifierConfigurationGoogle();
   const auth = new GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
     },
-    scopes: ['https://www.googleapis.com/auth/wallet_object.issuer']
+    scopes: [PORTEE_GOOGLE]
   });
-
-  const client_auth = await auth.getClient();
-  const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass/${getClassId()}`;
-
-  // On lit d'abord la classe telle qu'elle existe actuellement (titre, logo,
-  // image...), pour etre sur de ne rien ecraser en la mettant a jour.
-  const reponseActuelle = await client_auth.request({ url, method: 'GET' });
-  const classeActuelle = reponseActuelle.data;
-
-  const donnees = {
-    ...classeActuelle,
-    reviewStatus: 'underReview',
-    classTemplateInfo: {
-      cardTemplateOverride: {
-        cardRowTemplateInfos: [
-          {
-            oneItem: {
-              item: {
-                firstValue: {
-                  fields: [{ fieldPath: 'object.loyaltyPoints.balance' }]
-                }
-              }
-            }
-          },
-          {
-            twoItems: {
-              startItem: {
-                firstValue: {
-                  fields: [{ fieldPath: "object.textModulesData['client']" }]
-                }
-              },
-              endItem: {
-                firstValue: {
-                  fields: [{ fieldPath: "object.textModulesData['type_carte']" }]
-                }
-              }
-            }
-          }
-        ]
-      }
-    }
-  };
-
-  await client_auth.request({ url, method: 'PUT', data: donnees });
-  return true;
+  return auth.getClient();
 }
 
-// Genere le lien que le client clique pour ajouter sa carte a Google Wallet
-function creerLienGoogleWallet(client) {
-  const objetFidelite = construireObjetFidelite(client);
-
-  const claims = {
-    iss: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    aud: 'google',
-    typ: 'savetowallet',
-    payload: {
-      loyaltyObjects: [objetFidelite]
-    }
-  };
-
-  const clePrivee = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
-  const token = jwt.sign(claims, clePrivee, { algorithm: 'RS256' });
-
-  return `https://pay.google.com/gp/v/save/${token}`;
-}
-
-// Met a jour le solde de points sur une carte deja existante dans Google Wallet
-async function mettreAJourPointsWallet(client) {
-  const auth = new GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    },
-    scopes: ['https://www.googleapis.com/auth/wallet_object.issuer']
-  });
-
-  const client_auth = await auth.getClient();
-  const objectId = getObjectId(client.id);
-
-  const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${objectId}`;
-
-  try {
-    const objetActualise = construireObjetFidelite(client);
-    await client_auth.request({
-      url,
-      method: 'PATCH',
-      data: {
-        loyaltyPoints: objetActualise.loyaltyPoints,
-        barcode: objetActualise.barcode,
-        ...(objetActualise.linksModuleData
-          ? { linksModuleData: objetActualise.linksModuleData }
-          : {})
-      }
-    });
-    return true;
-  } catch (erreur) {
-    console.error('Erreur mise a jour Google Wallet:', erreur.message);
-    return false;
-  }
-}
-
-// Cree l'objet Wallet sur les serveurs Google (a faire une fois, avant meme
-// que le client ait clique sur "Ajouter au Wallet"), pour pouvoir ensuite
-// le mettre a jour meme si le client n'a pas encore ouvert le lien
-async function creerObjetWallet(client) {
-  const auth = new GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    },
-    scopes: ['https://www.googleapis.com/auth/wallet_object.issuer']
-  });
-
-  const client_auth = await auth.getClient();
-  const url = 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject';
-
-  try {
-    await client_auth.request({
-      url,
-      method: 'POST',
-      data: construireObjetFidelite(client)
-    });
-    return true;
-  } catch (erreur) {
-    // Si l'objet existe deja, Google renvoie une erreur qu'on peut ignorer
-    console.log('Info creation objet Wallet:', erreur.message);
-    return false;
-  }
-}
-
-async function synchroniserObjetWallet(client) {
-  const misAJour = await mettreAJourPointsWallet(client);
-  if (misAJour) return true;
-  return creerObjetWallet(client);
+function statutErreur(erreur) {
+  return Number(erreur?.response?.status || erreur?.code || 0) || null;
 }
 
 function resumerErreurGoogle(erreur) {
-  const statut = Number(erreur?.response?.status || erreur?.code || 0) || null;
+  const statut = statutErreur(erreur);
   const messageApi = erreur?.response?.data?.error?.message;
   const message = String(messageApi || erreur?.message || 'Erreur Google Wallet inconnue')
     .replace(/[\r\n]+/g, ' ')
     .slice(0, 240);
-
   return { statut, message };
 }
 
-// Variante de diagnostic reservee aux routes administrateur. Elle ne renvoie
-// ni identite client, ni jeton, ni donnees de la carte : seulement le statut
-// et le message de Google, afin de regrouper proprement les echecs.
-async function diagnostiquerSynchronisationObjetWallet(client) {
-  const auth = new GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    },
-    scopes: ['https://www.googleapis.com/auth/wallet_object.issuer']
-  });
-  const clientAuth = await auth.getClient();
-  const objectId = getObjectId(client.id);
-  const objet = construireObjetFidelite(client);
+async function enregistrerEtatClasse(restaurant, changements) {
+  if (!restaurant?.id) return;
+  const { error } = await supabase
+    .from('restaurants')
+    .update(changements)
+    .eq('id', restaurant.id);
+  if (error) console.error('État Google Wallet non enregistré:', error.message);
+}
+
+async function assurerClasseRestaurant(restaurant, options = {}) {
+  const classId = getRestaurantClassId(restaurant);
+  const cache = cacheClasses.get(classId);
+  if (!options.force && cache && Date.now() - cache.date < CACHE_CLASSE_MS) return cache.classe;
+
+  const clientGoogle = await obtenirClientGoogle();
+  const urlClasse = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass/${encodeURIComponent(classId)}`;
+  const payload = construireClasseFidelite({ ...restaurant, google_wallet_class_id: classId });
 
   try {
-    await clientAuth.request({
-      url: `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${objectId}`,
+    let classe;
+    try {
+      const lecture = await clientGoogle.request({ url: urlClasse, method: 'GET' });
+      classe = lecture.data;
+    } catch (erreurLecture) {
+      if (statutErreur(erreurLecture) !== 404) throw erreurLecture;
+      const creation = await clientGoogle.request({
+        url: 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass',
+        method: 'POST',
+        data: payload
+      });
+      classe = creation.data;
+    }
+
+    if (options.force && classe) {
+      const donneesPatch = { ...payload };
+      delete donneesPatch.id;
+      const miseAJour = await clientGoogle.request({
+        url: urlClasse,
+        method: 'PATCH',
+        data: donneesPatch
+      });
+      classe = miseAJour.data;
+    }
+
+    cacheClasses.set(classId, { date: Date.now(), classe });
+    await enregistrerEtatClasse(restaurant, {
+      google_wallet_class_id: classId,
+      google_wallet_class_status: String(classe?.reviewStatus || 'unknown').toLowerCase(),
+      google_wallet_synced_at: new Date().toISOString(),
+      google_wallet_sync_error: null
+    });
+    return classe;
+  } catch (erreur) {
+    const resume = resumerErreurGoogle(erreur);
+    await enregistrerEtatClasse(restaurant, {
+      google_wallet_class_id: classId,
+      google_wallet_sync_error: `${resume.statut || 'inconnu'} - ${resume.message}`,
+      google_wallet_synced_at: new Date().toISOString()
+    });
+    throw erreur;
+  }
+}
+
+function creerLienGoogleWallet(client, restaurant) {
+  verifierConfigurationGoogle();
+  const objetFidelite = construireObjetFidelite(client, restaurant);
+  const claims = {
+    iss: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    aud: 'google',
+    typ: 'savetowallet',
+    payload: { loyaltyObjects: [objetFidelite] }
+  };
+  const clePrivee = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+  const token = jwt.sign(claims, clePrivee, { algorithm: 'RS256' });
+  return `https://pay.google.com/gp/v/save/${token}`;
+}
+
+async function memoriserObjetClient(client) {
+  const objectId = getObjectId(client.id);
+  if (client.google_wallet_object_id === objectId) return objectId;
+  const { error } = await supabase
+    .from('clients')
+    .update({ google_wallet_object_id: objectId })
+    .eq('id', client.id);
+  if (error) console.error('Identifiant Google Wallet non enregistré:', error.message);
+  return objectId;
+}
+
+async function mettreAJourPointsWallet(client, restaurant) {
+  await assurerClasseRestaurant(restaurant);
+  const clientGoogle = await obtenirClientGoogle();
+  const objet = construireObjetFidelite(client, restaurant);
+  try {
+    await clientGoogle.request({
+      url: `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(objet.id)}`,
       method: 'PATCH',
       data: {
+        classId: objet.classId,
+        accountId: objet.accountId,
+        accountName: objet.accountName,
         loyaltyPoints: objet.loyaltyPoints,
         barcode: objet.barcode,
+        textModulesData: objet.textModulesData,
         ...(objet.linksModuleData ? { linksModuleData: objet.linksModuleData } : {})
       }
     });
+    await memoriserObjetClient(client);
+    return true;
+  } catch (erreur) {
+    console.error('Erreur mise à jour Google Wallet:', resumerErreurGoogle(erreur).message);
+    return false;
+  }
+}
+
+async function creerObjetWallet(client, restaurant) {
+  await assurerClasseRestaurant(restaurant);
+  const clientGoogle = await obtenirClientGoogle();
+  const objet = construireObjetFidelite(client, restaurant);
+  try {
+    await clientGoogle.request({
+      url: 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject',
+      method: 'POST',
+      data: objet
+    });
+    await memoriserObjetClient(client);
+    return true;
+  } catch (erreur) {
+    if (statutErreur(erreur) === 409) {
+      return mettreAJourPointsWallet(client, restaurant);
+    }
+    console.error('Erreur création objet Google Wallet:', resumerErreurGoogle(erreur).message);
+    return false;
+  }
+}
+
+async function synchroniserObjetWallet(client, restaurant) {
+  const misAJour = await mettreAJourPointsWallet(client, restaurant);
+  if (misAJour) return true;
+  return creerObjetWallet(client, restaurant);
+}
+
+async function diagnostiquerSynchronisationObjetWallet(client, restaurant) {
+  try {
+    await assurerClasseRestaurant(restaurant);
+  } catch (erreurClasse) {
+    return { succes: false, action: 'echec_classe', erreur: resumerErreurGoogle(erreurClasse) };
+  }
+
+  const clientGoogle = await obtenirClientGoogle();
+  const objet = construireObjetFidelite(client, restaurant);
+  try {
+    await clientGoogle.request({
+      url: `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(objet.id)}`,
+      method: 'PATCH',
+      data: {
+        classId: objet.classId,
+        accountId: objet.accountId,
+        accountName: objet.accountName,
+        loyaltyPoints: objet.loyaltyPoints,
+        barcode: objet.barcode,
+        textModulesData: objet.textModulesData,
+        ...(objet.linksModuleData ? { linksModuleData: objet.linksModuleData } : {})
+      }
+    });
+    await memoriserObjetClient(client);
     return { succes: true, action: 'mise_a_jour' };
   } catch (erreurMiseAJour) {
+    if (statutErreur(erreurMiseAJour) !== 404) {
+      return { succes: false, action: 'echec_mise_a_jour', erreur: resumerErreurGoogle(erreurMiseAJour) };
+    }
     try {
-      await clientAuth.request({
+      await clientGoogle.request({
         url: 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject',
         method: 'POST',
         data: objet
       });
+      await memoriserObjetClient(client);
       return { succes: true, action: 'creation' };
     } catch (erreurCreation) {
-      return {
-        succes: false,
-        action: 'echec_creation',
-        erreur: resumerErreurGoogle(erreurCreation)
-      };
+      return { succes: false, action: 'echec_creation', erreur: resumerErreurGoogle(erreurCreation) };
     }
   }
 }
 
-// Ajoute un message à la carte Google Wallet et demande à Google
-// d'afficher une vraie notification sur le téléphone du détenteur.
-async function envoyerNotificationWallet(client, titre, message, campagneId) {
-  const auth = new GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    },
-    scopes: ['https://www.googleapis.com/auth/wallet_object.issuer']
-  });
+async function configurerModeleCarte(restaurant) {
+  await assurerClasseRestaurant(restaurant, { force: true });
+  return true;
+}
 
-  const clientAuth = await auth.getClient();
+async function envoyerNotificationWallet(client, titre, message, campagneId) {
+  const clientGoogle = await obtenirClientGoogle();
   const objectId = getObjectId(client.id);
   const identifiantMessage = `bravocard_${String(campagneId).replace(/-/g, '')}`;
-  const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(objectId)}/addMessage`;
-
-  await clientAuth.request({
-    url,
+  await clientGoogle.request({
+    url: `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(objectId)}/addMessage`,
     method: 'POST',
     data: {
-      message: {
-        id: identifiantMessage,
-        header: titre,
-        body: message,
-        messageType: 'TEXT_AND_NOTIFY'
-      }
+      message: { id: identifiantMessage, header: titre, body: message, messageType: 'TEXT_AND_NOTIFY' }
     }
   });
-
   return true;
 }
 
 module.exports = {
+  assurerClasseRestaurant,
+  construireClasseFidelite,
+  construireObjetFidelite,
   creerLienGoogleWallet,
   mettreAJourPointsWallet,
   creerObjetWallet,
   synchroniserObjetWallet,
   diagnostiquerSynchronisationObjetWallet,
   configurerModeleCarte,
-  envoyerNotificationWallet
+  envoyerNotificationWallet,
+  getLegacyClassId,
+  getObjectId,
+  getRestaurantClassId
 };

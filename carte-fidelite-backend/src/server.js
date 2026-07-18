@@ -60,7 +60,22 @@ const CHAMPS_RESTAURANT = [
   'last_notification_message',
   'last_notification_sent_at',
   'notification_history',
-  'notification_sending'
+  'notification_sending',
+  'deleted_at',
+  'deleted_by',
+  'deletion_reason',
+  'restored_at',
+  'active_before_delete',
+  'billing_owner_user_id',
+  'billing_status',
+  'billing_current_period_end',
+  'billing_locked_at',
+  'billing_updated_at',
+  'google_wallet_class_id',
+  'google_wallet_class_status',
+  'google_wallet_design_version',
+  'google_wallet_synced_at',
+  'google_wallet_sync_error'
 ].join(', ');
 
 function estAdministrateurHistorique(req) {
@@ -96,6 +111,7 @@ async function trouverRestaurantParSlug(slug) {
     .from('restaurants')
     .select(CHAMPS_RESTAURANT)
     .eq('slug', slugNormalise)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (error) throw error;
@@ -128,6 +144,13 @@ async function authentifierEspaceDesign(req, res, permission = 'dashboard') {
   }
 
   const accesCompte = await auth.accesEtablissement(req, restaurant, permission);
+  if (accesCompte?.abonnementBloque) {
+    res.status(402).json({
+      erreur: 'Abonnement inactif. Le propriétaire doit régulariser le paiement depuis Mon compte.',
+      code: 'SUBSCRIPTION_REQUIRED'
+    });
+    return null;
+  }
   if (accesCompte?.interdit) {
     res.status(403).json({ erreur: 'Votre rôle ne permet pas cette action.' });
     return null;
@@ -291,6 +314,7 @@ app.post('/api/public/inscription', async (req, res) => {
       slug: req.body.slug,
       plan
     });
+    setImmediate(() => actualiserClasseGoogleEnArrierePlan(resultat.restaurant));
     const connexion = await auth.connexion(req.body.email, req.body.password);
     auth.ecrireSession(res, connexion.session);
     const url = await billing.creerCheckout(
@@ -466,7 +490,8 @@ app.get('/api/auth/moi', async (req, res) => {
         forfaits: billing.cataloguePlans(),
         echeance: contexte.profil.subscription_current_period_end,
         stripe_configure: billing.estConfigure(),
-        client_stripe: Boolean(contexte.profil.stripe_customer_id)
+        client_stripe: Boolean(contexte.profil.stripe_customer_id),
+        abonnement_stripe: Boolean(contexte.profil.stripe_subscription_id)
       }
     });
   } catch (erreur) {
@@ -766,6 +791,14 @@ async function actualiserCartesAppleEnArrierePlan(restaurant) {
   }
 }
 
+async function actualiserClasseGoogleEnArrierePlan(restaurant) {
+  try {
+    await wallet.assurerClasseRestaurant(restaurant, { force: true });
+  } catch (erreur) {
+    console.error(`Synchronisation du design Google Wallet (${restaurant.slug}):`, erreur.message);
+  }
+}
+
 app.get('/api/design/:slug', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res, 'design_view');
@@ -849,7 +882,10 @@ app.put('/api/design/:slug', async (req, res) => {
 
     if (error) throw error;
 
-    setImmediate(() => actualiserCartesAppleEnArrierePlan(data));
+    setImmediate(() => {
+      actualiserCartesAppleEnArrierePlan(data);
+      actualiserClasseGoogleEnArrierePlan(data);
+    });
 
     res.json({
       succes: true,
@@ -1008,7 +1044,8 @@ app.post('/api/restaurateur/:slug/cartes/actualiser', async (req, res) => {
         };
 
         const resultatGoogle = await wallet.diagnostiquerSynchronisationObjetWallet(
-          clientWallet
+          clientWallet,
+          acces.restaurant
         );
         if (resultatGoogle.succes) {
           bilan.google_reussies += 1;
@@ -1384,7 +1421,7 @@ app.get('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
     if (idsProprietaires.length) {
       const resultatProfils = await supabase
         .from('user_profiles')
-        .select('user_id, email, full_name, subscription_plan, stripe_subscription_status, subscription_updated_at')
+        .select('user_id, email, full_name, subscription_plan, stripe_subscription_status, stripe_price_id, stripe_customer_id, stripe_subscription_id, subscription_current_period_end, subscription_updated_at')
         .in('user_id', idsProprietaires);
       if (resultatProfils.error) throw resultatProfils.error;
       profils = resultatProfils.data || [];
@@ -1474,6 +1511,8 @@ app.post('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    setImmediate(() => actualiserClasseGoogleEnArrierePlan(data));
 
     res.status(201).json({
       restaurant: designRestaurant.serialiserRestaurant(
@@ -1571,6 +1610,83 @@ app.patch('/api/admin/restaurants/:id', exigerAdministrateur, async (req, res) =
   }
 });
 
+app.delete('/api/admin/restaurants/:id', exigerAdministrateur, async (req, res) => {
+  try {
+    const { data: restaurant, error: erreurLecture } = await supabase
+      .from('restaurants')
+      .select(CHAMPS_RESTAURANT)
+      .eq('id', req.params.id)
+      .single();
+    if (erreurLecture) throw erreurLecture;
+    if (restaurant.deleted_at) {
+      return res.json({ succes: true, restaurant, message: 'Ce restaurant est déjà dans la corbeille.' });
+    }
+    const raison = String(req.body?.raison || '').trim().slice(0, 500) || null;
+    const maintenant = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('restaurants')
+      .update({
+        deleted_at: maintenant,
+        deleted_by: req.bravocardAdmin?.utilisateur?.id || null,
+        deletion_reason: raison,
+        active_before_delete: restaurant.actif !== false,
+        actif: false
+      })
+      .eq('id', restaurant.id)
+      .select(CHAMPS_RESTAURANT)
+      .single();
+    if (error) throw error;
+    await auth.journaliser(
+      'admin.restaurant_trashed',
+      req.bravocardAdmin?.utilisateur ? req.bravocardAdmin : null,
+      restaurant.id,
+      { raison }
+    );
+    res.json({ succes: true, restaurant: data, message: 'Restaurant placé dans la corbeille.' });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/admin/restaurants/:id/restaurer', exigerAdministrateur, async (req, res) => {
+  try {
+    const { data: restaurant, error: erreurLecture } = await supabase
+      .from('restaurants')
+      .select(CHAMPS_RESTAURANT)
+      .eq('id', req.params.id)
+      .single();
+    if (erreurLecture) throw erreurLecture;
+    if (!restaurant.deleted_at) {
+      return res.json({ succes: true, restaurant, message: 'Ce restaurant est déjà actif.' });
+    }
+    const { data, error } = await supabase
+      .from('restaurants')
+      .update({
+        deleted_at: null,
+        deleted_by: null,
+        deletion_reason: null,
+        restored_at: new Date().toISOString(),
+        actif: restaurant.active_before_delete !== false,
+        active_before_delete: null
+      })
+      .eq('id', restaurant.id)
+      .select(CHAMPS_RESTAURANT)
+      .single();
+    if (error) throw error;
+    await auth.journaliser(
+      'admin.restaurant_restored',
+      req.bravocardAdmin?.utilisateur ? req.bravocardAdmin : null,
+      restaurant.id,
+      {}
+    );
+    res.json({ succes: true, restaurant: data, message: 'Restaurant restauré avec toutes ses données.' });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
 app.post(
   '/api/admin/restaurants/:id/reset-access',
   exigerAdministrateur,
@@ -1600,8 +1716,15 @@ app.post(
 // que le tableau de bord, pour eviter qu'elle soit appelee par n'importe qui.
 app.post('/api/admin/configurer-template', exigerAdministrateur, async (req, res) => {
   try {
-    await wallet.configurerModeleCarte();
-    res.json({ succes: true, message: 'Modele de carte configure avec succes.' });
+    const { data: restaurant, error } = await supabase
+      .from('restaurants')
+      .select(CHAMPS_RESTAURANT)
+      .eq('id', req.body.restaurant_id)
+      .is('deleted_at', null)
+      .single();
+    if (error) throw error;
+    await wallet.configurerModeleCarte(restaurant);
+    res.json({ succes: true, message: 'Modèle Google Wallet du restaurant configuré.' });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });
@@ -1659,6 +1782,12 @@ app.post('/api/clients', async (req, res) => {
 
     if (!restaurant || restaurant.actif === false) {
       return res.status(404).json({ erreur: 'Ce commerce est introuvable.' });
+    }
+    if (!auth.accesFacturationRestaurant(restaurant)) {
+      return res.status(402).json({
+        erreur: 'Le programme de fidélité de ce commerce est temporairement indisponible.',
+        code: 'SUBSCRIPTION_REQUIRED'
+      });
     }
 
     const { data: clientExistant, error: erreurDoublon } = await supabase
@@ -1731,8 +1860,8 @@ app.post('/api/clients', async (req, res) => {
     };
 
     // On cree l'objet cote Google, puis on genere le lien a envoyer au client
-    await wallet.creerObjetWallet(clientWallet);
-    const lienWallet = wallet.creerLienGoogleWallet(clientWallet);
+    await wallet.creerObjetWallet(clientWallet, restaurant);
+    const lienWallet = wallet.creerLienGoogleWallet(clientWallet, restaurant);
 
     // On cree aussi la carte Apple Wallet, et on garde son serialNumber
     // pour pouvoir la mettre a jour plus tard (scan, points, etc.)
@@ -1899,7 +2028,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       )
     };
 
-    await wallet.synchroniserObjetWallet(clientPourWallet);
+    await wallet.synchroniserObjetWallet(clientPourWallet, restaurant);
 
     // On met aussi a jour la carte Apple Wallet, si le client en a une
     if (client.apple_wallet_serial) {
@@ -1937,7 +2066,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
         )
       };
 
-      await wallet.mettreAJourPointsWallet(parrainPourWallet);
+      await wallet.mettreAJourPointsWallet(parrainPourWallet, restaurant);
 
       if (parrain.apple_wallet_serial) {
         try {
@@ -2132,7 +2261,45 @@ cron.schedule('*/15 * * * *', async () => {
   }
 });
 
+async function initialiserGoogleWalletMultiRestaurants() {
+  if (!process.env.GOOGLE_ISSUER_ID || !process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+    console.warn('Migration Google Wallet ignorée : configuration Google incomplète.');
+    return;
+  }
+  try {
+    const { data: restaurants, error } = await supabase
+      .from('restaurants')
+      .select(CHAMPS_RESTAURANT)
+      .is('deleted_at', null)
+      .order('nom');
+    if (error) throw error;
+
+    for (const restaurant of restaurants || []) {
+      try {
+        await wallet.assurerClasseRestaurant(restaurant);
+        const { data: clients, error: erreurClients } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('restaurant_id', restaurant.id);
+        if (erreurClients) throw erreurClients;
+        for (let index = 0; index < (clients || []).length; index += 5) {
+          const lot = clients.slice(index, index + 5);
+          await Promise.allSettled(lot.map(client =>
+            wallet.diagnostiquerSynchronisationObjetWallet(client, restaurant)
+          ));
+        }
+        console.log(`Google Wallet isolé pour ${restaurant.slug} (${(clients || []).length} client(s)).`);
+      } catch (erreurRestaurant) {
+        console.error(`Migration Google Wallet impossible pour ${restaurant.slug}:`, erreurRestaurant.message);
+      }
+    }
+  } catch (erreur) {
+    console.error('Initialisation Google Wallet multi-restaurants:', erreur.message);
+  }
+}
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Serveur demarre sur le port ${PORT}`);
+  setImmediate(initialiserGoogleWalletMultiRestaurants);
 });
