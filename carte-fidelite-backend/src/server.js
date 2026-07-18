@@ -352,7 +352,10 @@ app.get('/api/auth/moi', async (req, res) => {
       abonnement: {
         plan: contexte.profil.is_super_admin ? 'admin' : contexte.profil.subscription_plan,
         statut: contexte.profil.stripe_subscription_status,
+        actif: contexte.profil.is_super_admin || auth.abonnementActif(contexte.profil),
         premium_actif: contexte.profil.is_super_admin || auth.abonnementPremiumActif(contexte.profil),
+        limite_etablissements: contexte.profil.is_super_admin ? null : auth.limiteEtablissements(contexte.profil),
+        forfaits: billing.cataloguePlans(),
         echeance: contexte.profil.subscription_current_period_end,
         stripe_configure: billing.estConfigure(),
         client_stripe: Boolean(contexte.profil.stripe_customer_id)
@@ -381,7 +384,7 @@ app.post('/api/auth/changer-mot-de-passe', async (req, res) => {
   }
 });
 
-app.post('/api/stripe/checkout-premium', async (req, res) => {
+app.post('/api/stripe/checkout', async (req, res) => {
   try {
     const contexte = await auth.obtenirContexteUtilisateur(req);
     if (!contexte) return res.status(401).json({ erreur: 'Reconnectez-vous.' });
@@ -390,7 +393,8 @@ app.post('/api/stripe/checkout-premium', async (req, res) => {
     if (!proprietaire || contexte.profil.is_super_admin) {
       return res.status(403).json({ erreur: 'Cette offre est réservée aux propriétaires.' });
     }
-    const url = await billing.creerCheckout(contexte.profil, obtenirUrlBase(req));
+    const plan = billing.planValide(req.body.plan) || 'starter';
+    const url = await billing.creerCheckout(contexte.profil, obtenirUrlBase(req), plan);
     res.json({ url });
   } catch (erreur) {
     console.error(erreur);

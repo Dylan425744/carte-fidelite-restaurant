@@ -305,24 +305,28 @@ function afficherAbonnement() {
   zone.classList.toggle('visible', Boolean(sessionUtilisateur && estProprietaire && !sessionUtilisateur.super_admin));
   if (!sessionUtilisateur || !estProprietaire || sessionUtilisateur.super_admin) return;
 
-  const premium = Boolean(abonnement?.premium_actif);
-  $('#nomForfait').textContent = premium ? 'Premium multi-établissements' : 'Essentiel';
-  $('#statutForfait').textContent = premium
+  const libelles = { starter: 'Essentiel', pro: 'Croissance', premium: 'Signature' };
+  const plan = abonnement?.plan || 'starter';
+  const actif = Boolean(abonnement?.actif);
+  $('#nomForfait').textContent = libelles[plan] || 'Essentiel';
+  $('#statutForfait').textContent = actif
     ? (abonnement?.statut === 'trialing' ? 'Essai en cours' : 'Actif')
-    : '1 établissement';
-  $('#texteForfait').textContent = premium
-    ? 'Votre compte propriétaire peut piloter tous vos restaurants depuis ce même espace.'
-    : 'Le forfait Premium débloque le sélecteur multi-établissements pour vos restaurants.';
+    : 'À activer';
+  $('#texteForfait').textContent = actif
+    ? `Votre forfait permet de piloter jusqu’à ${abonnement.limite_etablissements} établissement${abonnement.limite_etablissements > 1 ? 's' : ''}.`
+    : 'Essai de 14 jours, sans engagement. Vous choisissez le forfait adapté à votre croissance.';
   $('#restaurantsVerrouilles').innerHTML = etablissementsBloques.map(entree =>
-    `<span>🔒 ${echapper(entree.nom)} — disponible avec Premium</span>`
+    `<span>🔒 ${echapper(entree.nom)} — augmentez votre forfait pour y accéder</span>`
   ).join('');
-  $('#passerPremium').style.display = premium ? 'none' : '';
   $('#gererAbonnement').style.display = abonnement?.client_stripe ? '' : 'none';
+  document.querySelectorAll('[data-plan]').forEach(bouton => {
+    const estPlanActuel = bouton.dataset.plan === plan && actif;
+    bouton.classList.toggle('actif', estPlanActuel);
+    bouton.disabled = !abonnement?.stripe_configure || estPlanActuel;
+    bouton.querySelector('b').textContent = estPlanActuel ? 'Forfait actuel' : 'Choisir';
+  });
   if (!abonnement?.stripe_configure) {
-    $('#passerPremium').disabled = true;
-    $('#texteForfait').textContent = 'La facturation Premium est en cours de configuration par Bravocard.';
-  } else {
-    $('#passerPremium').disabled = false;
+    $('#texteForfait').textContent = 'La facturation est en cours de configuration par Bravocard.';
   }
 }
 
@@ -1097,12 +1101,12 @@ async function changerMotDePasse() {
   }
 }
 
-async function ouvrirCheckoutPremium() {
-  const bouton = $('#passerPremium');
+async function ouvrirCheckout(plan) {
+  const bouton = document.querySelector(`[data-plan="${plan}"]`);
   bouton.disabled = true;
   afficherMessage($('#messageAbonnement'), 'Ouverture du paiement sécurisé…');
   try {
-    const donnees = await api('/api/stripe/checkout-premium', { method: 'POST', body: JSON.stringify({}) });
+    const donnees = await api('/api/stripe/checkout', { method: 'POST', body: JSON.stringify({ plan }) });
     window.location.href = donnees.url;
   } catch (erreur) {
     afficherMessage($('#messageAbonnement'), erreur.message, 'erreur');
@@ -1217,7 +1221,9 @@ $('#codeAcces').addEventListener('keydown', evenement => {
 $('#emailRecuperation').addEventListener('keydown', evenement => {
   if (evenement.key === 'Enter') demanderRecuperation();
 });
-$('#passerPremium').addEventListener('click', ouvrirCheckoutPremium);
+document.querySelectorAll('[data-plan]').forEach(bouton =>
+  bouton.addEventListener('click', () => ouvrirCheckout(bouton.dataset.plan))
+);
 $('#gererAbonnement').addEventListener('click', ouvrirPortailStripe);
 
 if (modeAdmin && !motDePasseAdmin) {

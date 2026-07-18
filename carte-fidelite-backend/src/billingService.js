@@ -3,6 +3,12 @@ const supabase = require('./supabaseClient');
 
 let clientStripe = null;
 
+const PLANS = Object.freeze({
+  starter: { nom: 'Essentiel', prix_env: 'STRIPE_PRICE_STARTER_ID', limite_etablissements: 1 },
+  pro: { nom: 'Croissance', prix_env: 'STRIPE_PRICE_PRO_ID', limite_etablissements: 3 },
+  premium: { nom: 'Signature', prix_env: 'STRIPE_PRICE_PREMIUM_ID', limite_etablissements: 5 }
+});
+
 function obtenirStripe() {
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('La facturation Stripe n’est pas encore configurée.');
@@ -15,8 +21,27 @@ function estConfigure() {
   return Boolean(
     process.env.STRIPE_SECRET_KEY &&
     process.env.STRIPE_WEBHOOK_SECRET &&
-    process.env.STRIPE_PRICE_PREMIUM_ID
+    Object.values(PLANS).every(plan => process.env[plan.prix_env])
   );
+}
+
+function planValide(plan) {
+  return Object.prototype.hasOwnProperty.call(PLANS, plan) ? plan : null;
+}
+
+function planDepuisPrix(priceId) {
+  return Object.entries(PLANS).find(([, plan]) =>
+    process.env[plan.prix_env] === priceId
+  )?.[0] || 'starter';
+}
+
+function cataloguePlans() {
+  return Object.entries(PLANS).map(([id, plan]) => ({
+    id,
+    nom: plan.nom,
+    limite_etablissements: plan.limite_etablissements,
+    configure: Boolean(process.env[plan.prix_env])
+  }));
 }
 
 function identifiant(objet) {
@@ -44,23 +69,35 @@ async function enregistrerClientStripe(profil, stripe) {
   return client.id;
 }
 
-async function creerCheckout(profil, urlBase) {
+async function creerCheckout(profil, urlBase, planRecu) {
   const stripe = obtenirStripe();
-  const prix = process.env.STRIPE_PRICE_PREMIUM_ID;
-  if (!prix) throw new Error('Le tarif Premium Stripe n’est pas configuré.');
+  const planId = planValide(planRecu);
+  if (!planId) throw new Error('Le forfait demandé est invalide.');
+  const plan = PLANS[planId];
+  const prix = process.env[plan.prix_env];
+  if (!prix) throw new Error(`Le forfait ${plan.nom} n’est pas encore configuré dans Stripe.`);
+  if (profil.stripe_subscription_id && ['active', 'trialing', 'past_due'].includes(profil.stripe_subscription_status)) {
+    throw new Error('Votre abonnement existe déjà. Utilisez « Gérer mon abonnement » pour changer de forfait ou le résilier.');
+  }
   const customer = await enregistrerClientStripe(profil, stripe);
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer,
     line_items: [{ price: prix, quantity: 1 }],
     allow_promotion_codes: true,
+    billing_address_collection: 'auto',
     client_reference_id: profil.user_id,
-    metadata: { bravocard_user_id: profil.user_id, plan: 'premium' },
+    metadata: { bravocard_user_id: profil.user_id, plan: planId },
     subscription_data: {
-      metadata: { bravocard_user_id: profil.user_id, plan: 'premium' }
+      metadata: { bravocard_user_id: profil.user_id, plan: planId },
+      trial_period_days: 14
     },
     success_url: `${urlBase}/espace-restaurateur.html?abonnement=succes`,
-    cancel_url: `${urlBase}/espace-restaurateur.html?abonnement=annule#compte`
+    cancel_url: `${urlBase}/espace-restaurateur.html?abonnement=annule#compte`,
+    consent_collection: { terms_of_service: 'required' },
+    custom_text: {
+      submit: { message: `En continuant, vous acceptez les CGV Bravocard : ${urlBase}/cgv.html` }
+    }
   });
   return session.url;
 }
@@ -80,12 +117,12 @@ async function mettreAJourAbonnement(abonnement) {
   const customerId = identifiant(abonnement.customer);
   const item = abonnement.items?.data?.[0] || null;
   const priceId = item?.price?.id || null;
-  const premium = priceId === process.env.STRIPE_PRICE_PREMIUM_ID;
+  const plan = planDepuisPrix(priceId);
   const miseAJour = {
     stripe_subscription_id: abonnement.id,
     stripe_subscription_status: abonnement.status || 'inactive',
     stripe_price_id: priceId,
-    subscription_plan: premium ? 'premium' : 'starter',
+    subscription_plan: plan,
     subscription_current_period_end: dateDepuisSecondes(item?.current_period_end),
     subscription_updated_at: new Date().toISOString()
   };
@@ -123,6 +160,9 @@ async function traiterWebhook(corpsBrut, signature) {
 module.exports = {
   creerCheckout,
   creerPortail,
+  cataloguePlans,
   estConfigure,
+  planDepuisPrix,
+  planValide,
   traiterWebhook
 };

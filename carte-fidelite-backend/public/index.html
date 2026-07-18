@@ -13,7 +13,7 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/"><b>✦</b>Bravo<span>card</span></a>
-    <a class="admin" href="/admin-designs.html">Administration</a>
+    <div><a class="admin" href="/tarifs.html" style="margin-right:16px">Tarifs</a><a class="admin" href="/espace-restaurateur.html" style="margin-right:16px">Connexion</a><a class="admin" href="/admin-designs.html">Administration</a></div>
   </header>
   <main>
     <section class="hero">
@@ -22,7 +22,7 @@
         <h1>Votre restaurant.<br>Leur carte préférée.</h1>
         <p>Bravocard réunit votre programme de fidélité, les cartes Apple et Google Wallet, vos notifications et votre équipe dans un seul espace.</p>
         <div class="actions">
-          <a class="button primary" href="/espace-restaurateur.html">Accéder à l’espace restaurateur</a>
+          <a class="button primary" href="/tarifs.html">Voir les tarifs</a>
           <a class="button secondary" href="/creer-carte.html?restaurant=chez-basile">Voir l’expérience client</a>
         </div>
         <div class="hero-note">Vous êtes client ? Utilisez le lien ou le QR code transmis par votre restaurant.</div>
@@ -34,6 +34,7 @@
     <section class="features"><article class="feature"><i>01</i><h2>Une carte qui vous ressemble</h2><p>Couleurs, logo, bannière, programme et conditions : créez une carte Wallet cohérente avec votre établissement.</p></article><article class="feature"><i>02</i><h2>Des retours qui comptent</h2><p>Scannez les passages, envoyez des nouvelles et faites revenir vos clients avec des avantages utiles.</p></article><article class="feature"><i>03</i><h2>Une équipe bien cadrée</h2><p>Propriétaire, manager ou employé : chacun accède uniquement aux actions qui lui sont nécessaires.</p></article></section>
     <section class="client"><strong>Création d’une carte client</strong><p>Le lien dédié est désormais <code>/creer-carte.html?restaurant=votre-restaurant</code>. Les anciens liens avec un restaurant sont redirigés automatiquement. <a href="/creer-carte.html?restaurant=chez-basile">Voir la démo client</a></p></section>
   </main>
+  <footer style="width:min(1180px,calc(100% - 40px));margin:0 auto 32px;color:#766d80;font-size:11px"><a href="/mentions-legales.html" style="color:inherit;text-decoration:none;margin-right:14px">Mentions légales</a><a href="/cgv.html" style="color:inherit;text-decoration:none;margin-right:14px">CGV</a><a href="/cgu.html" style="color:inherit;text-decoration:none;margin-right:14px">CGU</a><a href="/confidentialite.html" style="color:inherit;text-decoration:none">Confidentialité</a></footer>
   <script>
     // Les QR codes et liens déjà distribués restent utilisables pendant la transition.
     if (new URLSearchParams(window.location.search).has('restaurant')) {

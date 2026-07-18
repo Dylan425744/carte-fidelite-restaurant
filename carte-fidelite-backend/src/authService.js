@@ -127,11 +127,19 @@ function permissionsPourRole(role) {
   return [...(PERMISSIONS_PAR_ROLE[role] || [])];
 }
 
+const LIMITES_ETABLISSEMENTS_PAR_PLAN = Object.freeze({ starter: 1, pro: 3, premium: 5 });
+
+function abonnementActif(profil) {
+  return Boolean(STATUTS_ABONNEMENT_ACTIFS.includes(profil?.stripe_subscription_status));
+}
+
+function limiteEtablissements(profil) {
+  if (!abonnementActif(profil)) return LIMITES_ETABLISSEMENTS_PAR_PLAN.starter;
+  return LIMITES_ETABLISSEMENTS_PAR_PLAN[profil?.subscription_plan] || LIMITES_ETABLISSEMENTS_PAR_PLAN.starter;
+}
+
 function abonnementPremiumActif(profil) {
-  return Boolean(
-    profil?.subscription_plan === 'premium' &&
-    STATUTS_ABONNEMENT_ACTIFS.includes(profil?.stripe_subscription_status)
-  );
+  return Boolean(profil?.subscription_plan === 'premium' && abonnementActif(profil));
 }
 
 function possedePermission(contexte, role, permission) {
@@ -229,10 +237,13 @@ async function obtenirContexteUtilisateur(req) {
       .filter(entree => entree.role === 'owner')
       .sort((a, b) => new Date(a.membership_created_at) - new Date(b.membership_created_at));
 
-    if (appartenancesProprietaire.length > 1 && !abonnementPremiumActif(profil)) {
-      const restaurantPrincipal = appartenancesProprietaire[0].id;
+    const limiteEtablissementsProprietaire = limiteEtablissements(profil);
+    if (appartenancesProprietaire.length > limiteEtablissementsProprietaire) {
+      const idsAutorises = new Set(
+        appartenancesProprietaire.slice(0, limiteEtablissementsProprietaire).map(entree => entree.id)
+      );
       etablissementsBloques = appartenancesProprietaire
-        .filter(entree => entree.id !== restaurantPrincipal)
+        .filter(entree => !idsAutorises.has(entree.id))
         .map(entree => ({ ...entree, verrouille_abonnement: true }));
       const idsBloques = new Set(etablissementsBloques.map(entree => entree.id));
       etablissements = tousLesEtablissements.filter(entree => !idsBloques.has(entree.id));
@@ -495,6 +506,8 @@ module.exports = {
   verifierMotDePasse,
   permissionsPourRole,
   abonnementPremiumActif,
+  abonnementActif,
+  limiteEtablissements,
   possedePermission,
   connexion,
   rafraichirSession,
