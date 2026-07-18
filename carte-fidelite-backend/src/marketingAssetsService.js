@@ -61,8 +61,11 @@ function creerFlyer(restaurant, qrPng, lien) {
     document.rect(0, 0, largeur, hauteur).fill('#11111A');
     document.circle(largeur - 35, 35, 115).fill('#6D4AFF');
     document.circle(15, hauteur - 10, 105).fill('#392572');
-    document.fillColor('#BBAEFF').fontSize(10).font('Helvetica-Bold')
-      .text('VOTRE FIDÉLITÉ, DANS VOTRE TÉLÉPHONE', 32, 42, { characterSpacing: 1.2 });
+    document.fillColor('#BBAEFF').fontSize(8).font('Helvetica-Bold')
+      .text('VOTRE FIDÉLITÉ, DANS VOTRE TÉLÉPHONE', 32, 42, {
+        width: largeur - 64,
+        characterSpacing: 0.8
+      });
     document.fillColor('#FFFFFF').fontSize(28).font('Helvetica-Bold')
       .text(restaurant.nom || 'Votre restaurant', 32, 78, { width: largeur - 64, align: 'left' });
     document.fillColor('#E8E5F2').fontSize(16).font('Helvetica')
@@ -83,7 +86,10 @@ function creerFlyer(restaurant, qrPng, lien) {
         align: 'center'
       });
     document.fillColor('#B9B5C7').fontSize(9).font('Helvetica')
-      .text(lien, 45, yQr + tailleQr + 73, { width: largeur - 90, align: 'center' });
+      .text('bravocard.fr · Carte de fidélité digitale', 45, yQr + tailleQr + 73, {
+        width: largeur - 90,
+        align: 'center'
+      });
     document.fillColor('#BBAEFF').fontSize(11).font('Helvetica-Bold')
       .text('PROPULSÉ PAR BRAVOCARD', 32, hauteur - 45, {
         width: largeur - 64,
