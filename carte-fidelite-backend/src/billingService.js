@@ -5,7 +5,7 @@ let clientStripe = null;
 
 const PLANS = Object.freeze({
   starter: { nom: 'Essentiel', prix_env: 'STRIPE_PRICE_STARTER_ID', limite_etablissements: 1 },
-  pro: { nom: 'Croissance', prix_env: 'STRIPE_PRICE_PRO_ID', limite_etablissements: 3 },
+  pro: { nom: 'Croissance', prix_env: 'STRIPE_PRICE_PRO_ID', limite_etablissements: 1 },
   premium: { nom: 'Signature', prix_env: 'STRIPE_PRICE_PREMIUM_ID', limite_etablissements: 5 }
 });
 
