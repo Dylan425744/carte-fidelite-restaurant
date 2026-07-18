@@ -26,6 +26,10 @@
         <span class="pastille">Espace sécurisé</span>
         <h2 id="titreConnexion">Bienvenue</h2>
         <p id="texteConnexion">Connectez-vous avec le compte transmis par Bravocard ou par le propriétaire de votre établissement.</p>
+        <div class="offre-selectionnee" id="offreSelectionnee">
+          <div><span>Votre choix</span><strong id="nomOffreSelectionnee">Croissance</strong><small id="detailOffreSelectionnee">49 € HT / mois · 1 établissement</small></div>
+          <a href="/tarifs.html">Modifier</a>
+        </div>
         <div id="connexionCompte">
           <label for="emailConnexion">Adresse email</label>
           <input id="emailConnexion" type="email" autocomplete="username" placeholder="vous@restaurant.fr">
@@ -69,11 +73,11 @@
         <button class="navigation" data-vue="equipe"><span>♥</span>Mon équipe</button>
         <button class="navigation" data-vue="compte"><span>○</span>Mon compte</button>
       </nav>
-      <div class="sidebar-bas"><div class="aide-bloc"><strong>Besoin d’aide ?</strong><span>L’équipe Bravocard reste disponible.</span></div><button class="deconnexion" id="deconnexion">Se déconnecter</button></div>
+      <div class="sidebar-bas"><aside class="upgrade-sidebar" id="upgradeSidebar"><span>Développez votre fidélité</span><strong id="upgradeTitre">Passez à Croissance</strong><small id="upgradeTexte">Débloquez les statistiques détaillées et le pilotage d’équipe.</small><button id="upgradeBouton" type="button">Voir l’offre</button></aside><div class="aide-bloc"><strong>Besoin d’aide ?</strong><span>L’équipe Bravocard reste disponible.</span></div><button class="deconnexion" id="deconnexion">Se déconnecter</button></div>
     </aside>
 
     <main class="contenu">
-      <header class="entete-app"><div><span class="fil-ariane">Espace restaurateur</span><h1 id="titreVue">Vue d’ensemble</h1></div><div class="entete-actions"><span class="badge-admin" id="badgeAdmin">Administrateur</span><button class="bouton principal" data-ouvrir-vue="notifications">+ Nouvelle notification</button><button class="bouton secondaire bouton-deconnexion-entete" id="deconnexionEntete">Se déconnecter</button></div></header>
+      <header class="entete-app"><div><span class="fil-ariane">Espace restaurateur</span><h1 id="titreVue">Vue d’ensemble</h1></div><div class="entete-actions"><span class="badge-admin" id="badgeAdmin">Administrateur</span><button class="bouton upgrade-entete" id="upgradeEntete" type="button">Passer au Premium</button><button class="bouton principal" data-ouvrir-vue="notifications">+ Nouvelle notification</button><button class="bouton secondaire bouton-deconnexion-entete" id="deconnexionEntete">Se déconnecter</button></div></header>
 
       <section class="vue active" id="vue-accueil">
         <div class="bienvenue"><div><span class="eyebrow">Aujourd’hui</span><h2 id="messageBienvenue">Bonjour 👋</h2><p>Voici ce qui se passe dans votre programme de fidélité.</p></div><div class="bienvenue-actions"><button class="bouton clair" data-ouvrir-vue="scanner">Scanner une carte</button><button class="bouton clair discret" id="copierLienCarte">Copier le lien client</button><button class="bouton clair discret" data-ouvrir-vue="notifications">Prévenir mes clients</button></div></div>

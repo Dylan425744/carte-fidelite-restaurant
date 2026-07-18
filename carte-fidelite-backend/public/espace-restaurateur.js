@@ -1,6 +1,12 @@
 const parametres = new URLSearchParams(window.location.search);
 let slug = parametres.get('restaurant') || 'chez-basile';
 const modeAdmin = parametres.get('admin') === '1';
+const offres = {
+  starter: { nom: 'Essentiel', prix: '29 € HT / mois', limite: '1 établissement' },
+  pro: { nom: 'Croissance', prix: '49 € HT / mois', limite: '1 établissement' },
+  premium: { nom: 'Signature', prix: '89 € HT / mois', limite: 'jusqu’à 5 établissements' }
+};
+const planDemande = offres[parametres.get('plan')] ? parametres.get('plan') : null;
 const couleursWallet = {
   dark: '#111111', blue: '#1378d1', green: '#128b66',
   red: '#c53c3c', purple: '#6d47c9', orange: '#d8781f'
@@ -117,6 +123,28 @@ function ouvrirVue(nom) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function afficherOffreDemandee() {
+  const zone = $('#offreSelectionnee');
+  if (!zone || !planDemande || modeAdmin) return;
+  zone.classList.add('visible');
+  $('#nomOffreSelectionnee').textContent = offres[planDemande].nom;
+  $('#detailOffreSelectionnee').textContent = `${offres[planDemande].prix} · ${offres[planDemande].limite}`;
+  $('#titreConnexion').textContent = `Continuez avec ${offres[planDemande].nom}`;
+  $('#texteConnexion').textContent = 'Votre offre est bien conservée. Connectez-vous pour la vérifier puis ouvrir le paiement sécurisé Stripe.';
+}
+
+function ouvrirChoixAbonnement(plan) {
+  ouvrirVue('compte');
+  document.querySelectorAll('[data-plan]').forEach(bouton =>
+    bouton.classList.toggle('selectionne', bouton.dataset.plan === plan)
+  );
+  const cible = document.querySelector(`[data-plan="${plan}"]`);
+  if (cible) {
+    cible.querySelector('b').textContent = `Continuer avec ${offres[plan].nom}`;
+    setTimeout(() => cible.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
+  }
+}
+
 function afficherResultatScan(type, titre, contenu) {
   const resultat = $('#resultatScan');
   resultat.className = `panneau resultat-scan ${type}`;
@@ -223,7 +251,8 @@ async function chargerEspace() {
   const navigationDemandee = document.querySelector(`.navigation[data-vue="${vueDemandee}"]`);
   ouvrirVue(vueDemandee && !navigationDemandee?.classList.contains('masquee')
     ? vueDemandee
-    : vueParDefaut);
+    : (planDemande && sessionUtilisateur ? 'compte' : vueParDefaut));
+  if (planDemande && sessionUtilisateur) ouvrirChoixAbonnement(planDemande);
 }
 
 async function restaurerCompte() {
@@ -322,9 +351,26 @@ function afficherAbonnement() {
   document.querySelectorAll('[data-plan]').forEach(bouton => {
     const estPlanActuel = bouton.dataset.plan === plan && actif;
     bouton.classList.toggle('actif', estPlanActuel);
+    bouton.classList.toggle('selectionne', Boolean(planDemande && bouton.dataset.plan === planDemande && !estPlanActuel));
     bouton.disabled = !abonnement?.stripe_configure || estPlanActuel;
-    bouton.querySelector('b').textContent = estPlanActuel ? 'Forfait actuel' : 'Choisir';
+    bouton.querySelector('b').textContent = estPlanActuel
+      ? 'Forfait actuel'
+      : (planDemande === bouton.dataset.plan ? `Continuer avec ${offres[bouton.dataset.plan].nom}` : 'Choisir');
   });
+  const planSuivant = plan === 'pro' && actif ? 'premium' : 'pro';
+  const afficherUpgrade = plan !== 'premium' || !actif;
+  $('#upgradeSidebar').classList.toggle('visible', afficherUpgrade);
+  $('#upgradeEntete').classList.toggle('visible', afficherUpgrade);
+  $('#upgradeSidebar').dataset.plan = planSuivant;
+  $('#upgradeEntete').dataset.plan = planSuivant;
+  $('#upgradeTitre').textContent = `Passez à ${offres[planSuivant].nom}`;
+  $('#upgradeEntete').textContent = `Passer à ${offres[planSuivant].nom}`;
+  $('#upgradeTexte').textContent = planSuivant === 'premium'
+    ? 'Débloquez jusqu’à 5 établissements et le studio Wallet avancé.'
+    : 'Débloquez les statistiques détaillées et le pilotage d’équipe.';
+  if (planDemande && planDemande !== plan) {
+    afficherMessage($('#messageAbonnement'), `Votre choix ${offres[planDemande].nom} a été conservé. Vérifiez-le puis continuez vers Stripe.`, 'succes');
+  }
   if (!abonnement?.stripe_configure) {
     $('#texteForfait').textContent = 'La facturation est en cours de configuration par Bravocard.';
   }
@@ -1224,8 +1270,11 @@ $('#emailRecuperation').addEventListener('keydown', evenement => {
 document.querySelectorAll('[data-plan]').forEach(bouton =>
   bouton.addEventListener('click', () => ouvrirCheckout(bouton.dataset.plan))
 );
+$('#upgradeBouton').addEventListener('click', () => ouvrirChoixAbonnement($('#upgradeSidebar').dataset.plan || 'pro'));
+$('#upgradeEntete').addEventListener('click', () => ouvrirChoixAbonnement($('#upgradeEntete').dataset.plan || 'pro'));
 $('#gererAbonnement').addEventListener('click', ouvrirPortailStripe);
 
+afficherOffreDemandee();
 if (modeAdmin && !motDePasseAdmin) {
   $('#titreConnexion').textContent = 'Accès super-administrateur';
   $('#texteConnexion').textContent = 'Connectez-vous avec votre compte Bravocard ou utilisez temporairement le mot de passe principal.';
