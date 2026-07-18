@@ -8,6 +8,12 @@
   force = true
 
 [[redirects]]
+  from = "/avis/*"
+  to = "https://carte-fidelite-restaurant.onrender.com/avis/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/*"
   to = "https://carte-fidelite-restaurant.onrender.com/api/:splat"
   status = 200

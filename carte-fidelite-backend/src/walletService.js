@@ -121,7 +121,7 @@ function construireObjetFidelite(client, restaurant) {
       balance: { int: Number.parseInt(client.points || 0, 10) }
     },
     barcode: {
-      type: 'CODE_128',
+      type: restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128',
       value: client.scan_code || client.id,
       alternateText: client.scan_code || ''
     },
@@ -130,6 +130,14 @@ function construireObjetFidelite(client, restaurant) {
       { id: 'type_carte', header: 'CARTE', body: restaurant.apple_card_label || 'FIDÉLITÉ' }
     ]
   };
+
+  if (client.referral_code) {
+    objet.textModulesData.push({
+      id: 'code_parrainage',
+      header: 'CODE PARRAINAGE',
+      body: String(client.referral_code)
+    });
+  }
 
   if (client.referral_link) {
     objet.linksModuleData = {

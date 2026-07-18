@@ -169,7 +169,7 @@ async function synchroniserRestaurantsDuProprietaire(userId, miseAJour) {
       .in('id', restaurantIds);
     if (erreurLecture) throw erreurLecture;
     const resultats = await Promise.allSettled(
-      (restaurants || []).map(restaurant => marketing.assurerSupportsMarketing(restaurant))
+      (restaurants || []).map(restaurant => marketing.assurerSupportsMarketing(restaurant, { force: true }))
     );
     resultats.filter(resultat => resultat.status === 'rejected').forEach(resultat =>
       console.error('Supports marketing après paiement Stripe:', resultat.reason?.message || resultat.reason)

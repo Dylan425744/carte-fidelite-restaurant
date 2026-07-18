@@ -216,10 +216,11 @@ function construireChampsCarte(client, restaurant = null) {
   const nomClient = obtenirNomCompletClient(client).toUpperCase();
   const points = obtenirNombrePoints(client);
   const lienParrainage = client.referral_link || null;
+  const codeParrainage = client.referral_code || null;
 
   const champs = {
     barcodeValue: String(client.scan_code || client.id),
-    barcodeFormat: 'Code128',
+    barcodeFormat: restaurant?.wallet_barcode_format === 'QR_CODE' ? 'QR' : 'Code128',
 
     /*
      * Sans logo personnalisé, "Bravocard" apparaît en texte.
@@ -312,6 +313,13 @@ function construireChampsCarte(client, restaurant = null) {
       }
     ]
   };
+
+  if (codeParrainage) {
+    champs.backFields.push({
+      label: 'CODE DE PARRAINAGE',
+      value: String(codeParrainage)
+    });
+  }
 
   if (lienParrainage) {
     champs.backFields.push({

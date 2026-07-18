@@ -49,6 +49,7 @@ const CHAMPS_RESTAURANT = [
   'apple_logo_text',
   'apple_points_label',
   'apple_card_label',
+  'wallet_barcode_format',
   'apple_custom_color',
   'apple_logo_url',
   'apple_strip_url',
@@ -82,7 +83,10 @@ const CHAMPS_RESTAURANT = [
   'marketing_assets_version',
   'qr_svg_path',
   'qr_png_path',
+  'secondary_qr_svg_path',
+  'secondary_qr_png_path',
   'flyer_pdf_path',
+  'lien_avis_google',
   'marketing_assets_updated_at',
   'marketing_assets_error'
 ].join(', ');
@@ -108,6 +112,21 @@ app.get('/r/:token', async (req, res) => {
     return res.redirect(302, `${base}/creer-carte.html?restaurant=${encodeURIComponent(restaurant.slug)}&utm_source=qr_restaurant`);
   } catch (erreur) {
     console.error('Résolution QR restaurant:', erreur.message);
+    return res.status(500).send(pageProgrammeIndisponible('Lien temporairement indisponible', 'Veuillez réessayer dans quelques instants.'));
+  }
+});
+
+app.get('/avis/:token', async (req, res) => {
+  try {
+    const { data: restaurant, error } = await supabase.from('restaurants')
+      .select(CHAMPS_RESTAURANT).eq('public_qr_token', req.params.token).maybeSingle();
+    if (error) throw error;
+    if (!restaurant || restaurant.deleted_at) return res.status(410).send(pageProgrammeIndisponible('Ce QR code n’est plus actif', 'Le restaurant associé a été retiré.'));
+    if (!restaurant.actif || !auth.accesFacturationRestaurant(restaurant)) return res.status(503).send(pageProgrammeIndisponible('Programme momentanément indisponible', 'Ce restaurant réactive actuellement ses services.'));
+    if (!/^https:\/\//i.test(restaurant.lien_avis_google || '')) return res.status(404).send(pageProgrammeIndisponible('Lien d’avis à configurer', 'Le restaurant doit encore renseigner son lien Google dans son espace Bravocard.'));
+    return res.redirect(302, restaurant.lien_avis_google);
+  } catch (erreur) {
+    console.error('Résolution QR avis:', erreur.message);
     return res.status(500).send(pageProgrammeIndisponible('Lien temporairement indisponible', 'Veuillez réessayer dans quelques instants.'));
   }
 });
@@ -670,6 +689,7 @@ async function traiterCampagneWallet(campagne, clients, restaurant) {
   };
 
   try {
+    clients = await enrichirClientsParrainage(clients, restaurant);
     for (let index = 0; index < clients.length; index += 5) {
       const lot = clients.slice(index, index + 5);
 
@@ -819,14 +839,43 @@ async function actualiserCartesAppleEnArrierePlan(restaurant) {
       .eq('restaurant_id', restaurant.id)
       .not('apple_wallet_serial', 'is', null);
     if (error) throw error;
-    for (let index = 0; index < (clients || []).length; index += 5) {
-      const lot = clients.slice(index, index + 5);
+    const clientsEnrichis = await enrichirClientsParrainage(clients || [], restaurant);
+    for (let index = 0; index < clientsEnrichis.length; index += 5) {
+      const lot = clientsEnrichis.slice(index, index + 5);
       await Promise.allSettled(lot.map(client =>
         appleWallet.mettreAJourPasseApple(client.apple_wallet_serial, client, restaurant)
       ));
     }
   } catch (erreur) {
     console.error('Synchronisation du design Apple Wallet:', erreur.message);
+  }
+}
+
+async function enrichirClientsParrainage(clients, restaurant) {
+  if (!clients?.length) return [];
+  const ids = clients.map(client => client.id);
+  const { data: codes, error } = await supabase.from('referral_codes')
+    .select('client_id, code').eq('restaurant_id', restaurant.id).in('client_id', ids);
+  if (error) throw error;
+  const parClient = new Map((codes || []).map(ligne => [ligne.client_id, ligne.code]));
+  return clients.map(client => {
+    const code = parClient.get(client.id) || null;
+    return { ...client, referral_code: code, referral_link: referral.construireLienParrainage(restaurant.slug, code) };
+  });
+}
+
+async function actualiserCartesGoogleEnArrierePlan(restaurant) {
+  try {
+    const { data: clients, error } = await supabase.from('clients').select('*').eq('restaurant_id', restaurant.id);
+    if (error) throw error;
+    const clientsEnrichis = await enrichirClientsParrainage(clients || [], restaurant);
+    for (let index = 0; index < clientsEnrichis.length; index += 5) {
+      await Promise.allSettled(clientsEnrichis.slice(index, index + 5).map(client =>
+        wallet.diagnostiquerSynchronisationObjetWallet(client, restaurant)
+      ));
+    }
+  } catch (erreur) {
+    console.error('Synchronisation des cartes Google Wallet:', erreur.message);
   }
 }
 
@@ -924,6 +973,7 @@ app.put('/api/design/:slug', async (req, res) => {
     setImmediate(() => {
       actualiserCartesAppleEnArrierePlan(data);
       actualiserClasseGoogleEnArrierePlan(data);
+      actualiserCartesGoogleEnArrierePlan(data);
       marketing.assurerSupportsMarketing(data, { force: true }).catch(erreur =>
         console.error(`Supports marketing (${data.slug}):`, erreur.message)
       );
@@ -964,6 +1014,25 @@ app.post('/api/restaurateur/:slug/marketing/regenerer', async (req, res) => {
   } catch (erreur) {
     console.error('Régénération supports marketing:', erreur.message);
     res.status(500).json({ erreur: 'La régénération a échoué. Vous pouvez réessayer.' });
+  }
+});
+
+app.put('/api/restaurateur/:slug/marketing', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'marketing_manage');
+    if (!acces) return;
+    const lien = String(req.body?.lien_avis_google || '').trim();
+    if (lien && (!/^https:\/\//i.test(lien) || lien.length > 500)) {
+      return res.status(400).json({ erreur: 'Le lien Google doit être une adresse HTTPS valide.' });
+    }
+    const { data, error } = await supabase.from('restaurants')
+      .update({ lien_avis_google: lien || null }).eq('id', acces.restaurant.id).select(CHAMPS_RESTAURANT).single();
+    if (error) throw error;
+    const supports = await marketing.assurerSupportsMarketing(data, { force: true });
+    res.json({ succes: true, message: 'Lien d’avis et supports actualisés.', supports });
+  } catch (erreur) {
+    console.error('Configuration du QR avis:', erreur.message);
+    res.status(400).json({ erreur: erreur.message });
   }
 });
 
@@ -1497,6 +1566,7 @@ app.get('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
       restaurants: resultatRestaurants.data.map(restaurant => {
         const equipe = appartenances.filter(entree => entree.restaurant_id === restaurant.id);
         return {
+          ...restaurant,
           ...designRestaurant.serialiserRestaurant(
           restaurant,
           appleWallet.designProDisponible()
@@ -1954,8 +2024,11 @@ app.post('/api/clients', async (req, res) => {
     await email.envoyerEmailBienvenue(
       emailNettoye,
       nomNettoye,
+      restaurant,
       lienWallet,
-      lienAppleWallet
+      lienAppleWallet,
+      codePersonnel,
+      lienParrainage
     );
 
     res.json({
@@ -2353,8 +2426,9 @@ async function initialiserGoogleWalletMultiRestaurants() {
           .select('*')
           .eq('restaurant_id', restaurant.id);
         if (erreurClients) throw erreurClients;
-        for (let index = 0; index < (clients || []).length; index += 5) {
-          const lot = clients.slice(index, index + 5);
+        const clientsEnrichis = await enrichirClientsParrainage(clients || [], restaurant);
+        for (let index = 0; index < clientsEnrichis.length; index += 5) {
+          const lot = clientsEnrichis.slice(index, index + 5);
           await Promise.allSettled(lot.map(client =>
             wallet.diagnostiquerSynchronisationObjetWallet(client, restaurant)
           ));

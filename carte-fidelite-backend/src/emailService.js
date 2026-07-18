@@ -65,8 +65,8 @@ async function envoyerEmailAvis(emailDestinataire, nomClient, lienRoue) {
   await envoyerEmail(emailDestinataire, `Merci de votre visite chez ${nomRestaurant} !`, texte);
 }
 
-async function envoyerEmailBienvenue(emailDestinataire, nomClient, lienWallet, lienAppleWallet) {
-  const nomRestaurant = process.env.NOM_RESTAURANT;
+async function envoyerEmailBienvenue(emailDestinataire, nomClient, restaurant, lienWallet, lienAppleWallet, codeParrainage, lienParrainage) {
+  const nomRestaurant = restaurant?.nom || process.env.NOM_RESTAURANT || 'votre restaurant';
 
   let texte =
     `Bonjour ${nomClient},\n\n` +
@@ -75,6 +75,12 @@ async function envoyerEmailBienvenue(emailDestinataire, nomClient, lienWallet, l
 
   if (lienAppleWallet) {
     texte += `Ou ajoutez-la à Apple Wallet en cliquant ici :\n${lienAppleWallet}\n\n`;
+  }
+
+  if (codeParrainage) {
+    texte += `Votre code de parrainage personnel : ${codeParrainage}\n`;
+    if (lienParrainage) texte += `Partagez ce lien avec vos proches :\n${lienParrainage}\n`;
+    texte += '\n';
   }
 
   texte += `À très bientôt,\n` + `L'équipe de ${nomRestaurant}`;

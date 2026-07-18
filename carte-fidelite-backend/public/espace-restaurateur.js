@@ -575,6 +575,17 @@ function afficherParrainage() {
       <td><span class="statut ${echapper(invitation.statut)}">${echapper(libelleStatutParrainage(invitation.statut))}</span></td>
     </tr>`).join('');
   $('#aucunParrainage').style.display = invitations.length ? 'none' : 'block';
+  const codes = parrainage.codes || [];
+  $('#resumeCodesParrainage').textContent = `${codes.length} code${codes.length > 1 ? 's' : ''}`;
+  $('#tableCodesParrainage').innerHTML = codes.map(ligne => {
+    const client = ligne.client || {};
+    return `<tr><td><strong>${echapper(client.nom || 'Client supprimé')}</strong></td><td>${echapper(client.email || client.telephone || '-')}</td><td><button type="button" class="code-parrainage" data-copier-code="${echapper(ligne.code)}">${echapper(ligne.code)}</button></td><td>${Number(client.points || 0)} pts</td><td>${formaterDate(ligne.created_at)}</td></tr>`;
+  }).join('');
+  $('#aucunCodeParrainage').style.display = codes.length ? 'none' : 'block';
+  document.querySelectorAll('[data-copier-code]').forEach(bouton => bouton.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(bouton.dataset.copierCode);
+    afficherMessage($('#messageParrainage'), 'Code copié.', 'succes');
+  }));
 }
 
 async function enregistrerParrainage() {
@@ -953,6 +964,9 @@ function actualiserApercuNotification() {
 function remplirDesign() {
   const preset = document.querySelector(`[name="preset"][value="${restaurant.apple_color_preset}"]`);
   if (preset) preset.checked = true;
+  const format = restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128';
+  const choixFormat = document.querySelector(`[name="walletBarcodeFormat"][value="${format}"]`);
+  if (choixFormat) choixFormat.checked = true;
   const correspondances = {
     logoText: 'apple_logo_text', pointsLabel: 'apple_points_label',
     cardLabel: 'apple_card_label', customColor: 'apple_custom_color',
@@ -990,6 +1004,7 @@ function actualiserApercuWallet() {
   $('#statutLogo').textContent = logo ? 'Prêt' : 'Facultatif';
   $('#statutStrip').textContent = strip ? 'Prête' : 'Facultatif';
   $('#statutIcon').textContent = $('#iconUrl').value.trim() ? 'Prête' : 'Facultatif';
+  $('#wallet').classList.toggle('format-qr', document.querySelector('[name="walletBarcodeFormat"]:checked')?.value === 'QR_CODE');
 }
 
 async function lireFichier(input, cible, type) {
@@ -1054,6 +1069,7 @@ async function enregistrerDesign() {
   bouton.disabled = true;
   afficherMessage($('#messageDesign'), 'Enregistrement...');
   const corps = {
+    wallet_barcode_format: document.querySelector('[name="walletBarcodeFormat"]:checked')?.value || 'CODE_128',
     apple_color_preset: document.querySelector('[name="preset"]:checked').value,
     apple_logo_text: $('#logoText').value,
     apple_points_label: $('#pointsLabel').value,
@@ -1087,6 +1103,8 @@ function afficherSupportsMarketing() {
   $('#marketingStatut').textContent = pret ? 'Supports prêts' : 'Préparation en cours';
   $('#marketingLien').value = supportsMarketing.lien_public || '';
   if (supportsMarketing.qr_png_url) $('#marketingQrPreview').src = supportsMarketing.qr_png_url;
+  $('#marketingSecondaire').hidden = !supportsMarketing.secondaire_disponible;
+  $('#lienAvisGoogle').value = supportsMarketing.lien_avis_google || '';
   const liens = [
     ['telechargerFlyer', supportsMarketing.flyer_pdf_url],
     ['telechargerQrPng', supportsMarketing.qr_png_url],
@@ -1097,6 +1115,32 @@ function afficherSupportsMarketing() {
     element.href = url || '#';
     element.setAttribute('aria-disabled', url ? 'false' : 'true');
   });
+  [
+    ['telechargerQrAvisPng', supportsMarketing.secondary_qr_png_url],
+    ['telechargerQrAvisSvg', supportsMarketing.secondary_qr_svg_url]
+  ].forEach(([id, url]) => {
+    const element = $(`#${id}`);
+    element.href = url || '#';
+    element.setAttribute('aria-disabled', url ? 'false' : 'true');
+  });
+}
+
+async function enregistrerLienAvis() {
+  const bouton = $('#enregistrerLienAvis');
+  bouton.disabled = true;
+  afficherMessage($('#messageMarketing'), 'Actualisation du second QR code…');
+  try {
+    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/marketing`, {
+      method: 'PUT', body: JSON.stringify({ lien_avis_google: $('#lienAvisGoogle').value })
+    });
+    supportsMarketing = donnees.supports;
+    afficherSupportsMarketing();
+    afficherMessage($('#messageMarketing'), donnees.message, 'succes');
+  } catch (erreur) {
+    afficherMessage($('#messageMarketing'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
 }
 
 async function chargerSupportsMarketing() {
@@ -1300,6 +1344,7 @@ $('#demarrerScanner').addEventListener('click', demarrerScanner);
 $('#relancerScanner').addEventListener('click', demarrerScanner);
 $('#enregistrerDesign').addEventListener('click', enregistrerDesign);
 $('#regenererSupports').addEventListener('click', regenererSupportsMarketing);
+$('#enregistrerLienAvis').addEventListener('click', enregistrerLienAvis);
 $('#copierLienMarketing').addEventListener('click', copierLienMarketing);
 $('#enregistrerParrainage').addEventListener('click', enregistrerParrainage);
 $('#enregistrerAntiFraude').addEventListener('click', enregistrerAntiFraude);
@@ -1318,6 +1363,9 @@ $('#stripFile').addEventListener('change', evenement => lireFichier(evenement.ta
 $('#iconFile').addEventListener('change', evenement => lireFichier(evenement.target, 'iconUrl', 'icon'));
 document.querySelectorAll('[data-modele-wallet]').forEach(bouton =>
   bouton.addEventListener('click', () => appliquerModeleWallet(bouton.dataset.modeleWallet))
+);
+document.querySelectorAll('[name="walletBarcodeFormat"]').forEach(champ =>
+  champ.addEventListener('change', actualiserApercuWallet)
 );
 $('#ajouterMembre').addEventListener('click', ajouterMembre);
 $('#actualiserEquipe').addEventListener('click', chargerEquipe);

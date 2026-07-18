@@ -185,6 +185,7 @@
         </div>
 
         <article class="panneau historique-parrainage"><div class="panneau-titre"><div><span class="eyebrow">Suivi</span><h3>Invitations récentes</h3></div><span class="badge-doux" id="resumeParrainage">0 invitation</span></div><div class="table-conteneur"><table><thead><tr><th>Parrain</th><th>Filleul</th><th>Code</th><th>Date</th><th>Récompense</th><th>Statut</th></tr></thead><tbody id="tableParrainages"></tbody></table></div><div class="etat-vide" id="aucunParrainage">Les premières invitations apparaîtront ici.</div></article>
+        <article class="panneau historique-parrainage"><div class="panneau-titre"><div><span class="eyebrow">Répertoire</span><h3>Codes de parrainage clients</h3></div><span class="badge-doux" id="resumeCodesParrainage">0 code</span></div><p class="texte-secondaire">Retrouvez ici le code personnel d’un client s’il l’a oublié.</p><div class="table-conteneur"><table><thead><tr><th>Client</th><th>Contact</th><th>Code personnel</th><th>Points</th><th>Créé le</th></tr></thead><tbody id="tableCodesParrainage"></tbody></table></div><div class="etat-vide" id="aucunCodeParrainage">Les codes apparaîtront après la création des premières cartes.</div></article>
       </section>
 
       <section class="vue" id="vue-anti-fraude">
@@ -277,6 +278,7 @@
             <label>Couleur de la carte</label><div class="palette"><label class="pastille-couleur dark" title="Noir"><input type="radio" name="preset" value="dark"></label><label class="pastille-couleur blue" title="Bleu"><input type="radio" name="preset" value="blue"></label><label class="pastille-couleur green" title="Vert"><input type="radio" name="preset" value="green"></label><label class="pastille-couleur red" title="Rouge"><input type="radio" name="preset" value="red"></label><label class="pastille-couleur purple" title="Violet"><input type="radio" name="preset" value="purple"></label><label class="pastille-couleur orange" title="Orange"><input type="radio" name="preset" value="orange"></label></div>
             <label for="logoText">Nom en haut de la carte</label><input id="logoText" type="text" maxlength="32">
             <div class="deux-colonnes"><div><label for="pointsLabel">Libellé des points</label><input id="pointsLabel" type="text" maxlength="28"></div><div><label for="cardLabel">Type de carte</label><input id="cardLabel" type="text" maxlength="28"></div></div>
+            <label>Code à présenter en caisse</label><div class="choix-plateforme choix-code-wallet"><label><input type="radio" name="walletBarcodeFormat" value="CODE_128" checked><span>Code-barres</span></label><label><input type="radio" name="walletBarcodeFormat" value="QR_CODE"><span>QR code</span></label></div><p class="texte-secondaire">Le choix s’applique automatiquement aux cartes Apple Wallet et Google Wallet de ce restaurant.</p>
             <div class="zone-pro verrouille" id="zonePro">
               <div class="pro-entete"><div><span class="pastille">PRO</span><strong>Direction artistique avancée</strong></div><span id="messagePro">WalletWallet Pro</span></div>
               <div class="contenu-pro">
@@ -318,6 +320,13 @@
               <a class="bouton principal" id="telechargerFlyer" target="_blank" rel="noopener">Télécharger le flyer PDF</a>
               <a class="bouton secondaire" id="telechargerQrPng" target="_blank" rel="noopener">QR code PNG</a>
               <a class="bouton secondaire" id="telechargerQrSvg" target="_blank" rel="noopener">QR code SVG</a>
+            </div>
+            <div class="marketing-secondaire" id="marketingSecondaire" hidden>
+              <span class="eyebrow">Inclus avec Croissance et Signature</span><h3>Second QR code · avis Google</h3>
+              <p class="texte-secondaire">Renseignez votre page Google. Le second QR du flyer y conduira automatiquement.</p>
+              <label for="lienAvisGoogle">Lien public de votre fiche Google</label><input id="lienAvisGoogle" type="url" placeholder="https://g.page/r/…/review">
+              <button class="bouton secondaire" id="enregistrerLienAvis" type="button">Enregistrer le lien</button>
+              <div class="marketing-telechargements"><a class="bouton secondaire" id="telechargerQrAvisPng" target="_blank" rel="noopener">QR avis PNG</a><a class="bouton secondaire" id="telechargerQrAvisSvg" target="_blank" rel="noopener">QR avis SVG</a></div>
             </div>
             <label for="marketingLien">Lien public du restaurant</label>
             <div class="champ-copie"><input id="marketingLien" readonly><button class="bouton secondaire" id="copierLienMarketing" type="button">Copier</button></div>

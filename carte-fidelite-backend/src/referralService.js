@@ -204,7 +204,7 @@ async function obtenirTableauParrainage(restaurantId) {
       obtenirReglages(restaurantId),
       supabase
         .from('referral_codes')
-        .select('client_id', { count: 'exact', head: true })
+        .select('client_id, code, created_at, clients!referral_codes_client_id_fkey(id, nom, email, telephone, points)')
         .eq('restaurant_id', restaurantId),
       supabase
         .from('referrals')
@@ -228,7 +228,8 @@ async function obtenirTableauParrainage(restaurantId) {
         clients_acquis: 0,
         points_distribues: 0
       },
-      invitations: []
+      invitations: [],
+      codes: []
     };
   }
 
@@ -241,7 +242,7 @@ async function obtenirTableauParrainage(restaurantId) {
   return {
     reglages,
     statistiques: {
-      codes_actifs: codes.count || 0,
+      codes_actifs: (codes.data || []).length,
       en_attente: lignes.filter(ligne => ligne.status === 'pending').length,
       valides: valides.length,
       clients_acquis: valides.length,
@@ -251,6 +252,12 @@ async function obtenirTableauParrainage(restaurantId) {
         0
       )
     },
+    codes: (codes.data || []).map(ligne => ({
+      client_id: ligne.client_id,
+      code: ligne.code,
+      created_at: ligne.created_at,
+      client: ligne.clients || null
+    })),
     invitations: lignes.map(ligne => ({
       id: ligne.id,
       code: ligne.referral_code,
