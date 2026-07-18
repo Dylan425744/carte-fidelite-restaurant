@@ -9,13 +9,13 @@ const PERMISSIONS_PAR_ROLE = {
   employee: ['scan'],
   manager: [
     'dashboard', 'statistics', 'clients', 'scan', 'referral_view',
-    'fraud_view', 'fraud_review', 'notifications'
+    'fraud_view', 'fraud_review', 'notifications', 'marketing_view'
   ],
   owner: [
     'dashboard', 'statistics', 'clients', 'scan', 'referral_view',
     'referral_manage', 'fraud_view', 'fraud_review', 'fraud_manage',
     'notifications', 'design_view', 'design_manage', 'team_manage',
-    'cards_sync'
+    'cards_sync', 'marketing_view', 'marketing_manage'
   ],
   super_admin: ['*']
 };

@@ -71,6 +71,7 @@
         <button class="navigation" data-vue="notifications"><span>●</span>Notifications</button>
         <button class="navigation" data-vue="roue"><span>✦</span>Roue cadeaux</button>
         <button class="navigation" data-vue="design"><span>◈</span>Design Wallet</button>
+        <button class="navigation" data-vue="marketing"><span>▦</span>QR &amp; flyer</button>
         <button class="navigation" data-vue="equipe"><span>♥</span>Mon équipe</button>
         <button class="navigation" data-vue="compte"><span>○</span>Mon compte</button>
       </nav>
@@ -291,6 +292,39 @@
             <button class="bouton principal" id="enregistrerDesign">Enregistrer et actualiser les cartes</button><span class="message" id="messageDesign"></span>
           </article>
           <div class="apercu-wallet"><div class="wallet" id="wallet"><div class="wallet-entete"><div class="preview-logo-zone"><img id="previewLogoImage" alt=""><strong id="previewLogo">Bravocard</strong></div><div><small id="previewPointsLabel">POINTS SUR 100</small><span>60</span></div></div><div class="wallet-banniere" id="previewBanniere"><div><small>PROGRAMME</small><strong id="previewProgramme">Carte fidélité</strong></div></div><div class="wallet-bas"><div><small>CLIENT</small><strong>CLIENT TEST</strong><small id="previewCardLabel">FIDÉLITÉ</small><span id="previewRecompense">Récompense à débloquer</span></div><div class="codebarres"></div></div></div><p class="legende">Aperçu indicatif Apple Wallet · le rendu final dépend de l’appareil</p></div>
+        </div>
+      </section>
+
+      <section class="vue" id="vue-marketing">
+        <div class="marketing-hero">
+          <div><span class="eyebrow">Acquisition en restaurant</span><h2>Un QR code unique, prêt à convertir.</h2><p>Chaque scan ouvre la création de carte du bon restaurant. Téléchargez le support qui convient à votre comptoir, vos tables ou votre vitrine.</p></div>
+          <span class="marketing-statut" id="marketingStatut">Préparation…</span>
+        </div>
+        <div class="grille-marketing">
+          <article class="panneau marketing-apercu">
+            <div class="flyer-apercu">
+              <span>VOTRE FIDÉLITÉ, DANS VOTRE TÉLÉPHONE</span>
+              <h3 id="marketingRestaurantNom">Votre restaurant</h3>
+              <p>Scannez. Ajoutez la carte.<br>Cumulez vos avantages.</p>
+              <div class="qr-cadre"><img id="marketingQrPreview" alt="QR code du restaurant"></div>
+              <strong>Scannez pour créer votre carte</strong>
+              <small>PROPULSÉ PAR BRAVOCARD</small>
+            </div>
+          </article>
+          <article class="panneau marketing-outils">
+            <span class="eyebrow">Kit de communication</span><h3>Téléchargez et imprimez</h3>
+            <p class="texte-secondaire">Le lien est stable : vous pouvez imprimer ces supports durablement. Il continuera d’ouvrir la bonne carte même après une modification du design.</p>
+            <div class="marketing-telechargements">
+              <a class="bouton principal" id="telechargerFlyer" target="_blank" rel="noopener">Télécharger le flyer PDF</a>
+              <a class="bouton secondaire" id="telechargerQrPng" target="_blank" rel="noopener">QR code PNG</a>
+              <a class="bouton secondaire" id="telechargerQrSvg" target="_blank" rel="noopener">QR code SVG</a>
+            </div>
+            <label for="marketingLien">Lien public du restaurant</label>
+            <div class="champ-copie"><input id="marketingLien" readonly><button class="bouton secondaire" id="copierLienMarketing" type="button">Copier</button></div>
+            <div class="info-envoi"><span>i</span><p>Si le restaurant est désactivé ou placé dans la corbeille, ce QR code affiche une page d’indisponibilité sans perdre ses fichiers.</p></div>
+            <button class="lien-bouton" id="regenererSupports" type="button">Régénérer les fichiers</button>
+            <span class="message" id="messageMarketing"></span>
+          </article>
         </div>
       </section>
 

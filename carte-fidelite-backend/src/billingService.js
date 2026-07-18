@@ -1,5 +1,6 @@
 const Stripe = require('stripe');
 const supabase = require('./supabaseClient');
+const marketing = require('./marketingAssetsService');
 
 let clientStripe = null;
 
@@ -160,6 +161,20 @@ async function synchroniserRestaurantsDuProprietaire(userId, miseAJour) {
     })
     .in('id', restaurantIds);
   if (erreurRestaurants) throw erreurRestaurants;
+
+  if (accesActif) {
+    const { data: restaurants, error: erreurLecture } = await supabase
+      .from('restaurants')
+      .select('*')
+      .in('id', restaurantIds);
+    if (erreurLecture) throw erreurLecture;
+    const resultats = await Promise.allSettled(
+      (restaurants || []).map(restaurant => marketing.assurerSupportsMarketing(restaurant))
+    );
+    resultats.filter(resultat => resultat.status === 'rejected').forEach(resultat =>
+      console.error('Supports marketing après paiement Stripe:', resultat.reason?.message || resultat.reason)
+    );
+  }
 }
 
 async function mettreAJourAbonnement(abonnement) {

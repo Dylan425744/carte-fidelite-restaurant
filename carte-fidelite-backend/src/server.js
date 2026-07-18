@@ -15,6 +15,7 @@ const antiFraude = require('./antiFraudService');
 const analytics = require('./analyticsService');
 const auth = require('./authService');
 const billing = require('./billingService');
+const marketing = require('./marketingAssetsService');
 
 const app = express();
 app.use(cors());
@@ -75,8 +76,41 @@ const CHAMPS_RESTAURANT = [
   'google_wallet_class_status',
   'google_wallet_design_version',
   'google_wallet_synced_at',
-  'google_wallet_sync_error'
+  'google_wallet_sync_error',
+  'public_qr_token',
+  'marketing_assets_status',
+  'marketing_assets_version',
+  'qr_svg_path',
+  'qr_png_path',
+  'flyer_pdf_path',
+  'marketing_assets_updated_at',
+  'marketing_assets_error'
 ].join(', ');
+
+function pageProgrammeIndisponible(titre, texte) {
+  return `<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${titre} · Bravocard</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#11111a;color:#fff;font-family:Arial,sans-serif}.carte{max-width:520px;margin:24px;padding:42px;border:1px solid #373249;border-radius:28px;background:#1b1925;box-shadow:0 30px 90px #0008}.logo{color:#bbaeff;font-weight:800;letter-spacing:.08em}h1{font-size:34px;margin:28px 0 14px}p{color:#c7c3d2;line-height:1.6}</style><div class="carte"><div class="logo">✦ BRAVOCARD</div><h1>${titre}</h1><p>${texte}</p></div></html>`;
+}
+
+app.get('/r/:token', async (req, res) => {
+  try {
+    const { data: restaurant, error } = await supabase.from('restaurants')
+      .select(CHAMPS_RESTAURANT)
+      .eq('public_qr_token', req.params.token)
+      .maybeSingle();
+    if (error) throw error;
+    if (!restaurant || restaurant.deleted_at) {
+      return res.status(410).send(pageProgrammeIndisponible('Ce QR code n’est plus actif', 'Le programme associé à ce support a été retiré.'));
+    }
+    if (!restaurant.actif || !auth.accesFacturationRestaurant(restaurant)) {
+      return res.status(503).send(pageProgrammeIndisponible('Programme momentanément indisponible', 'Le restaurant réactive actuellement son programme de fidélité. Revenez bientôt.'));
+    }
+    const base = String(process.env.MARKETING_PUBLIC_BASE_URL || 'https://bravocard.fr').replace(/\/$/, '');
+    return res.redirect(302, `${base}/creer-carte.html?restaurant=${encodeURIComponent(restaurant.slug)}&utm_source=qr_restaurant`);
+  } catch (erreur) {
+    console.error('Résolution QR restaurant:', erreur.message);
+    return res.status(500).send(pageProgrammeIndisponible('Lien temporairement indisponible', 'Veuillez réessayer dans quelques instants.'));
+  }
+});
 
 function estAdministrateurHistorique(req) {
   const motDePasse = req.headers['x-dashboard-password'];
@@ -314,7 +348,12 @@ app.post('/api/public/inscription', async (req, res) => {
       slug: req.body.slug,
       plan
     });
-    setImmediate(() => actualiserClasseGoogleEnArrierePlan(resultat.restaurant));
+    setImmediate(() => {
+      actualiserClasseGoogleEnArrierePlan(resultat.restaurant);
+      marketing.assurerSupportsMarketing(resultat.restaurant).catch(erreur =>
+        console.error(`Supports marketing (${resultat.restaurant.slug}):`, erreur.message)
+      );
+    });
     const connexion = await auth.connexion(req.body.email, req.body.password);
     auth.ecrireSession(res, connexion.session);
     const url = await billing.creerCheckout(
@@ -885,6 +924,9 @@ app.put('/api/design/:slug', async (req, res) => {
     setImmediate(() => {
       actualiserCartesAppleEnArrierePlan(data);
       actualiserClasseGoogleEnArrierePlan(data);
+      marketing.assurerSupportsMarketing(data, { force: true }).catch(erreur =>
+        console.error(`Supports marketing (${data.slug}):`, erreur.message)
+      );
     });
 
     res.json({
@@ -898,6 +940,30 @@ app.put('/api/design/:slug', async (req, res) => {
   } catch (erreur) {
     console.error(erreur);
     res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.get('/api/restaurateur/:slug/marketing', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'marketing_view');
+    if (!acces) return;
+    const supports = await marketing.assurerSupportsMarketing(acces.restaurant);
+    res.json({ succes: true, supports });
+  } catch (erreur) {
+    console.error('Supports marketing:', erreur.message);
+    res.status(500).json({ erreur: 'Impossible de préparer vos supports pour le moment.' });
+  }
+});
+
+app.post('/api/restaurateur/:slug/marketing/regenerer', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'marketing_manage');
+    if (!acces) return;
+    const supports = await marketing.assurerSupportsMarketing(acces.restaurant, { force: true });
+    res.json({ succes: true, message: 'QR code et flyer actualisés.', supports });
+  } catch (erreur) {
+    console.error('Régénération supports marketing:', erreur.message);
+    res.status(500).json({ erreur: 'La régénération a échoué. Vous pouvez réessayer.' });
   }
 });
 
@@ -1512,7 +1578,12 @@ app.post('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
 
     if (error) throw error;
 
-    setImmediate(() => actualiserClasseGoogleEnArrierePlan(data));
+    setImmediate(() => {
+      actualiserClasseGoogleEnArrierePlan(data);
+      marketing.assurerSupportsMarketing(data).catch(erreur =>
+        console.error(`Supports marketing (${data.slug}):`, erreur.message)
+      );
+    });
 
     res.status(201).json({
       restaurant: designRestaurant.serialiserRestaurant(
@@ -2298,8 +2369,26 @@ async function initialiserGoogleWalletMultiRestaurants() {
   }
 }
 
+async function initialiserSupportsMarketing() {
+  try {
+    const { data: restaurants, error } = await supabase.from('restaurants').select(CHAMPS_RESTAURANT).order('nom');
+    if (error) throw error;
+    for (const restaurant of restaurants || []) {
+      try {
+        await marketing.assurerSupportsMarketing(restaurant);
+        console.log(`Supports marketing prêts pour ${restaurant.slug}.`);
+      } catch (erreurRestaurant) {
+        console.error(`Supports marketing impossibles pour ${restaurant.slug}:`, erreurRestaurant.message);
+      }
+    }
+  } catch (erreur) {
+    console.error('Initialisation des supports marketing:', erreur.message);
+  }
+}
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Serveur demarre sur le port ${PORT}`);
   setImmediate(initialiserGoogleWalletMultiRestaurants);
+  setImmediate(initialiserSupportsMarketing);
 });

@@ -2,6 +2,12 @@
   publish = "carte-fidelite-backend/public"
 
 [[redirects]]
+  from = "/r/*"
+  to = "https://carte-fidelite-restaurant.onrender.com/r/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/*"
   to = "https://carte-fidelite-restaurant.onrender.com/api/:splat"
   status = 200

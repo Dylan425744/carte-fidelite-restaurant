@@ -27,6 +27,7 @@ let etablissements = [];
 let permissions = [];
 let abonnement = null;
 let etablissementsBloques = [];
+let supportsMarketing = null;
 
 const $ = selecteur => document.querySelector(selecteur);
 
@@ -117,6 +118,7 @@ function ouvrirVue(nom) {
     scanner: 'Scanner une carte', clients: 'Mes clients',
     parrainage: 'Parrainage', 'anti-fraude': 'Anti-fraude',
     notifications: 'Notifications', roue: 'Roue cadeaux', design: 'Design Wallet',
+    marketing: 'QR & flyer',
     equipe: 'Mon équipe', compte: 'Mon compte'
   }[nom];
   if (nom === 'equipe') chargerEquipe();
@@ -247,6 +249,11 @@ async function chargerEspace() {
   appliquerPermissions();
   if (design) remplirDesign();
   if (donneesTableau) afficherTableau();
+  if (aPermission('marketing_view')) {
+    chargerSupportsMarketing().catch(erreur =>
+      afficherMessage($('#messageMarketing'), erreur.message, 'erreur')
+    );
+  }
 
   const vueDemandee = window.location.hash.replace('#', '');
   const vueParDefaut = aPermission('dashboard') ? 'accueil' : (aPermission('scan') ? 'scanner' : 'compte');
@@ -387,7 +394,8 @@ function appliquerPermissions() {
   const correspondances = {
     accueil: 'dashboard', statistiques: 'statistics', scanner: 'scan',
     clients: 'clients', parrainage: 'referral_view', 'anti-fraude': 'fraud_view',
-    notifications: 'notifications', roue: 'dashboard', design: 'design_view', equipe: 'team_manage'
+    notifications: 'notifications', roue: 'dashboard', design: 'design_view',
+    marketing: 'marketing_view', equipe: 'team_manage'
   };
   for (const [vue, permission] of Object.entries(correspondances)) {
     document.querySelector(`.navigation[data-vue="${vue}"]`)
@@ -401,6 +409,7 @@ function appliquerPermissions() {
   $('#enregistrerParrainage').style.display = aPermission('referral_manage') ? '' : 'none';
   $('#enregistrerAntiFraude').style.display = aPermission('fraud_manage') ? '' : 'none';
   $('#enregistrerDesign').style.display = aPermission('design_manage') ? '' : 'none';
+  $('#regenererSupports').style.display = aPermission('marketing_manage') ? '' : 'none';
   $('#roleMembre').querySelector('option[value="owner"]').hidden = !sessionUtilisateur?.super_admin;
 
   if (sessionUtilisateur) {
@@ -1071,6 +1080,62 @@ async function enregistrerDesign() {
   }
 }
 
+function afficherSupportsMarketing() {
+  if (!supportsMarketing) return;
+  const pret = supportsMarketing.statut === 'ready';
+  $('#marketingRestaurantNom').textContent = restaurant?.nom || 'Votre restaurant';
+  $('#marketingStatut').textContent = pret ? 'Supports prêts' : 'Préparation en cours';
+  $('#marketingLien').value = supportsMarketing.lien_public || '';
+  if (supportsMarketing.qr_png_url) $('#marketingQrPreview').src = supportsMarketing.qr_png_url;
+  const liens = [
+    ['telechargerFlyer', supportsMarketing.flyer_pdf_url],
+    ['telechargerQrPng', supportsMarketing.qr_png_url],
+    ['telechargerQrSvg', supportsMarketing.qr_svg_url]
+  ];
+  liens.forEach(([id, url]) => {
+    const element = $(`#${id}`);
+    element.href = url || '#';
+    element.setAttribute('aria-disabled', url ? 'false' : 'true');
+  });
+}
+
+async function chargerSupportsMarketing() {
+  $('#marketingStatut').textContent = 'Préparation…';
+  const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/marketing`);
+  supportsMarketing = donnees.supports;
+  afficherSupportsMarketing();
+}
+
+async function regenererSupportsMarketing() {
+  const bouton = $('#regenererSupports');
+  bouton.disabled = true;
+  afficherMessage($('#messageMarketing'), 'Régénération du QR code et du flyer…');
+  try {
+    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/marketing/regenerer`, {
+      method: 'POST', body: JSON.stringify({})
+    });
+    supportsMarketing = donnees.supports;
+    afficherSupportsMarketing();
+    afficherMessage($('#messageMarketing'), donnees.message, 'succes');
+  } catch (erreur) {
+    afficherMessage($('#messageMarketing'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
+async function copierLienMarketing() {
+  const lien = $('#marketingLien').value;
+  if (!lien) return;
+  try {
+    await navigator.clipboard.writeText(lien);
+  } catch {
+    $('#marketingLien').select();
+    document.execCommand('copy');
+  }
+  afficherMessage($('#messageMarketing'), 'Lien copié.', 'succes');
+}
+
 function libelleRoleCourt(role) {
   return { owner: 'Propriétaire', manager: 'Manager', employee: 'Employé' }[role] || role;
 }
@@ -1234,6 +1299,8 @@ $('#lancerApercuRoue').addEventListener('click', lancerApercuRoue);
 $('#demarrerScanner').addEventListener('click', demarrerScanner);
 $('#relancerScanner').addEventListener('click', demarrerScanner);
 $('#enregistrerDesign').addEventListener('click', enregistrerDesign);
+$('#regenererSupports').addEventListener('click', regenererSupportsMarketing);
+$('#copierLienMarketing').addEventListener('click', copierLienMarketing);
 $('#enregistrerParrainage').addEventListener('click', enregistrerParrainage);
 $('#enregistrerAntiFraude').addEventListener('click', enregistrerAntiFraude);
 $('#periodeStatistiques').addEventListener('change', chargerStatistiques);
