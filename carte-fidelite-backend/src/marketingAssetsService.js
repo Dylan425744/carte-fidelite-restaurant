@@ -4,6 +4,7 @@ const PDFDocument = require('pdfkit');
 const supabase = require('./supabaseClient');
 
 const BUCKET = 'restaurant-marketing';
+const VERSION_MISE_EN_PAGE = 2;
 
 function urlPubliqueBase() {
   return String(process.env.MARKETING_PUBLIC_BASE_URL || 'https://bravocard.fr')
@@ -111,11 +112,15 @@ async function televerser(path, contenu, contentType) {
 
 async function assurerSupportsMarketing(restaurantRecu, options = {}) {
   let restaurant = await assurerJeton(restaurantRecu);
+  const versionActuelle = Number(restaurant.marketing_assets_version || 1);
   const complet = restaurant.marketing_assets_status === 'ready' &&
+    versionActuelle >= VERSION_MISE_EN_PAGE &&
     restaurant.qr_svg_path && restaurant.qr_png_path && restaurant.flyer_pdf_path;
   if (complet && !options.force) return serialiserSupports(restaurant);
 
-  const version = Math.max(1, Number(restaurant.marketing_assets_version || 1) + (options.force ? 1 : 0));
+  const version = options.force
+    ? Math.max(VERSION_MISE_EN_PAGE, versionActuelle + 1)
+    : Math.max(VERSION_MISE_EN_PAGE, versionActuelle);
   await supabase.from('restaurants').update({
     marketing_assets_status: 'generating',
     marketing_assets_error: null
