@@ -352,7 +352,7 @@ function afficherAbonnement() {
     const estPlanActuel = bouton.dataset.plan === plan && actif;
     bouton.classList.toggle('actif', estPlanActuel);
     bouton.classList.toggle('selectionne', Boolean(planDemande && bouton.dataset.plan === planDemande && !estPlanActuel));
-    bouton.disabled = !abonnement?.stripe_configure || estPlanActuel;
+    bouton.disabled = estPlanActuel;
     bouton.querySelector('b').textContent = estPlanActuel
       ? 'Forfait actuel'
       : (planDemande === bouton.dataset.plan ? `Continuer avec ${offres[bouton.dataset.plan].nom}` : 'Choisir');
@@ -1149,23 +1149,40 @@ async function changerMotDePasse() {
 
 async function ouvrirCheckout(plan) {
   const bouton = document.querySelector(`[data-plan="${plan}"]`);
-  bouton.disabled = true;
-  afficherMessage($('#messageAbonnement'), 'Ouverture du paiement sécurisé…');
+  if (bouton) bouton.disabled = true;
+  const messageAbonnement = $('#messageAbonnement');
+  const abonnementExistant = Boolean(abonnement?.actif && abonnement?.client_stripe);
+  afficherMessage(
+    messageAbonnement,
+    abonnementExistant
+      ? 'Ouverture de votre espace Stripe pour modifier le forfait…'
+      : 'Ouverture du paiement sécurisé…'
+  );
   try {
-    const donnees = await api('/api/stripe/checkout', { method: 'POST', body: JSON.stringify({ plan }) });
-    window.location.href = donnees.url;
+    const donnees = abonnementExistant
+      ? await api('/api/stripe/portail', { method: 'POST', body: JSON.stringify({}) })
+      : await api('/api/stripe/checkout', { method: 'POST', body: JSON.stringify({ plan }) });
+    if (!donnees.url) throw new Error('Stripe n’a pas renvoyé de lien de paiement.');
+    window.location.assign(donnees.url);
   } catch (erreur) {
-    afficherMessage($('#messageAbonnement'), erreur.message, 'erreur');
-    bouton.disabled = false;
+    afficherMessage(messageAbonnement, erreur.message, 'erreur');
+    messageAbonnement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (bouton) bouton.disabled = false;
   }
 }
 
 async function ouvrirPortailStripe() {
+  const bouton = $('#gererAbonnement');
+  if (bouton) bouton.disabled = true;
+  afficherMessage($('#messageAbonnement'), 'Ouverture de votre espace Stripe…');
   try {
     const donnees = await api('/api/stripe/portail', { method: 'POST', body: JSON.stringify({}) });
-    window.location.href = donnees.url;
+    if (!donnees.url) throw new Error('Stripe n’a pas renvoyé de lien de gestion.');
+    window.location.assign(donnees.url);
   } catch (erreur) {
     afficherMessage($('#messageAbonnement'), erreur.message, 'erreur');
+    $('#messageAbonnement')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (bouton) bouton.disabled = false;
   }
 }
 

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const supabase = require('./supabaseClient');
+const designRestaurant = require('./restaurantDesignService');
 
 const ROLES = ['owner', 'manager', 'employee'];
 
@@ -127,7 +128,7 @@ function permissionsPourRole(role) {
   return [...(PERMISSIONS_PAR_ROLE[role] || [])];
 }
 
-const LIMITES_ETABLISSEMENTS_PAR_PLAN = Object.freeze({ starter: 1, pro: 3, premium: 5 });
+const LIMITES_ETABLISSEMENTS_PAR_PLAN = Object.freeze({ starter: 1, pro: 1, premium: 5 });
 
 function abonnementActif(profil) {
   return Boolean(STATUTS_ABONNEMENT_ACTIFS.includes(profil?.stripe_subscription_status));
@@ -437,6 +438,116 @@ async function creerOuAssocierUtilisateur({
   };
 }
 
+async function creerSlugDisponible(nom, slugDemande) {
+  const base = designRestaurant.normaliserSlug(slugDemande || nom);
+  for (let tentative = 0; tentative < 6; tentative += 1) {
+    const suffixe = tentative === 0 ? '' : `-${crypto.randomBytes(2).toString('hex')}`;
+    const candidat = `${base.slice(0, Math.max(1, 70 - suffixe.length))}${suffixe}`;
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('id')
+      .eq('slug', candidat)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return candidat;
+  }
+  throw new Error('Impossible de créer un lien unique pour cet établissement.');
+}
+
+async function inscrireProprietaire({
+  email,
+  fullName,
+  password,
+  restaurantName,
+  slug = '',
+  plan = 'starter'
+}) {
+  const emailNormalise = normaliserEmail(email);
+  const nomNormalise = normaliserNom(fullName);
+  const motDePasse = verifierMotDePasse(password);
+  const nomRestaurant = designRestaurant.nettoyerTexte(
+    restaurantName,
+    80,
+    'Le nom de l’établissement'
+  );
+  if (!['starter', 'pro', 'premium'].includes(plan)) {
+    throw new Error('Le forfait demandé est invalide.');
+  }
+
+  const { data: profilExistant, error: erreurProfil } = await supabase
+    .from('user_profiles')
+    .select('user_id')
+    .eq('email', emailNormalise)
+    .maybeSingle();
+  if (erreurProfil) throw erreurProfil;
+  if (profilExistant) {
+    const erreur = new Error('Un compte existe déjà avec cette adresse. Connectez-vous pour choisir votre offre.');
+    erreur.code = 'ACCOUNT_EXISTS';
+    throw erreur;
+  }
+
+  const slugDisponible = await creerSlugDisponible(nomRestaurant, slug);
+  const { data: creation, error: erreurCreation } = await supabase.auth.admin.createUser({
+    email: emailNormalise,
+    password: motDePasse,
+    email_confirm: true,
+    user_metadata: { full_name: nomNormalise },
+    app_metadata: { bravocard_account: true, bravocard_role: 'owner' }
+  });
+  if (erreurCreation || !creation.user) {
+    throw new Error(erreurCreation?.message || 'Impossible de créer votre compte.');
+  }
+
+  let restaurant = null;
+  try {
+    const { data: profil, error: erreurNouveauProfil } = await supabase
+      .from('user_profiles')
+      .insert({
+        user_id: creation.user.id,
+        email: emailNormalise,
+        full_name: nomNormalise,
+        subscription_plan: plan,
+        stripe_subscription_status: 'incomplete',
+        subscription_updated_at: new Date().toISOString()
+      })
+      .select('user_id, email, full_name, is_super_admin, subscription_plan, stripe_customer_id, stripe_subscription_id, stripe_subscription_status')
+      .single();
+    if (erreurNouveauProfil) throw erreurNouveauProfil;
+
+    const codeAcces = designRestaurant.genererCodeAcces();
+    const { data: nouveauRestaurant, error: erreurRestaurant } = await supabase
+      .from('restaurants')
+      .insert({
+        nom: nomRestaurant,
+        slug: slugDisponible,
+        design_access_token_hash: designRestaurant.hacherCodeAcces(codeAcces),
+        apple_pro_design: plan === 'premium'
+      })
+      .select('id, nom, slug')
+      .single();
+    if (erreurRestaurant) throw erreurRestaurant;
+    restaurant = nouveauRestaurant;
+
+    const { error: erreurAppartenance } = await supabase
+      .from('restaurant_memberships')
+      .insert({
+        restaurant_id: restaurant.id,
+        user_id: creation.user.id,
+        role: 'owner',
+        active: true
+      });
+    if (erreurAppartenance) throw erreurAppartenance;
+
+    return { profil, restaurant };
+  } catch (erreur) {
+    if (restaurant?.id) {
+      await supabase.from('restaurants').delete().eq('id', restaurant.id);
+    }
+    await supabase.auth.admin.deleteUser(creation.user.id);
+    throw erreur;
+  }
+}
+
 async function listerEquipe(restaurantId) {
   const { data: appartenances, error } = await supabase
     .from('restaurant_memberships')
@@ -516,6 +627,7 @@ module.exports = {
   obtenirContexteUtilisateur,
   accesEtablissement,
   creerOuAssocierUtilisateur,
+  inscrireProprietaire,
   listerEquipe,
   modifierAppartenance,
   journaliser,

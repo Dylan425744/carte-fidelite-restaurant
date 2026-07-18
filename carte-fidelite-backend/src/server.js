@@ -184,6 +184,8 @@ function validerNotification(donnees) {
 
 const tentativesConnexion = new Map();
 const tentativesRecuperation = new Map();
+const tentativesInscription = new Map();
+const tentativesDemo = new Map();
 
 function cleTentativeConnexion(req) {
   const adresse = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
@@ -211,6 +213,30 @@ function obtenirUrlBase(req) {
     .trim()
     .replace(/\/$/, '');
   return configuree || `${req.protocol}://${req.get('host')}`;
+}
+
+function verifierLimitePublique(stockage, req, maximum, dureeMinutes) {
+  const cle = cleTentativeConnexion(req);
+  const maintenant = Date.now();
+  const entree = stockage.get(cle);
+  if (!entree || entree.reinitialisation < maintenant) {
+    stockage.set(cle, { tentatives: 1, reinitialisation: maintenant + dureeMinutes * 60 * 1000 });
+    return;
+  }
+  if (entree.tentatives >= maximum) {
+    const erreur = new Error('Trop de demandes. Réessayez dans quelques minutes.');
+    erreur.code = 'RATE_LIMIT';
+    throw erreur;
+  }
+  entree.tentatives += 1;
+}
+
+function normaliserTelephone(telephone) {
+  const valeur = String(telephone || '').trim().replace(/[\s.()-]/g, '');
+  if (!/^\+?[0-9]{8,15}$/.test(valeur)) {
+    throw new Error('Saisissez un numéro de téléphone valide.');
+  }
+  return valeur;
 }
 
 async function envoyerActivationCompte(req, resultat) {
@@ -246,6 +272,88 @@ function verifierLimiteRecuperation(req, email) {
   }
   entree.tentatives += 1;
 }
+
+app.post('/api/public/inscription', async (req, res) => {
+  let resultat = null;
+  try {
+    verifierLimitePublique(tentativesInscription, req, 4, 30);
+    if (String(req.body.website || '').trim()) {
+      return res.status(201).json({ succes: true });
+    }
+    const plan = billing.planValide(req.body.plan);
+    if (!plan) return res.status(400).json({ erreur: 'Choisissez une offre valide.' });
+
+    resultat = await auth.inscrireProprietaire({
+      email: req.body.email,
+      fullName: req.body.nom,
+      password: req.body.password,
+      restaurantName: req.body.restaurant,
+      slug: req.body.slug,
+      plan
+    });
+    const connexion = await auth.connexion(req.body.email, req.body.password);
+    auth.ecrireSession(res, connexion.session);
+    const url = await billing.creerCheckout(
+      resultat.profil,
+      obtenirUrlBase(req),
+      plan,
+      { restaurantSlug: resultat.restaurant.slug }
+    );
+    await auth.journaliser('signup.checkout_created', {
+      utilisateur: connexion.user,
+      profil: resultat.profil
+    }, resultat.restaurant.id, { plan });
+    res.status(201).json({
+      succes: true,
+      url,
+      restaurant: resultat.restaurant,
+      plan
+    });
+  } catch (erreur) {
+    console.error('Inscription publique:', erreur.message);
+    const statut = erreur.code === 'RATE_LIMIT'
+      ? 429
+      : (erreur.code === 'ACCOUNT_EXISTS' ? 409 : (resultat ? 502 : 400));
+    res.status(statut).json({
+      erreur: resultat
+        ? 'Votre compte et votre établissement sont créés, mais Stripe n’a pas pu s’ouvrir. Connectez-vous pour reprendre le paiement.'
+        : erreur.message,
+      compte_cree: Boolean(resultat),
+      connexion_url: resultat
+        ? `/espace-restaurateur.html?restaurant=${encodeURIComponent(resultat.restaurant.slug)}#compte`
+        : null
+    });
+  }
+});
+
+app.post('/api/public/demandes-demo', async (req, res) => {
+  try {
+    verifierLimitePublique(tentativesDemo, req, 5, 60);
+    if (String(req.body.website || '').trim()) {
+      return res.status(201).json({ succes: true });
+    }
+    const demande = {
+      full_name: auth.normaliserNom(req.body.nom),
+      phone: normaliserTelephone(req.body.telephone),
+      email: auth.normaliserEmail(req.body.email),
+      source: 'site_bravocard'
+    };
+    const { data, error } = await supabase
+      .from('demo_requests')
+      .insert(demande)
+      .select('id, created_at')
+      .single();
+    if (error) throw error;
+    res.status(201).json({
+      succes: true,
+      demande: data,
+      message: 'Merci. Votre demande a bien été transmise à Bravocard.'
+    });
+  } catch (erreur) {
+    const statut = erreur.code === 'RATE_LIMIT' ? 429 : 400;
+    res.status(statut).json({ erreur: erreur.message });
+  }
+});
 
 app.post('/api/auth/connexion', async (req, res) => {
   let cle;
@@ -1276,7 +1384,7 @@ app.get('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
     if (idsProprietaires.length) {
       const resultatProfils = await supabase
         .from('user_profiles')
-        .select('user_id, email, full_name')
+        .select('user_id, email, full_name, subscription_plan, stripe_subscription_status, subscription_updated_at')
         .in('user_id', idsProprietaires);
       if (resultatProfils.error) throw resultatProfils.error;
       profils = resultatProfils.data || [];
@@ -1301,6 +1409,50 @@ app.get('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+app.get('/api/admin/demandes-demo', exigerAdministrateur, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('demo_requests')
+      .select('id, full_name, phone, email, status, source, notes, created_at, contacted_at')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    res.json({ demandes: data || [] });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+app.patch('/api/admin/demandes-demo/:id', exigerAdministrateur, async (req, res) => {
+  try {
+    const statut = String(req.body.status || '').trim();
+    if (!['new', 'contacted', 'qualified', 'closed'].includes(statut)) {
+      return res.status(400).json({ erreur: 'Le statut demandé est invalide.' });
+    }
+    const miseAJour = {
+      status: statut,
+      notes: typeof req.body.notes === 'string'
+        ? req.body.notes.trim().slice(0, 1000) || null
+        : undefined,
+      contacted_at: statut === 'new' ? null : new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    if (miseAJour.notes === undefined) delete miseAJour.notes;
+    const { data, error } = await supabase
+      .from('demo_requests')
+      .update(miseAJour)
+      .eq('id', req.params.id)
+      .select('id, full_name, phone, email, status, notes, created_at, contacted_at')
+      .single();
+    if (error) throw error;
+    res.json({ demande: data });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
   }
 });
 

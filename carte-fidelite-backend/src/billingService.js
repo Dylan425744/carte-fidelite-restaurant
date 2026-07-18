@@ -69,7 +69,7 @@ async function enregistrerClientStripe(profil, stripe) {
   return client.id;
 }
 
-async function creerCheckout(profil, urlBase, planRecu) {
+async function creerCheckout(profil, urlBase, planRecu, options = {}) {
   const stripe = obtenirStripe();
   const planId = planValide(planRecu);
   if (!planId) throw new Error('Le forfait demandé est invalide.');
@@ -80,6 +80,9 @@ async function creerCheckout(profil, urlBase, planRecu) {
     throw new Error('Votre abonnement existe déjà. Utilisez « Gérer mon abonnement » pour changer de forfait ou le résilier.');
   }
   const customer = await enregistrerClientStripe(profil, stripe);
+  const retourRestaurant = options.restaurantSlug
+    ? `&restaurant=${encodeURIComponent(options.restaurantSlug)}`
+    : '';
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer,
@@ -92,8 +95,8 @@ async function creerCheckout(profil, urlBase, planRecu) {
       metadata: { bravocard_user_id: profil.user_id, plan: planId },
       trial_period_days: 14
     },
-    success_url: `${urlBase}/espace-restaurateur.html?abonnement=succes`,
-    cancel_url: `${urlBase}/espace-restaurateur.html?abonnement=annule#compte`,
+    success_url: `${urlBase}/espace-restaurateur.html?abonnement=succes${retourRestaurant}`,
+    cancel_url: `${urlBase}/espace-restaurateur.html?abonnement=annule${retourRestaurant}#compte`,
     consent_collection: { terms_of_service: 'required' },
     custom_text: {
       submit: { message: `En continuant, vous acceptez les CGV Bravocard : ${urlBase}/cgv.html` }
