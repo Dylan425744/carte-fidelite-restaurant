@@ -28,6 +28,9 @@ let permissions = [];
 let abonnement = null;
 let etablissementsBloques = [];
 let supportsMarketing = null;
+let kitCommunication = null;
+let genEtat = { support: null, theme: null };
+let genMinuteurApercu = null;
 
 const $ = selecteur => document.querySelector(selecteur);
 
@@ -253,6 +256,9 @@ async function chargerEspace() {
     chargerSupportsMarketing().catch(erreur =>
       afficherMessage($('#messageMarketing'), erreur.message, 'erreur')
     );
+    chargerKitCommunication().catch(erreur =>
+      afficherMessage($('#messageGenerateur'), erreur.message, 'erreur')
+    );
   }
 
   const vueDemandee = window.location.hash.replace('#', '');
@@ -410,6 +416,7 @@ function appliquerPermissions() {
   $('#enregistrerAntiFraude').style.display = aPermission('fraud_manage') ? '' : 'none';
   $('#enregistrerDesign').style.display = aPermission('design_manage') ? '' : 'none';
   $('#regenererSupports').style.display = aPermission('marketing_manage') ? '' : 'none';
+  $('#genEnregistrer').style.display = aPermission('marketing_manage') ? '' : 'none';
   $('#roleMembre').querySelector('option[value="owner"]').hidden = !sessionUtilisateur?.super_admin;
 
   if (sessionUtilisateur) {
@@ -1180,6 +1187,182 @@ async function copierLienMarketing() {
   afficherMessage($('#messageMarketing'), 'Lien copié.', 'succes');
 }
 
+function couleurApercuTheme(themeId) {
+  const theme = (kitCommunication?.themes || []).find(t => t.id === themeId);
+  return theme ? `linear-gradient(145deg, ${theme.primaire}, ${theme.secondaire})` : '#17131f';
+}
+
+function afficherPickerGenerateur(conteneurId, items, valeurActuelle, attribut, degrade) {
+  $(`#${conteneurId}`).innerHTML = items.map(item => `
+    <button type="button" data-${attribut}="${echapper(item.id)}" class="${item.id === valeurActuelle ? 'actif' : ''}">
+      <span class="modele-visuel" style="background:${degrade(item)}"></span>
+      <strong>${echapper(item.nom)}</strong>
+      <small>${echapper(item.description || '')}</small>
+    </button>`).join('');
+}
+
+function rafraichirPickersGenerateur() {
+  if (!kitCommunication) return;
+  afficherPickerGenerateur('genListeSupports', kitCommunication.supports, genEtat.support, 'support',
+    item => couleurApercuTheme(item.theme_par_defaut));
+  afficherPickerGenerateur('genListeThemes',
+    kitCommunication.themes.map(theme => ({ ...theme, description: theme.sombre ? 'Fond sombre premium' : 'Fond clair ludique' })),
+    genEtat.theme, 'theme', item => `linear-gradient(145deg, ${item.primaire}, ${item.secondaire})`);
+  $('#genLigneGagnant').style.display = genEtat.support === 'review-square' ? '' : 'none';
+}
+
+function genParametresActuels() {
+  return {
+    support: genEtat.support,
+    theme: genEtat.theme,
+    primary_color: $('#genCouleurPrincipale').value,
+    secondary_color: $('#genCouleurSecondaire').value,
+    title: $('#genTitre').value,
+    subtitle: $('#genSousTitre').value,
+    always_winner: $('#genToujoursGagnant').checked,
+    logo_url: $('#genLogoUrl').value.trim()
+  };
+}
+
+function genUrlAvecParametres(chemin) {
+  const recherche = new URLSearchParams();
+  for (const [cle, valeur] of Object.entries(genParametresActuels())) {
+    if (valeur === '' || valeur === null || valeur === undefined) continue;
+    recherche.set(cle, valeur);
+  }
+  return `/api/restaurateur/${encodeURIComponent(slug)}/kit-communication/${chemin}?${recherche.toString()}`;
+}
+
+function demanderApercuGenerateur() {
+  clearTimeout(genMinuteurApercu);
+  genMinuteurApercu = setTimeout(actualiserApercuGenerateur, 350);
+}
+
+async function actualiserApercuGenerateur() {
+  if (!genEtat.support) return;
+  try {
+    const donnees = await api(genUrlAvecParametres('apercu'));
+    $('#genApercuCadre').innerHTML = donnees.svg;
+    $('#genLienNfc').value = donnees.lien_nfc || '';
+  } catch (erreur) {
+    afficherMessage($('#messageGenerateur'), erreur.message, 'erreur');
+  }
+}
+
+function choisirSupportGenerateur(supportId) {
+  const support = kitCommunication.supports.find(s => s.id === supportId);
+  if (!support) return;
+  genEtat.support = supportId;
+  if (!genEtat.themeChoisiManuellement) genEtat.theme = support.theme_par_defaut;
+  $('#genTitre').value = support.titre_par_defaut;
+  $('#genSousTitre').value = support.sous_titre_par_defaut;
+  appliquerCouleursTheme(genEtat.theme);
+  rafraichirPickersGenerateur();
+  demanderApercuGenerateur();
+}
+
+function appliquerCouleursTheme(themeId) {
+  const theme = kitCommunication.themes.find(t => t.id === themeId);
+  if (!theme) return;
+  $('#genCouleurPrincipale').value = theme.primaire;
+  $('#genCouleurSecondaire').value = theme.secondaire;
+}
+
+function choisirThemeGenerateur(themeId) {
+  genEtat.theme = themeId;
+  genEtat.themeChoisiManuellement = true;
+  appliquerCouleursTheme(themeId);
+  rafraichirPickersGenerateur();
+  demanderApercuGenerateur();
+}
+
+async function chargerKitCommunication() {
+  const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/kit-communication`);
+  kitCommunication = donnees;
+  genEtat.support = donnees.supports[0]?.id || null;
+  genEtat.theme = donnees.parametres.communication_theme;
+  genEtat.themeChoisiManuellement = false;
+  // Un <input type="color"> ne peut pas rester "vide" : lui assigner '' le fait
+  // retomber sur #000000 côté navigateur. Il faut donc tester la valeur d'origine
+  // (venant de l'API) avant affectation, pas la valeur du champ après coup.
+  if (donnees.parametres.communication_primary_color && donnees.parametres.communication_secondary_color) {
+    $('#genCouleurPrincipale').value = donnees.parametres.communication_primary_color;
+    $('#genCouleurSecondaire').value = donnees.parametres.communication_secondary_color;
+  } else {
+    appliquerCouleursTheme(genEtat.theme);
+  }
+  $('#genLogoUrl').value = donnees.parametres.communication_logo_url || '';
+  $('#genToujoursGagnant').checked = donnees.parametres.always_winner;
+  const support = donnees.supports.find(s => s.id === genEtat.support);
+  if (support) {
+    $('#genTitre').value = support.titre_par_defaut;
+    $('#genSousTitre').value = support.sous_titre_par_defaut;
+  }
+  rafraichirPickersGenerateur();
+  demanderApercuGenerateur();
+}
+
+async function enregistrerPersonnalisationGenerateur() {
+  const bouton = $('#genEnregistrer');
+  bouton.disabled = true;
+  afficherMessage($('#messageGenerateur'), 'Enregistrement...');
+  try {
+    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/kit-communication`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        communication_theme: genEtat.theme,
+        communication_primary_color: $('#genCouleurPrincipale').value,
+        communication_secondary_color: $('#genCouleurSecondaire').value,
+        communication_logo_url: $('#genLogoUrl').value.trim(),
+        always_winner: $('#genToujoursGagnant').checked
+      })
+    });
+    afficherMessage($('#messageGenerateur'), donnees.message, 'succes');
+  } catch (erreur) {
+    afficherMessage($('#messageGenerateur'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
+async function copierLienNfc() {
+  const valeur = $('#genLienNfc').value;
+  if (!valeur) return;
+  try {
+    await navigator.clipboard.writeText(valeur);
+  } catch {
+    $('#genLienNfc').select();
+    document.execCommand('copy');
+  }
+  afficherMessage($('#messageGenerateur'), 'Lien copié.', 'succes');
+}
+
+async function telechargerExportGenerateur(format) {
+  if (!genEtat.support) return;
+  afficherMessage($('#messageExport'), 'Préparation du fichier...');
+  try {
+    const reponse = await fetch(`${genUrlAvecParametres('export')}&format=${format}`, { headers: entetes() });
+    if (!reponse.ok) {
+      const donnees = await reponse.json().catch(() => ({}));
+      throw new Error(donnees.erreur || 'Le téléchargement a échoué.');
+    }
+    const blob = await reponse.blob();
+    const entete = reponse.headers.get('Content-Disposition') || '';
+    const correspondance = entete.match(/filename="([^"]+)"/);
+    const objectUrl = URL.createObjectURL(blob);
+    const lienTemporaire = document.createElement('a');
+    lienTemporaire.href = objectUrl;
+    lienTemporaire.download = correspondance ? correspondance[1] : `bravocard-${genEtat.support}.${format}`;
+    document.body.appendChild(lienTemporaire);
+    lienTemporaire.click();
+    lienTemporaire.remove();
+    URL.revokeObjectURL(objectUrl);
+    afficherMessage($('#messageExport'), 'Téléchargement lancé.', 'succes');
+  } catch (erreur) {
+    afficherMessage($('#messageExport'), erreur.message, 'erreur');
+  }
+}
+
 function libelleRoleCourt(role) {
   return { owner: 'Propriétaire', manager: 'Manager', employee: 'Employé' }[role] || role;
 }
@@ -1346,6 +1529,22 @@ $('#enregistrerDesign').addEventListener('click', enregistrerDesign);
 $('#regenererSupports').addEventListener('click', regenererSupportsMarketing);
 $('#enregistrerLienAvis').addEventListener('click', enregistrerLienAvis);
 $('#copierLienMarketing').addEventListener('click', copierLienMarketing);
+$('#genListeSupports').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-support]');
+  if (bouton) choisirSupportGenerateur(bouton.dataset.support);
+});
+$('#genListeThemes').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-theme]');
+  if (bouton) choisirThemeGenerateur(bouton.dataset.theme);
+});
+['genCouleurPrincipale', 'genCouleurSecondaire', 'genTitre', 'genSousTitre', 'genToujoursGagnant', 'genLogoUrl'].forEach(id => {
+  $(`#${id}`).addEventListener('input', demanderApercuGenerateur);
+});
+$('#genEnregistrer').addEventListener('click', enregistrerPersonnalisationGenerateur);
+$('#genCopierNfc').addEventListener('click', copierLienNfc);
+$('#genExportPdf').addEventListener('click', () => telechargerExportGenerateur('pdf'));
+$('#genExportPng').addEventListener('click', () => telechargerExportGenerateur('png'));
+$('#genExportSvg').addEventListener('click', () => telechargerExportGenerateur('svg'));
 $('#enregistrerParrainage').addEventListener('click', enregistrerParrainage);
 $('#enregistrerAntiFraude').addEventListener('click', enregistrerAntiFraude);
 $('#periodeStatistiques').addEventListener('change', chargerStatistiques);

@@ -335,6 +335,61 @@
             <span class="message" id="messageMarketing"></span>
           </article>
         </div>
+
+        <div class="generateur-supports">
+          <div class="generateur-entete">
+            <span class="eyebrow">Nouveau</span>
+            <h3>Générateur de supports imprimables</h3>
+            <p class="texte-secondaire">Créez des stickers NFC/QR premium aux couleurs de votre restaurant, avec aperçu en direct et export prêt à imprimer.</p>
+          </div>
+          <div class="grille-generateur">
+            <article class="panneau generateur-reglages">
+              <label class="titre-modeles">Support</label>
+              <div class="modeles-wallet" id="genListeSupports"></div>
+
+              <label class="titre-modeles">Thème</label>
+              <div class="modeles-wallet" id="genListeThemes"></div>
+
+              <div class="deux-colonnes couleur-exacte">
+                <div><label for="genCouleurPrincipale">Couleur principale</label><input id="genCouleurPrincipale" type="color"></div>
+                <div><label for="genCouleurSecondaire">Couleur secondaire</label><input id="genCouleurSecondaire" type="color"></div>
+              </div>
+
+              <div class="deux-colonnes">
+                <div><label for="genTitre">Texte principal</label><input id="genTitre" type="text" maxlength="60"></div>
+                <div><label for="genSousTitre">Sous-titre</label><input id="genSousTitre" type="text" maxlength="60"></div>
+              </div>
+
+              <label class="ligne-interrupteur" id="genLigneGagnant"><span>Activer « 100 % gagnant »</span><label class="interrupteur"><input id="genToujoursGagnant" type="checkbox"><span></span></label></label>
+
+              <label for="genLogoUrl">Logo personnalisé (URL PNG, facultatif)</label>
+              <input id="genLogoUrl" type="url" placeholder="https://…">
+              <p class="texte-secondaire">Laissez vide pour reprendre automatiquement le logo déjà utilisé dans votre carte Wallet.</p>
+
+              <button class="bouton principal" id="genEnregistrer" type="button">Enregistrer ma personnalisation</button>
+              <span class="message" id="messageGenerateur"></span>
+
+              <div class="generateur-nfc">
+                <span class="eyebrow">Puce NFC</span>
+                <label for="genLienNfc">Lien à programmer sur la puce</label>
+                <div class="champ-copie"><input id="genLienNfc" readonly><button class="bouton secondaire" id="genCopierNfc" type="button">Copier</button></div>
+                <p class="texte-secondaire">Aucune puce programmée automatiquement pour l’instant : copiez ce lien dans l’application de votre lecteur NFC.</p>
+              </div>
+            </article>
+
+            <article class="panneau generateur-apercu">
+              <span class="eyebrow">Aperçu en direct</span>
+              <h3>Fidèle au fichier téléchargé</h3>
+              <div class="generateur-apercu-cadre"><div id="genApercuCadre"></div></div>
+              <div class="generateur-exports">
+                <button class="bouton principal" id="genExportPdf" type="button">Télécharger le PDF</button>
+                <button class="bouton secondaire" id="genExportPng" type="button">PNG haute définition</button>
+                <button class="bouton secondaire" id="genExportSvg" type="button">SVG</button>
+              </div>
+              <span class="message" id="messageExport"></span>
+            </article>
+          </div>
+        </div>
       </section>
 
       <section class="vue" id="vue-equipe">

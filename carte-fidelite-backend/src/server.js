@@ -16,6 +16,8 @@ const analytics = require('./analyticsService');
 const auth = require('./authService');
 const billing = require('./billingService');
 const marketing = require('./marketingAssetsService');
+const communicationKit = require('./communicationKitService');
+const svgExport = require('./svgExportService');
 
 const app = express();
 app.use(cors());
@@ -88,7 +90,14 @@ const CHAMPS_RESTAURANT = [
   'flyer_pdf_path',
   'lien_avis_google',
   'marketing_assets_updated_at',
-  'marketing_assets_error'
+  'marketing_assets_error',
+  'communication_primary_color',
+  'communication_secondary_color',
+  'communication_theme',
+  'communication_logo_url',
+  'reward_title',
+  'reward_description',
+  'always_winner'
 ].join(', ');
 
 function pageProgrammeIndisponible(titre, texte) {
@@ -1032,6 +1041,79 @@ app.put('/api/restaurateur/:slug/marketing', async (req, res) => {
     res.json({ succes: true, message: 'Lien d’avis et supports actualisés.', supports });
   } catch (erreur) {
     console.error('Configuration du QR avis:', erreur.message);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+// Générateur de supports imprimables (stickers, chevalets, affiches) : réglages
+// de personnalisation, aperçu SVG en direct et export PDF/PNG/SVG à la demande.
+app.get('/api/restaurateur/:slug/kit-communication', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'marketing_view');
+    if (!acces) return;
+    res.json({
+      succes: true,
+      parametres: communicationKit.serialiserBranding(acces.restaurant),
+      supports: communicationKit.listerSupports(),
+      themes: communicationKit.listerThemes()
+    });
+  } catch (erreur) {
+    console.error('Chargement kit de communication:', erreur.message);
+    res.status(500).json({ erreur: 'Impossible de charger le kit de communication.' });
+  }
+});
+
+app.put('/api/restaurateur/:slug/kit-communication', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'marketing_manage');
+    if (!acces) return;
+    const miseAJour = communicationKit.validerMiseAJourBranding(req.body || {});
+    const { data, error } = await supabase.from('restaurants')
+      .update(miseAJour).eq('id', acces.restaurant.id).select(CHAMPS_RESTAURANT).single();
+    if (error) throw error;
+    res.json({
+      succes: true,
+      message: 'Personnalisation enregistrée.',
+      parametres: communicationKit.serialiserBranding(data)
+    });
+  } catch (erreur) {
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.get('/api/restaurateur/:slug/kit-communication/apercu', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'marketing_view');
+    if (!acces) return;
+    const { contenu, support, lien } = await communicationKit.construireSupport(acces.restaurant, req.query, marketing);
+    const svg = svgExport.versSvg(contenu, support.largeurMm, support.hauteurMm);
+    res.json({ succes: true, svg, largeur_mm: support.largeurMm, hauteur_mm: support.hauteurMm, lien_nfc: lien });
+  } catch (erreur) {
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.get('/api/restaurateur/:slug/kit-communication/export', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'marketing_view');
+    if (!acces) return;
+    const format = String(req.query.format || 'pdf').toLowerCase();
+    if (!['pdf', 'png', 'svg'].includes(format)) {
+      return res.status(400).json({ erreur: 'Format d’export invalide.' });
+    }
+    const { contenu, support } = await communicationKit.construireSupport(acces.restaurant, req.query, marketing);
+    const nomFichier = `bravocard-${support.id}-${acces.restaurant.slug}.${format}`;
+    const typesMime = { svg: 'image/svg+xml', png: 'image/png', pdf: 'application/pdf' };
+    const fichier = format === 'svg'
+      ? svgExport.versSvg(contenu, support.largeurMm, support.hauteurMm)
+      : format === 'png'
+      ? await svgExport.versPng(contenu, support.largeurMm, support.hauteurMm)
+      : await svgExport.versPdf(contenu, support.largeurMm, support.hauteurMm);
+    res.set('Content-Type', typesMime[format]);
+    res.set('Content-Disposition', `attachment; filename="${nomFichier}"`);
+    res.send(fichier);
+  } catch (erreur) {
+    console.error('Export kit de communication:', erreur.message);
     res.status(400).json({ erreur: erreur.message });
   }
 });
