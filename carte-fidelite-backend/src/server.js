@@ -1655,6 +1655,11 @@ app.get('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
           appleWallet.designProDisponible()
           ),
           membres_actifs: equipe.length,
+          // Meme regle que celle qui verrouille reellement l'acces du restaurateur
+          // (authService.accesFacturationRestaurant) : la console admin ne doit
+          // jamais recalculer sa propre logique de grace de paiement au risque
+          // de diverger et d'afficher un statut incoherent avec le reste de l'app.
+          acces_facturation_valide: auth.accesFacturationRestaurant(restaurant),
           proprietaires: equipe
             .filter(entree => entree.role === 'owner')
             .map(entree => profilsParId.get(entree.user_id))
