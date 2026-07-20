@@ -118,10 +118,7 @@ function designProDisponible() {
  * Les URLs doivent commencer par https://
  */
 function ajouterDesignPro(champs, restaurant = null) {
-  const restaurantConfigure = restaurant && Object.keys(restaurant).length > 0;
-  const proAutorise =
-    designProDisponible() &&
-    (!restaurantConfigure || restaurant.apple_pro_design === true);
+  const proAutorise = designProDisponible();
 
   if (!proAutorise) {
     return champs;

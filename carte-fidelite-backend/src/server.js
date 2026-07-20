@@ -932,12 +932,6 @@ app.post('/api/design/:slug/image', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res, 'design_manage');
     if (!acces) return;
-    const proAutorise = Boolean(
-      acces.restaurant.apple_pro_design && appleWallet.designProDisponible()
-    );
-    if (!proAutorise) {
-      return res.status(403).json({ erreur: 'La personnalisation WalletWallet Pro n’est pas active.' });
-    }
     const plateforme = String(req.body.plateforme || '').toLowerCase();
     const type = String(req.body.type || '');
     const specification = walletAssetSpecifications.obtenirSpecification(plateforme, type);
@@ -983,13 +977,7 @@ app.put('/api/design/:slug', async (req, res) => {
     const acces = await authentifierEspaceDesign(req, res, 'design_manage');
     if (!acces) return;
 
-    const proAutorise = Boolean(
-      acces.restaurant.apple_pro_design && appleWallet.designProDisponible()
-    );
-    const miseAJour = designRestaurant.construireMiseAJourDesign(
-      req.body,
-      proAutorise
-    );
+    const miseAJour = designRestaurant.construireMiseAJourDesign(req.body);
 
     const { data, error } = await supabase
       .from('restaurants')

@@ -580,7 +580,7 @@ async function inscrireProprietaire({
         nom: nomRestaurant,
         slug: slugDisponible,
         design_access_token_hash: designRestaurant.hacherCodeAcces(codeAcces),
-        apple_pro_design: plan === 'premium',
+        apple_pro_design: true,
         billing_owner_user_id: creation.user.id,
         billing_status: 'incomplete',
         billing_locked_at: new Date().toISOString(),

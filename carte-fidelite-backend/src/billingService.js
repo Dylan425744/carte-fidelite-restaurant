@@ -164,7 +164,7 @@ async function synchroniserRestaurantsDuProprietaire(userId, miseAJour) {
       billing_current_period_end: miseAJour.subscription_current_period_end,
       billing_locked_at: accesActif ? null : new Date().toISOString(),
       billing_updated_at: new Date().toISOString(),
-      apple_pro_design: miseAJour.subscription_plan === 'premium'
+      apple_pro_design: true
     })
     .in('id', restaurantIds);
   if (erreurRestaurants) throw erreurRestaurants;

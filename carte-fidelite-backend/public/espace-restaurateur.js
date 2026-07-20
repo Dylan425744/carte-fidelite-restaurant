@@ -1190,13 +1190,10 @@ function remplirDesign() {
     if (element) definirValeurAsset(element, restaurant[champ] || '');
   }
 
-  const messagePro = restaurant.pro_disponible
-    ? 'Toutes les options professionnelles sont disponibles'
-    : 'Abonnement WalletWallet Pro requis';
-  $('#zoneProApple').classList.toggle('verrouille', !restaurant.pro_autorise);
-  $('#zoneProGoogle').classList.toggle('verrouille', !restaurant.pro_autorise);
-  $('#messageProApple').textContent = messagePro;
-  $('#messageProGoogle').textContent = messagePro;
+  $('#zoneProApple').classList.toggle('verrouille', !restaurant.apple_design_autorise);
+  $('#zoneProGoogle').classList.toggle('verrouille', !restaurant.google_design_autorise);
+  $('#messageProApple').textContent = 'Disponible pour votre restaurant';
+  $('#messageProGoogle').textContent = 'Disponible pour votre restaurant';
 
   actualiserApercuWallet();
   actualiserApercuGoogleWallet();
@@ -1205,7 +1202,7 @@ function remplirDesign() {
 function actualiserApercuWallet() {
   const preset = document.querySelector('[name="preset"]:checked')?.value || 'dark';
   const exacte = $('#customColor').value;
-  $('#wallet').style.background = restaurant?.pro_autorise && /^#[0-9a-f]{6}$/i.test(exacte)
+  $('#wallet').style.background = /^#[0-9a-f]{6}$/i.test(exacte)
     ? exacte : couleursWallet[preset];
   $('#previewLogo').textContent = $('#appleLogoText').value || 'Bravocard';
   $('#previewPointsLabel').textContent = $('#walletPointsLabel').value || 'POINTS SUR 100';
@@ -1227,7 +1224,7 @@ function actualiserApercuWallet() {
 function actualiserApercuGoogleWallet() {
   const preset = document.querySelector('[name="preset"]:checked')?.value || 'dark';
   const exacte = $('#customColor').value;
-  $('#walletGoogle').style.background = restaurant?.pro_autorise && /^#[0-9a-f]{6}$/i.test(exacte)
+  $('#walletGoogle').style.background = /^#[0-9a-f]{6}$/i.test(exacte)
     ? exacte : couleursWallet[preset];
   $('#googlePreviewProgramme').textContent = $('#walletProgramName').value || 'Carte fidélité';
   $('#googlePreviewPointsLabel').textContent = $('#walletPointsLabel').value || 'POINTS SUR 100';

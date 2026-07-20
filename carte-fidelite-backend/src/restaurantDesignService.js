@@ -88,7 +88,7 @@ function validerImage(valeur, nomChamp) {
   throw new Error(`${nomChamp} doit être un fichier PNG ou une adresse HTTPS.`);
 }
 
-function construireMiseAJourDesign(donnees, proAutorise) {
+function construireMiseAJourDesign(donnees) {
   const preset = String(donnees.apple_color_preset || '').trim().toLowerCase();
 
   if (!PRESETS_APPLE.includes(preset)) {
@@ -103,10 +103,6 @@ function construireMiseAJourDesign(donnees, proAutorise) {
     apple_card_label: nettoyerTexte(donnees.apple_card_label, 28, 'Le libellé de la carte'),
     design_updated_at: new Date().toISOString()
   };
-
-  if (!proAutorise) {
-    return miseAJour;
-  }
 
   const couleur = String(donnees.apple_custom_color || '').trim().toUpperCase();
   if (couleur && !/^#[0-9A-F]{6}$/.test(couleur)) {
@@ -140,8 +136,6 @@ function construireMiseAJourDesign(donnees, proAutorise) {
 }
 
 function serialiserRestaurant(restaurant, proDisponible) {
-  const proAutorise = Boolean(proDisponible && restaurant.apple_pro_design);
-
   return {
     id: restaurant.id,
     nom: restaurant.nom,
@@ -150,7 +144,11 @@ function serialiserRestaurant(restaurant, proDisponible) {
     design_enabled: restaurant.design_enabled !== false,
     apple_pro_design: Boolean(restaurant.apple_pro_design),
     pro_disponible: Boolean(proDisponible),
-    pro_autorise: proAutorise,
+    // Compatibilite avec les anciennes versions du tableau de bord. Le studio
+    // Wallet appartient desormais a tous les restaurants, quel que soit le plan.
+    pro_autorise: true,
+    apple_design_autorise: true,
+    google_design_autorise: true,
     apple_color_preset: PRESETS_APPLE.includes(restaurant.apple_color_preset)
       ? restaurant.apple_color_preset
       : 'dark',
@@ -158,13 +156,13 @@ function serialiserRestaurant(restaurant, proDisponible) {
     apple_points_label: restaurant.apple_points_label || 'POINTS SUR 100',
     wallet_barcode_format: restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128',
     apple_card_label: restaurant.apple_card_label || 'FIDÉLITÉ',
-    apple_custom_color: proAutorise ? restaurant.apple_custom_color || '' : '',
-    apple_logo_url: proAutorise ? restaurant.apple_logo_url || '' : '',
-    apple_strip_url: proAutorise ? restaurant.apple_strip_url || '' : '',
-    apple_icon_url: proAutorise ? restaurant.apple_icon_url || '' : '',
-    google_program_logo_url: proAutorise ? restaurant.google_program_logo_url || '' : '',
-    google_wide_logo_url: proAutorise ? restaurant.google_wide_logo_url || '' : '',
-    google_hero_image_url: proAutorise ? restaurant.google_hero_image_url || '' : '',
+    apple_custom_color: restaurant.apple_custom_color || '',
+    apple_logo_url: restaurant.apple_logo_url || '',
+    apple_strip_url: restaurant.apple_strip_url || '',
+    apple_icon_url: restaurant.apple_icon_url || '',
+    google_program_logo_url: restaurant.google_program_logo_url || '',
+    google_wide_logo_url: restaurant.google_wide_logo_url || '',
+    google_hero_image_url: restaurant.google_hero_image_url || '',
     apple_program_name: restaurant.apple_program_name || 'Carte fidélité',
     apple_reward_text: restaurant.apple_reward_text || restaurant.description_recompense || 'Récompense à débloquer',
     apple_terms: restaurant.apple_terms || 'Conditions du programme disponibles auprès du restaurant.',
