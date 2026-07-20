@@ -256,9 +256,21 @@
             <div class="roue-demo-zone"><div class="roue-halo"></div><div class="roue-pointeur"></div><div class="roue-demo" id="roueApercu"><div class="roue-demo-segments" id="segmentsRoueApercu"></div><div class="roue-demo-centre">✦<small>JOUER</small></div></div></div>
             <div class="roue-demo-actions"><button class="bouton principal" id="lancerApercuRoue">Lancer l’aperçu</button><span id="resultatApercuRoue">Choisissez un tour pour visualiser l’animation.</span></div>
           </article>
-          <article class="panneau lots-roue-panneau"><span class="eyebrow">Cadeaux affichés</span><h3>Ce que vos clients peuvent gagner</h3><p class="texte-secondaire">Le tirage est sécurisé côté serveur et chaque lien ne permet qu’un seul tour.</p><div class="liste-lots-roue" id="listeLotsRoue"></div><div class="info-envoi roue-info"><span>✓</span><p>Le cadeau gagné est conservé avec le passage du client et peut être présenté au comptoir pendant sa période de validité.</p></div></article>
+          <article class="panneau lots-roue-panneau"><span class="eyebrow">Personnalisation</span><h3>Vos lots et vos couleurs</h3><p class="texte-secondaire">Le tirage reste sécurisé côté serveur. Ajustez librement les lots, leurs icônes et leur probabilité relative.</p>
+            <div class="liste-lots-edition" id="listeLotsEdition"></div>
+            <button class="lien-bouton" id="ajouterLot" type="button">+ Ajouter un lot</button>
+            <div class="deux-colonnes couleur-exacte">
+              <div><label for="roueCouleurPrincipale">Couleur principale</label><input id="roueCouleurPrincipale" type="color"></div>
+              <div><label for="roueCouleurSecondaire">Couleur secondaire</label><input id="roueCouleurSecondaire" type="color"></div>
+            </div>
+            <button class="bouton principal" id="enregistrerRoue" type="button">Enregistrer la roue</button>
+            <span class="message" id="messageRoue"></span>
+          </article>
         </div>
-        <article class="panneau parcours-roue"><div><span class="eyebrow">Parcours automatique</span><h3>Du passage à la prochaine visite</h3></div><div class="etapes-roue"><div><i>01</i><strong>Passage validé</strong><span>Votre équipe scanne la carte.</span></div><div><i>02</i><strong>Invitation envoyée</strong><span>Le client reçoit son lien personnel.</span></div><div><i>03</i><strong>Un cadeau à découvrir</strong><span>La roue révèle une raison de revenir.</span></div><div><i>04</i><strong>Avantage présenté</strong><span>Le gain est vérifiable au comptoir.</span></div></div></article>
+        <div class="grille-roue">
+          <article class="panneau parcours-roue"><div><span class="eyebrow">Deux parcours possibles</span><h3>Du passage à la prochaine visite</h3></div><div class="etapes-roue"><div><i>01</i><strong>Passage validé</strong><span>Votre équipe scanne la carte.</span></div><div><i>02</i><strong>Invitation envoyée</strong><span>Le client reçoit son lien personnel par email.</span></div><div><i>03</i><strong>Ou : QR avis en salle</strong><span>Le client scanne, laisse un avis, puis joue.</span></div><div><i>04</i><strong>Avantage présenté</strong><span>Le gain se vérifie avec un code au comptoir.</span></div></div></article>
+          <article class="panneau cadeau-validation"><span class="eyebrow">Comptoir</span><h3>Valider un cadeau</h3><p class="texte-secondaire">Demandez le code reçu par le client (email ou écran après le tour de roue).</p><div class="champ-copie"><input id="codeCadeauSaisie" placeholder="Ex. K7F3M2" maxlength="6" style="text-transform:uppercase"><button class="bouton principal" id="validerCadeau" type="button">Valider</button></div><span class="message" id="messageCadeau"></span></article>
+        </div>
       </section>
 
       <section class="vue" id="vue-design">

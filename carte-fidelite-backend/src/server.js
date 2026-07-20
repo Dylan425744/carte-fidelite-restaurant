@@ -18,6 +18,7 @@ const billing = require('./billingService');
 const marketing = require('./marketingAssetsService');
 const communicationKit = require('./communicationKitService');
 const svgExport = require('./svgExportService');
+const roueService = require('./roueService');
 
 const app = express();
 app.use(cors());
@@ -97,7 +98,10 @@ const CHAMPS_RESTAURANT = [
   'communication_logo_url',
   'reward_title',
   'reward_description',
-  'always_winner'
+  'always_winner',
+  'roue_lots',
+  'roue_couleur_principale',
+  'roue_couleur_secondaire'
 ].join(', ');
 
 function pageProgrammeIndisponible(titre, texte) {
@@ -133,7 +137,7 @@ app.get('/avis/:token', async (req, res) => {
     if (!restaurant || restaurant.deleted_at) return res.status(410).send(pageProgrammeIndisponible('Ce QR code n’est plus actif', 'Le restaurant associé a été retiré.'));
     if (!restaurant.actif || !auth.accesFacturationRestaurant(restaurant)) return res.status(503).send(pageProgrammeIndisponible('Programme fidélité en pause', 'Cet établissement met actuellement à jour son programme de fidélité. Merci de votre patience, nous serons de retour très prochainement.'));
     if (!/^https:\/\//i.test(restaurant.lien_avis_google || '')) return res.status(404).send(pageProgrammeIndisponible('Lien d’avis à configurer', 'Le restaurant doit encore renseigner son lien Google dans son espace Bravocard.'));
-    return res.redirect(302, restaurant.lien_avis_google);
+    return res.redirect(302, `/avis-roue.html?token=${encodeURIComponent(req.params.token)}`);
   } catch (erreur) {
     console.error('Résolution QR avis:', erreur.message);
     return res.status(500).send(pageProgrammeIndisponible('Lien temporairement indisponible', 'Veuillez réessayer dans quelques instants.'));
@@ -1189,7 +1193,9 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
       anti_fraude: tableauAntiFraude,
       statistiques_detaillees: statistiquesDetaillees,
       roue: {
-        lots: LOTS_ROUE.map(lot => ({ label: lot.label, icone: lot.icone }))
+        lots: roueService.lotsRestaurant(acces.restaurant),
+        couleur_principale: acces.restaurant.roue_couleur_principale || '',
+        couleur_secondaire: acces.restaurant.roue_couleur_secondaire || ''
       },
       notification_en_cours: Boolean(acces.restaurant.notification_sending),
       limite_notifications_24h: 3
@@ -2409,56 +2415,12 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
   }
 });
 
-// Liste des lots possibles, avec leur probabilite (doit totaliser 100).
-const LOTS_ROUE = [
-  { label: 'Menu offert', icone: '🍽️', probabilite: 5 },
-  { label: '-10% addition', icone: '🏷️', probabilite: 20 },
-  { label: 'Dessert offert', icone: '🍰', probabilite: 10 },
-  { label: 'Boisson offerte', icone: '🥤', probabilite: 30 },
-  { label: 'Rejouez', icone: '🔁', probabilite: 15 },
-  { label: 'Perdu !', icone: '🙈', probabilite: 20 }
-];
-
-// Nombre de jours avant que la boisson offerte devienne utilisable,
-// et pendant combien de jours elle reste valable une fois debloquee
-const DELAI_AVANT_BOISSON_JOURS = 1;
-const DUREE_VALIDITE_BOISSON_JOURS = 7;
-
-function tirerUnLot() {
-  const total = LOTS_ROUE.reduce((somme, lot) => somme + lot.probabilite, 0);
-  let tirage = Math.random() * total;
-  for (let index = 0; index < LOTS_ROUE.length; index += 1) {
-    tirage -= LOTS_ROUE[index].probabilite;
-    if (tirage < 0) {
-      const lot = LOTS_ROUE[index];
-      return { index, label: lot.label, icone: lot.icone };
-    }
-  }
-  const dernierIndex = LOTS_ROUE.length - 1;
-  const dernierLot = LOTS_ROUE[dernierIndex];
-  return { index: dernierIndex, label: dernierLot.label, icone: dernierLot.icone };
-}
-
-function calculerValiditeCadeau() {
-  const maintenant = new Date();
-
-  const dateDebut = new Date(maintenant);
-  dateDebut.setDate(dateDebut.getDate() + DELAI_AVANT_BOISSON_JOURS);
-  dateDebut.setHours(0, 0, 0, 0);
-
-  const dateFin = new Date(dateDebut);
-  dateFin.setDate(dateFin.getDate() + DUREE_VALIDITE_BOISSON_JOURS);
-  dateFin.setHours(23, 59, 59, 0);
-
-  return { dateDebut, dateFin };
-}
-
 // Verifie si un scan donne peut encore jouer a la roue
 app.get('/api/roue/:scanId', async (req, res) => {
   try {
     const { data: scan, error } = await supabase
       .from('scans')
-      .select('id, roue_utilisee, cadeau_gagne, cadeau_valide_du, cadeau_valide_au')
+      .select('id, roue_utilisee, cadeau_gagne, cadeau_valide_du, cadeau_valide_au, clients(restaurants(*))')
       .eq('id', req.params.scanId)
       .single();
 
@@ -2466,12 +2428,15 @@ app.get('/api/roue/:scanId', async (req, res) => {
       return res.status(404).json({ erreur: 'Lien invalide ou expiré' });
     }
 
+    const lots = roueService.lotsRestaurant(scan.clients?.restaurants);
     res.json({
       peutJouer: !scan.roue_utilisee,
       cadeauDejaGagne: scan.cadeau_gagne || null,
       valideDu: scan.cadeau_valide_du || null,
       valideAu: scan.cadeau_valide_au || null,
-      lots: LOTS_ROUE.map(l => ({ label: l.label, icone: l.icone }))
+      lots: lots.map(l => ({ label: l.label, icone: l.icone })),
+      couleurPrincipale: scan.clients?.restaurants?.roue_couleur_principale || null,
+      couleurSecondaire: scan.clients?.restaurants?.roue_couleur_secondaire || null
     });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
@@ -2483,7 +2448,7 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
   try {
     const { data: scan, error: erreurLecture } = await supabase
       .from('scans')
-      .select('id, roue_utilisee, client_id, clients(nom, email)')
+      .select('id, roue_utilisee, client_id, clients(nom, email, restaurants(*))')
       .eq('id', req.params.scanId)
       .single();
 
@@ -2495,8 +2460,11 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
       return res.status(400).json({ erreur: 'Vous avez déjà joué avec ce lien' });
     }
 
-    const lot = tirerUnLot();
-    const { dateDebut, dateFin } = calculerValiditeCadeau();
+    const restaurant = scan.clients?.restaurants;
+    const lots = roueService.lotsRestaurant(restaurant);
+    const lot = roueService.tirerUnLot(lots);
+    const { dateDebut, dateFin } = roueService.calculerValiditeCadeau();
+    const codeRetrait = roueService.genererCodeRetrait();
 
     await supabase
       .from('scans')
@@ -2504,21 +2472,22 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
         roue_utilisee: true,
         cadeau_gagne: lot.label,
         cadeau_valide_du: dateDebut.toISOString(),
-        cadeau_valide_au: dateFin.toISOString()
+        cadeau_valide_au: dateFin.toISOString(),
+        code_retrait: codeRetrait
       })
       .eq('id', req.params.scanId);
 
-    // Envoie un email de confirmation avec le lien a presenter au comptoir
+    // Envoie un email de confirmation avec le code a presenter au comptoir
     try {
-      const lienCadeau = `${process.env.URL_SITE}/cadeau.html?scan=${req.params.scanId}`;
       await email.envoyerEmailCadeau(
         scan.clients.email,
         scan.clients.nom,
+        restaurant,
         lot.label,
         lot.icone,
         dateDebut.toISOString(),
         dateFin.toISOString(),
-        lienCadeau
+        codeRetrait
       );
     } catch (erreurEmail) {
       console.error('Erreur envoi email cadeau:', erreurEmail.message);
@@ -2529,10 +2498,212 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
       label: lot.label,
       icone: lot.icone,
       valideDu: dateDebut.toISOString(),
-      valideAu: dateFin.toISOString()
+      valideAu: dateFin.toISOString(),
+      codeRetrait
     });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+const COOKIE_ROUE_AVIS = 'bravocard_roue_avis';
+
+async function trouverRestaurantPourRoueAvis(token) {
+  const { data: restaurant, error } = await supabase.from('restaurants')
+    .select(CHAMPS_RESTAURANT).eq('public_qr_token', token).maybeSingle();
+  if (error) throw error;
+  if (!restaurant || restaurant.deleted_at || !restaurant.actif || !auth.accesFacturationRestaurant(restaurant)) {
+    return null;
+  }
+  if (!/^https:\/\//i.test(restaurant.lien_avis_google || '')) return null;
+  return restaurant;
+}
+
+function lireCookieBrut(req, nom) {
+  return String(req.headers.cookie || '')
+    .split(';')
+    .map(partie => partie.trim())
+    .find(partie => partie.startsWith(`${nom}=`))
+    ?.slice(nom.length + 1) || null;
+}
+
+function idCookieRoueAvis(req, res) {
+  let id = lireCookieBrut(req, COOKIE_ROUE_AVIS);
+  if (!id) {
+    id = crypto.randomBytes(16).toString('hex');
+    res.cookie(COOKIE_ROUE_AVIS, id, {
+      httpOnly: true,
+      secure: Boolean(process.env.RENDER || process.env.NODE_ENV === 'production'),
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 400 * 24 * 60 * 60 * 1000
+    });
+  }
+  return id;
+}
+
+// Debut du parcours "QR avis" : un tour par navigateur toutes les 24h, sans lien
+// avec un passage en caisse (contrairement a /api/roue/:scanId).
+app.get('/api/roue-avis/:token', async (req, res) => {
+  try {
+    const restaurant = await trouverRestaurantPourRoueAvis(req.params.token);
+    if (!restaurant) return res.status(404).json({ erreur: 'Lien invalide ou indisponible.' });
+    const cookieId = idCookieRoueAvis(req, res);
+
+    const depuis = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: entreeRecente } = await supabase
+      .from('roue_avis_entries')
+      .select('cadeau_gagne, cadeau_valide_du, cadeau_valide_au')
+      .eq('restaurant_id', restaurant.id)
+      .eq('cookie_id', cookieId)
+      .gte('created_at', depuis)
+      .order('created_at', { ascending: false })
+      .maybeSingle();
+
+    res.json({
+      restaurantNom: restaurant.nom,
+      lienAvisGoogle: restaurant.lien_avis_google,
+      lots: roueService.lotsRestaurant(restaurant).map(l => ({ label: l.label, icone: l.icone })),
+      couleurPrincipale: restaurant.roue_couleur_principale || null,
+      couleurSecondaire: restaurant.roue_couleur_secondaire || null,
+      peutJouer: !entreeRecente,
+      cadeauDejaGagne: entreeRecente?.cadeau_gagne || null,
+      valideDu: entreeRecente?.cadeau_valide_du || null,
+      valideAu: entreeRecente?.cadeau_valide_au || null
+    });
+  } catch (erreur) {
+    console.error('Roue avis:', erreur.message);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+app.post('/api/roue-avis/:token/jouer', async (req, res) => {
+  try {
+    const restaurant = await trouverRestaurantPourRoueAvis(req.params.token);
+    if (!restaurant) return res.status(404).json({ erreur: 'Lien invalide ou indisponible.' });
+    if (!req.body?.avisConfirme) {
+      return res.status(400).json({ erreur: 'Laissez d’abord votre avis Google avant de jouer.' });
+    }
+    const cookieId = idCookieRoueAvis(req, res);
+
+    const depuis = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: entreeRecente } = await supabase
+      .from('roue_avis_entries')
+      .select('id')
+      .eq('restaurant_id', restaurant.id)
+      .eq('cookie_id', cookieId)
+      .gte('created_at', depuis)
+      .maybeSingle();
+    if (entreeRecente) {
+      return res.status(400).json({ erreur: 'Vous avez déjà joué aujourd’hui. Revenez demain !' });
+    }
+
+    const lots = roueService.lotsRestaurant(restaurant);
+    const lot = roueService.tirerUnLot(lots);
+    const { dateDebut, dateFin } = roueService.calculerValiditeCadeau();
+    const codeRetrait = roueService.genererCodeRetrait();
+
+    const { error } = await supabase.from('roue_avis_entries').insert({
+      restaurant_id: restaurant.id,
+      cookie_id: cookieId,
+      cadeau_gagne: lot.label,
+      cadeau_icone: lot.icone,
+      cadeau_valide_du: dateDebut.toISOString(),
+      cadeau_valide_au: dateFin.toISOString(),
+      code_retrait: codeRetrait
+    });
+    if (error) throw error;
+
+    res.json({
+      indexLot: lot.index,
+      label: lot.label,
+      icone: lot.icone,
+      valideDu: dateDebut.toISOString(),
+      valideAu: dateFin.toISOString(),
+      codeRetrait
+    });
+  } catch (erreur) {
+    console.error('Roue avis jouer:', erreur.message);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+app.put('/api/restaurateur/:slug/roue', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'design_manage');
+    if (!acces) return;
+    const lots = roueService.validerLots(req.body?.lots);
+    const miseAJour = {
+      roue_lots: lots,
+      roue_couleur_principale: roueService.validerCouleur(req.body?.couleur_principale),
+      roue_couleur_secondaire: roueService.validerCouleur(req.body?.couleur_secondaire)
+    };
+    const { data, error } = await supabase
+      .from('restaurants')
+      .update(miseAJour)
+      .eq('id', acces.restaurant.id)
+      .select(CHAMPS_RESTAURANT)
+      .single();
+    if (error) throw error;
+    res.json({
+      succes: true,
+      message: 'Roue personnalisée enregistrée.',
+      roue: {
+        lots: roueService.lotsRestaurant(data),
+        couleur_principale: data.roue_couleur_principale || '',
+        couleur_secondaire: data.roue_couleur_secondaire || ''
+      }
+    });
+  } catch (erreur) {
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+// Validation d'un cadeau au comptoir : accessible a tout membre autorise a scanner,
+// retrouve le gain soit dans scans (parcours "passage en caisse"), soit dans
+// roue_avis_entries (parcours "QR avis" sans passage en caisse).
+app.post('/api/restaurateur/:slug/cadeaux/valider', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'scan');
+    if (!acces) return;
+    const code = String(req.body?.code || '').trim().toUpperCase();
+    if (!code) return res.status(400).json({ erreur: 'Saisissez un code.' });
+
+    const { data: scan } = await supabase
+      .from('scans')
+      .select('id, cadeau_gagne, cadeau_valide_du, cadeau_valide_au, code_retrait_utilise_le, clients!inner(restaurant_id)')
+      .eq('code_retrait', code)
+      .eq('clients.restaurant_id', acces.restaurant.id)
+      .maybeSingle();
+
+    if (scan) {
+      if (scan.code_retrait_utilise_le) {
+        return res.status(400).json({ erreur: 'Ce code a déjà été utilisé.' });
+      }
+      if (new Date(scan.cadeau_valide_au) < new Date()) {
+        return res.status(400).json({ erreur: 'Ce cadeau a expiré.' });
+      }
+      await supabase.from('scans').update({ code_retrait_utilise_le: new Date().toISOString() }).eq('id', scan.id);
+      return res.json({ succes: true, cadeau: scan.cadeau_gagne, valide_au: scan.cadeau_valide_au });
+    }
+
+    const { data: entree } = await supabase
+      .from('roue_avis_entries')
+      .select('id, cadeau_gagne, cadeau_valide_au, utilise')
+      .eq('code_retrait', code)
+      .eq('restaurant_id', acces.restaurant.id)
+      .maybeSingle();
+
+    if (!entree) return res.status(404).json({ erreur: 'Code introuvable pour ce restaurant.' });
+    if (entree.utilise) return res.status(400).json({ erreur: 'Ce code a déjà été utilisé.' });
+    if (new Date(entree.cadeau_valide_au) < new Date()) {
+      return res.status(400).json({ erreur: 'Ce cadeau a expiré.' });
+    }
+    await supabase.from('roue_avis_entries').update({ utilise: true, utilise_le: new Date().toISOString() }).eq('id', entree.id);
+    res.json({ succes: true, cadeau: entree.cadeau_gagne, valide_au: entree.cadeau_valide_au });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
   }
 });
 

@@ -73,6 +73,24 @@ async function envoyerEmailAvis(emailDestinataire, nomClient, restaurant, lienRo
   await envoyerEmail(emailDestinataire, `Merci de votre visite chez ${nomRestaurant} !`, texte);
 }
 
+function formaterDateLisible(iso) {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+}
+
+async function envoyerEmailCadeau(emailDestinataire, nomClient, restaurant, label, icone, valideDu, valideAu, codeRetrait) {
+  const nomRestaurant = restaurant?.nom || 'votre restaurant';
+  const texte =
+    `Bonjour ${nomClient},\n\n` +
+    `${icone} Vous avez gagné : ${label} !\n\n` +
+    `Utilisable du ${formaterDateLisible(valideDu)} au ${formaterDateLisible(valideAu)}.\n\n` +
+    `Pour en profiter, présentez simplement ce code au comptoir de ${nomRestaurant} :\n\n` +
+    `  ${codeRetrait}\n\n` +
+    `À très bientôt,\n` +
+    `L'équipe de ${nomRestaurant}`;
+
+  await envoyerEmail(emailDestinataire, `Vous avez gagné ${label} chez ${nomRestaurant} !`, texte);
+}
+
 async function envoyerEmailBienvenue(emailDestinataire, nomClient, restaurant, lienWallet, lienAppleWallet, codeParrainage, lienParrainage) {
   const nomRestaurant = restaurant?.nom || process.env.NOM_RESTAURANT || 'votre restaurant';
 
@@ -115,6 +133,7 @@ module.exports = {
   envoyerEmail,
   envoyerEmailAccesCompte,
   envoyerEmailAvis,
+  envoyerEmailCadeau,
   envoyerEmailBienvenue,
   envoyerEmailRecompense
 };

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bravocard - Avis Google puis roue des cadeaux</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Work Sans', sans-serif;
+    color: #FFF9F3;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    overflow-x: hidden;
+    background: radial-gradient(circle at 50% 14%, #50357c 0, transparent 28%), radial-gradient(circle at 84% 84%, #145f51 0, transparent 26%), #120c20;
+  }
+  .logo-page { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; position: relative; z-index: 1; }
+  .logo-page .nom { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 16px; }
+  .logo-page .nom .accent { color: #12B886; }
+  h1 { font-family: 'Manrope', sans-serif; font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  p.sous-titre { color: #B8ABD0; font-size: 14px; margin-bottom: 22px; max-width: 340px; position: relative; z-index: 1; }
+
+  .etape { width: 100%; max-width: 360px; }
+  .etape-avis { margin-bottom: 26px; padding: 22px; border-radius: 20px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); }
+  .etape-avis .numero { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #FFC93C; color: #241A3D; font-weight: 800; font-size: 12px; margin-bottom: 10px; }
+  .etape-avis p { color: #D9CEF0; font-size: 13.5px; line-height: 1.5; margin-bottom: 16px; }
+
+  .bouton {
+    padding: 15px 40px; border-radius: 100px; border: none;
+    color: #FFF9F3; font-size: 16px; font-weight: 700;
+    font-family: 'Work Sans', sans-serif; cursor: pointer;
+    transition: transform 0.15s ease; position: relative; overflow: hidden;
+  }
+  .bouton:hover:not(:disabled) { transform: translateY(-2px); }
+  .bouton:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .bouton-avis { background: linear-gradient(120deg, #e8891f, #f5aa54); box-shadow: 0 10px 24px rgba(232,137,31,.35); width: 100%; }
+  .bouton-avis.fait { background: #1c3d2c; box-shadow: none; }
+  .bouton-roue { background: linear-gradient(120deg, #7448df, #9b6bff); box-shadow: 0 13px 30px rgba(101,58,207,.42); min-width: 250px; padding: 16px 40px; }
+  .bouton-roue:before { content: ''; position: absolute; top: -80%; left: -25%; width: 25%; height: 260%; background: rgba(255,255,255,.22); transform: rotate(22deg); transition: left .4s ease; }
+  .bouton-roue:hover:not(:disabled):before { left: 115%; }
+
+  .zone-roue { position: relative; width: 340px; height: 340px; margin: 4px 0 30px; isolation: isolate; opacity: .35; filter: grayscale(.6); transition: opacity .4s ease, filter .4s ease; pointer-events: none; }
+  .zone-roue.deverrouille { opacity: 1; filter: none; pointer-events: auto; }
+  .zone-roue:before { content: ''; position: absolute; inset: 1px; z-index: -2; border-radius: 50%; background: radial-gradient(circle, rgba(255,210,100,.16) 0, rgba(136,83,244,.14) 48%, transparent 70%); filter: blur(7px); animation: respiration 3.1s ease-in-out infinite; }
+  .zone-roue:after { content: ''; position: absolute; inset: -12px; z-index: -1; border: 1px solid rgba(255,255,255,.13); border-radius: 50%; box-shadow: 0 0 0 10px rgba(255,255,255,.025), 0 0 42px rgba(123,78,221,.32); }
+  @keyframes respiration { 50% { transform: scale(1.08); opacity: .55; } }
+  .pointeur {
+    position: absolute; top: -5px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0; border-left: 17px solid transparent; border-right: 17px solid transparent;
+    border-top: 34px solid #ffe08a; z-index: 10; filter: drop-shadow(0 4px 4px rgba(0,0,0,.42));
+  }
+  .roue {
+    width: 330px; height: 330px; margin: 5px; border-radius: 50%; position: relative;
+    border: 8px solid #21162e; box-shadow: 0 0 0 3px #ead3ff, 0 0 0 8px #7148e8, 0 28px 58px rgba(4,1,10,.48);
+    transition: transform 5.2s cubic-bezier(.12,.8,.18,1); overflow: hidden;
+  }
+  .roue:before { content: ''; position: absolute; inset: 8px; border: 1px solid rgba(255,255,255,.32); border-radius: 50%; pointer-events: none; }
+  .segment-pivot { position: absolute; top: 50%; left: 50%; width: 0; height: 0; }
+  .segment-contenu { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 84px; left: -42px; }
+  .segment-contenu .icone-lot { font-size: 23px; line-height: 1; }
+  .segment-contenu .texte-lot { font-size: 10px; letter-spacing: -.1px; font-weight: 700; font-family: 'Manrope', sans-serif; color: #FFF9F3; line-height: 1.15; text-shadow: 0 1px 3px rgba(0,0,0,.35); }
+  .centre-roue {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 62px; height: 62px; border-radius: 50%; border: 5px solid #fff7d4;
+    background: radial-gradient(circle at 35% 30%, #fff6b3, #f2b944);
+    display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 5;
+    box-shadow: 0 5px 14px rgba(0,0,0,.34);
+  }
+
+  .resultat-final {
+    display: none; margin-top: 26px; padding: 24px 30px; border-radius: 18px;
+    background: linear-gradient(160deg, #14301F, #1A3D26); border: 1px solid rgba(93,230,167,.75); max-width: 340px;
+    box-shadow: 0 19px 43px rgba(0,0,0,.25);
+  }
+  .resultat-final.visible { display: block; animation: apparition 0.4s ease; }
+  @keyframes apparition { from { opacity:0; transform: scale(0.9); } to { opacity:1; transform: scale(1); } }
+  .resultat-final .icone-finale { font-size: 36px; margin-bottom: 6px; }
+  .resultat-final .titre-gain { font-size: 13px; color: #B8ABD0; }
+  .resultat-final .nom-gain { font-family: 'Manrope', sans-serif; font-size: 22px; font-weight: 800; color: #12B886; margin-top: 6px; }
+  .resultat-final .validite { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(18,184,134,0.3); font-size: 12.5px; color: #C9F0E2; line-height: 1.5; }
+  .resultat-final .validite b { color: #FFF9F3; }
+  .resultat-final .code-retrait { margin-top: 16px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,.28); }
+  .resultat-final .code-retrait small { display: block; color: #9ad9bd; font-size: 10px; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+  .resultat-final .code-retrait strong { font-family: 'Manrope', sans-serif; font-size: 26px; letter-spacing: 4px; }
+
+  .message-info { margin-top: 18px; color: #B8ABD0; font-size: 13.5px; max-width: 300px; }
+</style>
+</head>
+<body>
+
+<div class="logo-page">
+  <svg width="20" height="20" viewBox="0 0 200 200"><g transform="rotate(-8 100 100)"><rect x="35" y="55" width="130" height="90" rx="18" fill="#6C3CE9"/></g><path d="M155 45 L163 62 L182 65 L168 79 L172 98 L155 88 L138 98 L142 79 L128 65 L147 62 Z" fill="#12B886"/></svg>
+  <div class="nom">Bravo<span class="accent">card</span></div>
+</div>
+
+<h1 id="titreRestaurant">Merci pour votre visite !</h1>
+<p class="sous-titre">Laissez votre avis, puis tentez votre chance à la roue des cadeaux.</p>
+
+<div class="etape etape-avis">
+  <span class="numero">1</span>
+  <p>Laissez un avis Google à l'établissement — ça prend 30 secondes et ça compte vraiment pour eux.</p>
+  <button class="bouton bouton-avis" id="boutonAvis">Laisser un avis Google</button>
+</div>
+
+<div class="zone-roue" id="zoneRoue">
+  <div class="pointeur"></div>
+  <div class="roue" id="roue">
+    <div class="centre-roue">🎁</div>
+  </div>
+</div>
+
+<button class="bouton bouton-roue" id="boutonJouer" disabled>Laissez d'abord votre avis</button>
+
+<div class="resultat-final" id="resultatFinal">
+  <div class="icone-finale" id="iconeFinale"></div>
+  <div class="titre-gain">Vous avez gagné</div>
+  <div class="nom-gain" id="nomGain"></div>
+  <div class="validite" id="validite"></div>
+  <div class="code-retrait" id="zoneCode" style="display:none">
+    <small>Code à présenter au comptoir</small>
+    <strong id="codeRetrait"></strong>
+  </div>
+</div>
+
+<div class="message-info" id="messageInfo"></div>
+
+<script>
+const COULEURS = ['#6C3CE9', '#12B886', '#5A2FD0', '#0E9469', '#7C4FF0', '#0A7A56'];
+const params = new URLSearchParams(window.location.search);
+const token = params.get('token');
+const roue = document.getElementById('roue');
+const zoneRoue = document.getElementById('zoneRoue');
+const boutonAvis = document.getElementById('boutonAvis');
+const boutonJouer = document.getElementById('boutonJouer');
+const resultatFinal = document.getElementById('resultatFinal');
+const nomGain = document.getElementById('nomGain');
+const iconeFinale = document.getElementById('iconeFinale');
+const validite = document.getElementById('validite');
+const zoneCode = document.getElementById('zoneCode');
+const codeRetrait = document.getElementById('codeRetrait');
+const messageInfo = document.getElementById('messageInfo');
+
+const DELAI_MINIMUM_MS = 30000; // le temps realiste d'ecrire un avis avant de debloquer la roue
+let lots = [];
+let avisConfirme = false;
+let restaurantData = null;
+
+function formaterDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+}
+
+function afficherValidite(valideDu, valideAu) {
+  if (!valideDu || !valideAu) { validite.innerHTML = ''; return; }
+  validite.innerHTML =
+    `Utilisable à partir du <b>${formaterDate(valideDu)}</b>, jusqu'au <b>${formaterDate(valideAu)}</b>. ` +
+    `Présentez ce code au comptoir durant cette période.`;
+}
+
+const RAYON_TEXTE = 112;
+
+function dessinerRoue(listeLots) {
+  const nb = listeLots.length;
+  const angle = 360 / nb;
+  let degrades = [];
+  listeLots.forEach((lot, i) => {
+    const debut = i * angle;
+    degrades.push(`${COULEURS[i % COULEURS.length]} ${debut}deg ${debut + angle}deg`);
+  });
+  roue.style.background = `conic-gradient(${degrades.join(',')})`;
+
+  listeLots.forEach((lot, i) => {
+    const centreAngle = i * angle + angle / 2;
+    const pivot = document.createElement('div');
+    pivot.className = 'segment-pivot';
+    pivot.style.transform = `rotate(${centreAngle}deg)`;
+    const contenu = document.createElement('div');
+    contenu.className = 'segment-contenu';
+    contenu.style.transform = `translateY(-${RAYON_TEXTE}px) rotate(${-centreAngle}deg)`;
+    contenu.innerHTML = `<div class="icone-lot">${lot.icone}</div><div class="texte-lot">${lot.label}</div>`;
+    pivot.appendChild(contenu);
+    roue.appendChild(pivot);
+  });
+}
+
+function lancerConfettis() {
+  const dureeMs = 2200;
+  const fin = Date.now() + dureeMs;
+  const couleurs = ['#6C3CE9', '#12B886', '#FFC93C', '#FFF9F3'];
+  (function frame() {
+    confetti({ particleCount: 4, angle: 60, spread: 70, origin: { x: 0, y: 0.6 }, colors: couleurs });
+    confetti({ particleCount: 4, angle: 120, spread: 70, origin: { x: 1, y: 0.6 }, colors: couleurs });
+    if (Date.now() < fin) requestAnimationFrame(frame);
+  })();
+  confetti({ particleCount: 90, spread: 100, origin: { y: 0.5 }, colors: couleurs });
+}
+
+function appliquerCouleursPersonnalisees(donnees) {
+  if (donnees.couleurPrincipale) {
+    document.querySelectorAll('.bouton-roue, .bouton-avis:not(.fait)').forEach(b => {
+      b.style.background = `linear-gradient(120deg, ${donnees.couleurPrincipale}, ${donnees.couleurSecondaire || donnees.couleurPrincipale})`;
+    });
+  }
+}
+
+async function initialiser() {
+  if (!token) {
+    messageInfo.textContent = "Lien invalide.";
+    boutonAvis.disabled = true;
+    return;
+  }
+  try {
+    const reponse = await fetch(`/api/roue-avis/${encodeURIComponent(token)}`);
+    const donnees = await reponse.json();
+    if (!reponse.ok) {
+      messageInfo.textContent = donnees.erreur || "Ce lien n'est plus disponible.";
+      boutonAvis.disabled = true;
+      return;
+    }
+    restaurantData = donnees;
+    document.getElementById('titreRestaurant').textContent = `Merci pour votre visite chez ${donnees.restaurantNom} !`;
+    lots = donnees.lots;
+    dessinerRoue(lots);
+    appliquerCouleursPersonnalisees(donnees);
+    boutonAvis.onclick = () => {
+      window.open(donnees.lienAvisGoogle, '_blank', 'noopener');
+      confirmerAvis();
+    };
+
+    if (!donnees.peutJouer) {
+      boutonAvis.disabled = true;
+      boutonJouer.disabled = true;
+      boutonJouer.textContent = 'Roue déjà utilisée aujourd’hui';
+      if (donnees.cadeauDejaGagne) {
+        nomGain.textContent = donnees.cadeauDejaGagne;
+        iconeFinale.textContent = '🎉';
+        afficherValidite(donnees.valideDu, donnees.valideAu);
+        resultatFinal.classList.add('visible');
+      }
+      messageInfo.textContent = "Vous avez déjà joué depuis cet appareil aujourd'hui. Revenez demain !";
+    }
+  } catch (erreur) {
+    messageInfo.textContent = "Une erreur est survenue.";
+    boutonAvis.disabled = true;
+  }
+}
+
+function confirmerAvis() {
+  if (avisConfirme) return;
+  avisConfirme = true;
+  boutonAvis.classList.add('fait');
+  boutonAvis.textContent = 'Avis Google ouvert ✓';
+  boutonJouer.textContent = 'Merci ! Débloquage dans 30s…';
+  let secondesRestantes = Math.ceil(DELAI_MINIMUM_MS / 1000);
+  const intervalle = setInterval(() => {
+    secondesRestantes -= 1;
+    if (secondesRestantes <= 0) {
+      clearInterval(intervalle);
+      boutonJouer.disabled = false;
+      boutonJouer.textContent = 'Faire tourner la roue';
+      zoneRoue.classList.add('deverrouille');
+    } else {
+      boutonJouer.textContent = `Débloquage dans ${secondesRestantes}s…`;
+    }
+  }, 1000);
+}
+
+boutonJouer.addEventListener('click', async () => {
+  boutonJouer.disabled = true;
+  messageInfo.textContent = '';
+  try {
+    const reponse = await fetch(`/api/roue-avis/${encodeURIComponent(token)}/jouer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ avisConfirme: true })
+    });
+    const donnees = await reponse.json();
+    if (!reponse.ok) {
+      messageInfo.textContent = donnees.erreur || "Impossible de jouer.";
+      return;
+    }
+    const nb = lots.length;
+    const angleSegment = 360 / nb;
+    const centreSegment = donnees.indexLot * angleSegment + angleSegment / 2;
+    const rotationFinale = 360 * 6 + (360 - centreSegment);
+    roue.style.transform = `rotate(${rotationFinale}deg)`;
+    setTimeout(() => {
+      nomGain.textContent = donnees.label;
+      iconeFinale.textContent = donnees.icone;
+      afficherValidite(donnees.valideDu, donnees.valideAu);
+      codeRetrait.textContent = donnees.codeRetrait;
+      zoneCode.style.display = 'block';
+      resultatFinal.classList.add('visible');
+      lancerConfettis();
+    }, 5300);
+  } catch (erreur) {
+    messageInfo.textContent = "Une erreur est survenue.";
+    boutonJouer.disabled = false;
+  }
+});
+
+initialiser();
+</script>
+
+</body>
+</html>

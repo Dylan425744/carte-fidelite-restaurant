@@ -31,6 +31,7 @@ let supportsMarketing = null;
 let kitCommunication = null;
 let genEtat = { support: null, theme: null };
 let genMinuteurApercu = null;
+let roueLotsEdition = [];
 
 const $ = selecteur => document.querySelector(selecteur);
 
@@ -424,6 +425,8 @@ function appliquerPermissions() {
   $('#enregistrerParrainage').style.display = aPermission('referral_manage') ? '' : 'none';
   $('#enregistrerAntiFraude').style.display = aPermission('fraud_manage') ? '' : 'none';
   $('#enregistrerDesign').style.display = aPermission('design_manage') ? '' : 'none';
+  $('#enregistrerRoue').style.display = aPermission('design_manage') ? '' : 'none';
+  $('#ajouterLot').style.display = aPermission('design_manage') ? '' : 'none';
   $('#regenererSupports').style.display = aPermission('marketing_manage') ? '' : 'none';
   $('#genEnregistrer').style.display = aPermission('marketing_manage') ? '' : 'none';
   $('#roleMembre').querySelector('option[value="owner"]').hidden = !sessionUtilisateur?.super_admin;
@@ -501,18 +504,100 @@ function lotsRoue() {
 
 function remplirApercuRoue() {
   const segments = $('#segmentsRoueApercu');
-  const liste = $('#listeLotsRoue');
-  if (!segments || !liste) return;
+  if (!segments) return;
   const lots = lotsRoue();
   const angle = 360 / lots.length;
   segments.innerHTML = lots.map((lot, index) => {
     const position = index * angle + angle / 2;
     return `<div class="roue-label" style="transform:rotate(${position}deg) translateY(-100px) rotate(${-position}deg) translate(-50%,-50%)"><i>${echapper(lot.icone)}</i><span>${echapper(lot.label)}</span></div>`;
   }).join('');
-  const teintes = ['#f1e8ff', '#fff0dd', '#e4f7ee', '#e7f0ff', '#ffe9ed', '#eeeaff'];
-  liste.innerHTML = lots.map((lot, index) =>
-    `<div class="lot-roue" style="--teinte:${teintes[index % teintes.length]}"><i>${echapper(lot.icone)}</i><strong>${echapper(lot.label)}</strong></div>`
-  ).join('');
+  roueLotsEdition = lots.map(lot => ({ icone: lot.icone, label: lot.label, probabilite: Number(lot.probabilite) || 10 }));
+  afficherLotsEdition();
+  if (!$('#roueCouleurPrincipale').value || $('#roueCouleurPrincipale').dataset.rempli !== 'oui') {
+    $('#roueCouleurPrincipale').value = donneesTableau?.roue?.couleur_principale || '#6C3CE9';
+    $('#roueCouleurSecondaire').value = donneesTableau?.roue?.couleur_secondaire || '#E8891F';
+    $('#roueCouleurPrincipale').dataset.rempli = 'oui';
+  }
+}
+
+function afficherLotsEdition() {
+  const peutModifier = aPermission('design_manage');
+  $('#listeLotsEdition').innerHTML = roueLotsEdition.map((lot, index) => `
+    <div class="ligne-lot-edition" data-index="${index}">
+      <input type="text" class="lot-icone" maxlength="4" value="${echapper(lot.icone)}" aria-label="Icône" ${peutModifier ? '' : 'disabled'}>
+      <input type="text" class="lot-label" maxlength="40" value="${echapper(lot.label)}" aria-label="Nom du lot" ${peutModifier ? '' : 'disabled'}>
+      <input type="number" class="lot-probabilite" min="1" max="100" value="${Number(lot.probabilite) || 10}" aria-label="Probabilité" ${peutModifier ? '' : 'disabled'}>
+      ${peutModifier ? `<button type="button" data-supprimer-lot="${index}" title="Supprimer ce lot">✕</button>` : ''}
+    </div>`).join('');
+}
+
+function lireLotsDepuisFormulaire() {
+  return [...document.querySelectorAll('.ligne-lot-edition')].map(ligne => ({
+    icone: ligne.querySelector('.lot-icone').value.trim(),
+    label: ligne.querySelector('.lot-label').value.trim(),
+    probabilite: Number(ligne.querySelector('.lot-probabilite').value)
+  }));
+}
+
+function ajouterLigneLot() {
+  roueLotsEdition = lireLotsDepuisFormulaire();
+  roueLotsEdition.push({ icone: '🎁', label: 'Nouveau lot', probabilite: 10 });
+  afficherLotsEdition();
+}
+
+function supprimerLigneLot(index) {
+  roueLotsEdition = lireLotsDepuisFormulaire();
+  if (roueLotsEdition.length <= 2) {
+    afficherMessage($('#messageRoue'), 'La roue doit contenir au moins 2 lots.', 'erreur');
+    return;
+  }
+  roueLotsEdition.splice(index, 1);
+  afficherLotsEdition();
+}
+
+async function enregistrerRoue() {
+  const bouton = $('#enregistrerRoue');
+  bouton.disabled = true;
+  afficherMessage($('#messageRoue'), 'Enregistrement...');
+  try {
+    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/roue`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        lots: lireLotsDepuisFormulaire(),
+        couleur_principale: $('#roueCouleurPrincipale').value,
+        couleur_secondaire: $('#roueCouleurSecondaire').value
+      })
+    });
+    donneesTableau.roue = donnees.roue;
+    roueLotsEdition = donnees.roue.lots;
+    afficherLotsEdition();
+    remplirApercuRoue();
+    afficherMessage($('#messageRoue'), donnees.message, 'succes');
+  } catch (erreur) {
+    afficherMessage($('#messageRoue'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
+async function validerCadeauComptoir() {
+  const bouton = $('#validerCadeau');
+  const code = $('#codeCadeauSaisie').value.trim().toUpperCase();
+  if (!code) return;
+  bouton.disabled = true;
+  afficherMessage($('#messageCadeau'), 'Vérification...');
+  try {
+    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/cadeaux/valider`, {
+      method: 'POST',
+      body: JSON.stringify({ code })
+    });
+    afficherMessage($('#messageCadeau'), `✓ ${donnees.cadeau} validé (valable jusqu’au ${formaterDate(donnees.valide_au)}).`, 'succes');
+    $('#codeCadeauSaisie').value = '';
+  } catch (erreur) {
+    afficherMessage($('#messageCadeau'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
 }
 
 function lancerApercuRoue() {
@@ -1535,6 +1620,13 @@ document.querySelectorAll('[name="plateforme"]').forEach(input => input.addEvent
 $('#actualiserCampagnes').addEventListener('click', () => actualiserTableau());
 $('#copierLienCarte').addEventListener('click', copierLienCreationCarte);
 $('#lancerApercuRoue').addEventListener('click', lancerApercuRoue);
+$('#ajouterLot').addEventListener('click', ajouterLigneLot);
+$('#listeLotsEdition').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-supprimer-lot]');
+  if (bouton) supprimerLigneLot(Number(bouton.dataset.supprimerLot));
+});
+$('#enregistrerRoue').addEventListener('click', enregistrerRoue);
+$('#validerCadeau').addEventListener('click', validerCadeauComptoir);
 $('#demarrerScanner').addEventListener('click', demarrerScanner);
 $('#relancerScanner').addEventListener('click', demarrerScanner);
 $('#enregistrerDesign').addEventListener('click', enregistrerDesign);
