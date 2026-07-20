@@ -115,7 +115,7 @@ app.get('/r/:token', async (req, res) => {
       return res.status(410).send(pageProgrammeIndisponible('Ce QR code n’est plus actif', 'Le programme associé à ce support a été retiré.'));
     }
     if (!restaurant.actif || !auth.accesFacturationRestaurant(restaurant)) {
-      return res.status(503).send(pageProgrammeIndisponible('Programme momentanément indisponible', 'Le restaurant réactive actuellement son programme de fidélité. Revenez bientôt.'));
+      return res.status(503).send(pageProgrammeIndisponible('Programme fidélité en pause', 'Cet établissement met actuellement à jour son programme de fidélité. Merci de votre patience, nous serons de retour très prochainement.'));
     }
     const base = String(process.env.MARKETING_PUBLIC_BASE_URL || 'https://bravocard.fr').replace(/\/$/, '');
     return res.redirect(302, `${base}/creer-carte.html?restaurant=${encodeURIComponent(restaurant.slug)}&utm_source=qr_restaurant`);
@@ -131,7 +131,7 @@ app.get('/avis/:token', async (req, res) => {
       .select(CHAMPS_RESTAURANT).eq('public_qr_token', req.params.token).maybeSingle();
     if (error) throw error;
     if (!restaurant || restaurant.deleted_at) return res.status(410).send(pageProgrammeIndisponible('Ce QR code n’est plus actif', 'Le restaurant associé a été retiré.'));
-    if (!restaurant.actif || !auth.accesFacturationRestaurant(restaurant)) return res.status(503).send(pageProgrammeIndisponible('Programme momentanément indisponible', 'Ce restaurant réactive actuellement ses services.'));
+    if (!restaurant.actif || !auth.accesFacturationRestaurant(restaurant)) return res.status(503).send(pageProgrammeIndisponible('Programme fidélité en pause', 'Cet établissement met actuellement à jour son programme de fidélité. Merci de votre patience, nous serons de retour très prochainement.'));
     if (!/^https:\/\//i.test(restaurant.lien_avis_google || '')) return res.status(404).send(pageProgrammeIndisponible('Lien d’avis à configurer', 'Le restaurant doit encore renseigner son lien Google dans son espace Bravocard.'));
     return res.redirect(302, restaurant.lien_avis_google);
   } catch (erreur) {
@@ -1717,6 +1717,28 @@ app.patch('/api/admin/demandes-demo/:id', exigerAdministrateur, async (req, res)
   }
 });
 
+// Suppression definitive d'une demande : uniquement depuis la corbeille (statut
+// 'closed'), pour eviter qu'un clic accidentel efface un prospect encore utile.
+app.delete('/api/admin/demandes-demo/:id', exigerAdministrateur, async (req, res) => {
+  try {
+    const { data: demande, error: erreurLecture } = await supabase
+      .from('demo_requests')
+      .select('id, full_name, status')
+      .eq('id', req.params.id)
+      .single();
+    if (erreurLecture) throw erreurLecture;
+    if (demande.status !== 'closed') {
+      return res.status(400).json({ erreur: 'Déplacez d’abord cette demande dans la corbeille avant de la supprimer définitivement.' });
+    }
+    const { error } = await supabase.from('demo_requests').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ succes: true, message: `Demande de « ${demande.full_name} » supprimée définitivement.` });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
 app.post('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
   try {
     const nom = designRestaurant.nettoyerTexte(req.body.nom, 80, 'Le nom du commerce');
@@ -1910,6 +1932,50 @@ app.post('/api/admin/restaurants/:id/restaurer', exigerAdministrateur, async (re
       {}
     );
     res.json({ succes: true, restaurant: data, message: 'Restaurant restauré avec toutes ses données.' });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+// Suppression definitive et irreversible : uniquement possible depuis la corbeille
+// (un restaurant doit d'abord y avoir ete place), et seulement si l'administrateur
+// confirme en resaisissant le nom exact du restaurant. Les tables liees sont
+// supprimees explicitement (plutot que de compter sur des regles ON DELETE en
+// base) car les toutes premieres tables (clients, scans) precedent le suivi des
+// migrations et leur configuration exacte n'est pas garantie.
+app.delete('/api/admin/restaurants/:id/definitivement', exigerAdministrateur, async (req, res) => {
+  try {
+    const { data: restaurant, error: erreurLecture } = await supabase
+      .from('restaurants')
+      .select('id, nom, deleted_at')
+      .eq('id', req.params.id)
+      .single();
+    if (erreurLecture) throw erreurLecture;
+    if (!restaurant.deleted_at) {
+      return res.status(400).json({ erreur: 'Placez d’abord ce restaurant dans la corbeille avant de le supprimer définitivement.' });
+    }
+    const confirmation = String(req.body?.confirmation || '').trim();
+    if (confirmation !== restaurant.nom) {
+      return res.status(400).json({ erreur: 'Le nom saisi ne correspond pas exactement. Suppression annulée par sécurité.' });
+    }
+
+    const id = restaurant.id;
+    const tablesLiees = ['referral_codes', 'referrals', 'referral_settings', 'fraud_alerts', 'fraud_settings', 'scans', 'clients', 'restaurant_memberships'];
+    for (const table of tablesLiees) {
+      const { error } = await supabase.from(table).delete().eq('restaurant_id', id);
+      if (error) throw error;
+    }
+    const { error: erreurSuppression } = await supabase.from('restaurants').delete().eq('id', id);
+    if (erreurSuppression) throw erreurSuppression;
+
+    await auth.journaliser(
+      'admin.restaurant_purged',
+      req.bravocardAdmin?.utilisateur ? req.bravocardAdmin : null,
+      null,
+      { nom: restaurant.nom, id }
+    );
+    res.json({ succes: true, message: `« ${restaurant.nom} » a été supprimé définitivement.` });
   } catch (erreur) {
     console.error(erreur);
     res.status(400).json({ erreur: erreur.message });
