@@ -31,6 +31,10 @@ let supportsMarketing = null;
 let kitCommunication = null;
 let genEtat = { support: null, theme: null };
 let genMinuteurApercu = null;
+let walletSpecifications = null;
+let walletPlateformeActive = 'apple';
+let walletZonesSecuriteActives = false;
+let walletRecadrage = { cropper: null, assetElement: null };
 let roueLotsEdition = [];
 
 const $ = selecteur => document.querySelector(selecteur);
@@ -1125,26 +1129,77 @@ function actualiserApercuNotification() {
   $('#compteurMessage').textContent = $('#messageNotification').value.length;
 }
 
+function elementAsset(plateforme, id) {
+  return document.querySelector(`.asset-wallet[data-asset="${plateforme}.${id}"]`);
+}
+
+function specificationAsset(plateforme, id) {
+  return walletSpecifications?.[plateforme]?.[id] || null;
+}
+
+function valeurAsset(plateforme, id) {
+  const element = elementAsset(plateforme, id);
+  return element ? element.querySelector('.asset-url').value.trim() : '';
+}
+
+function actualiserApercuMiniatureAsset(element) {
+  const valeur = element.querySelector('.asset-url').value.trim();
+  const cadre = element.querySelector('.asset-apercu-miniature');
+  const image = cadre.querySelector('img');
+  image.src = valeur;
+  image.hidden = !valeur;
+  cadre.classList.toggle('avec-image', Boolean(valeur));
+}
+
+function definirValeurAsset(element, valeur) {
+  element.querySelector('.asset-url').value = valeur;
+  actualiserApercuMiniatureAsset(element);
+}
+
 function remplirDesign() {
   const preset = document.querySelector(`[name="preset"][value="${restaurant.apple_color_preset}"]`);
   if (preset) preset.checked = true;
   const format = restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128';
   const choixFormat = document.querySelector(`[name="walletBarcodeFormat"][value="${format}"]`);
   if (choixFormat) choixFormat.checked = true;
-  const correspondances = {
-    logoText: 'apple_logo_text', pointsLabel: 'apple_points_label',
-    cardLabel: 'apple_card_label', customColor: 'apple_custom_color',
-    logoUrl: 'apple_logo_url', stripUrl: 'apple_strip_url', iconUrl: 'apple_icon_url',
-    programName: 'apple_program_name', rewardText: 'apple_reward_text', walletTerms: 'apple_terms'
+
+  const correspondancesCommunes = {
+    walletPointsLabel: 'apple_points_label',
+    walletCardLabel: 'apple_card_label',
+    walletProgramName: 'apple_program_name',
+    walletRewardText: 'apple_reward_text',
+    customColor: 'apple_custom_color',
+    appleLogoText: 'apple_logo_text',
+    appleTerms: 'apple_terms'
   };
-  for (const [id, champ] of Object.entries(correspondances)) $(`#${id}`).value = restaurant[champ] || '';
+  for (const [id, champ] of Object.entries(correspondancesCommunes)) $(`#${id}`).value = restaurant[champ] || '';
   $('#customColorPicker').value = /^#[0-9a-f]{6}$/i.test(restaurant.apple_custom_color || '')
     ? restaurant.apple_custom_color : couleursWallet[restaurant.apple_color_preset] || '#17171D';
-  $('#zonePro').classList.toggle('verrouille', !restaurant.pro_autorise);
-  $('#messagePro').textContent = restaurant.pro_disponible
+
+  const correspondancesAssets = {
+    'apple.logo': 'apple_logo_url',
+    'apple.icone': 'apple_icon_url',
+    'apple.banniere': 'apple_strip_url',
+    'google.logoRond': 'google_program_logo_url',
+    'google.logoLarge': 'google_wide_logo_url',
+    'google.heroImage': 'google_hero_image_url'
+  };
+  for (const [cle, champ] of Object.entries(correspondancesAssets)) {
+    const [plateforme, id] = cle.split('.');
+    const element = elementAsset(plateforme, id);
+    if (element) definirValeurAsset(element, restaurant[champ] || '');
+  }
+
+  const messagePro = restaurant.pro_disponible
     ? 'Toutes les options professionnelles sont disponibles'
     : 'Abonnement WalletWallet Pro requis';
+  $('#zoneProApple').classList.toggle('verrouille', !restaurant.pro_autorise);
+  $('#zoneProGoogle').classList.toggle('verrouille', !restaurant.pro_autorise);
+  $('#messageProApple').textContent = messagePro;
+  $('#messageProGoogle').textContent = messagePro;
+
   actualiserApercuWallet();
+  actualiserApercuGoogleWallet();
 }
 
 function actualiserApercuWallet() {
@@ -1152,51 +1207,284 @@ function actualiserApercuWallet() {
   const exacte = $('#customColor').value;
   $('#wallet').style.background = restaurant?.pro_autorise && /^#[0-9a-f]{6}$/i.test(exacte)
     ? exacte : couleursWallet[preset];
-  $('#previewLogo').textContent = $('#logoText').value || 'Bravocard';
-  $('#previewPointsLabel').textContent = $('#pointsLabel').value || 'POINTS SUR 100';
-  $('#previewCardLabel').textContent = $('#cardLabel').value || 'FIDÉLITÉ';
-  $('#previewProgramme').textContent = $('#programName').value || 'Carte fidélité';
-  $('#previewRecompense').textContent = $('#rewardText').value || 'Récompense à débloquer';
-  const logo = $('#logoUrl').value.trim();
-  const strip = $('#stripUrl').value.trim();
+  $('#previewLogo').textContent = $('#appleLogoText').value || 'Bravocard';
+  $('#previewPointsLabel').textContent = $('#walletPointsLabel').value || 'POINTS SUR 100';
+  $('#previewCardLabel').textContent = $('#walletCardLabel').value || 'FIDÉLITÉ';
+  $('#previewProgramme').textContent = $('#walletProgramName').value || 'Carte fidélité';
+  $('#previewRecompense').textContent = $('#walletRewardText').value || 'Récompense à débloquer';
+  const logo = valeurAsset('apple', 'logo');
+  const banniere = valeurAsset('apple', 'banniere');
   const imageLogo = $('#previewLogoImage');
   imageLogo.src = logo;
   imageLogo.classList.toggle('visible', Boolean(logo));
-  $('#previewBanniere').style.backgroundImage = strip
-    ? `linear-gradient(90deg,rgba(0,0,0,.48),rgba(0,0,0,.04)),url("${strip.replace(/"/g, '%22')}")`
-    : '';
-  $('#statutLogo').textContent = logo ? 'Prêt' : 'Facultatif';
-  $('#statutStrip').textContent = strip ? 'Prête' : 'Facultatif';
-  $('#statutIcon').textContent = $('#iconUrl').value.trim() ? 'Prête' : 'Facultatif';
+  const zoneBanniere = $('#previewBanniere');
+  zoneBanniere.style.backgroundImage = banniere ? `url("${banniere.replace(/"/g, '%22')}")` : '';
+  zoneBanniere.classList.toggle('visible', Boolean(banniere));
   $('#wallet').classList.toggle('format-qr', document.querySelector('[name="walletBarcodeFormat"]:checked')?.value === 'QR_CODE');
+  actualiserZonesSecurite();
 }
 
-async function lireFichier(input, cible, type) {
-  const fichier = input.files[0];
+function actualiserApercuGoogleWallet() {
+  const preset = document.querySelector('[name="preset"]:checked')?.value || 'dark';
+  const exacte = $('#customColor').value;
+  $('#walletGoogle').style.background = restaurant?.pro_autorise && /^#[0-9a-f]{6}$/i.test(exacte)
+    ? exacte : couleursWallet[preset];
+  $('#googlePreviewProgramme').textContent = $('#walletProgramName').value || 'Carte fidélité';
+  $('#googlePreviewPointsLabel').textContent = $('#walletPointsLabel').value || 'POINTS SUR 100';
+  $('#googlePreviewCardLabel').textContent = $('#walletCardLabel').value || 'FIDÉLITÉ';
+
+  const logoRond = valeurAsset('google', 'logoRond');
+  const logoLarge = valeurAsset('google', 'logoLarge');
+  const hero = valeurAsset('google', 'heroImage');
+
+  const imageLogoRond = $('#googlePreviewLogoRond');
+  imageLogoRond.src = logoRond || '/logo-bravocard-encadre.png';
+  imageLogoRond.hidden = false;
+
+  const imageLogoLarge = $('#googlePreviewLogoLarge');
+  imageLogoLarge.src = logoLarge;
+  imageLogoLarge.hidden = !logoLarge;
+  imageLogoLarge.classList.toggle('visible', Boolean(logoLarge));
+
+  const zoneHero = $('#googlePreviewHero');
+  zoneHero.style.backgroundImage = hero ? `url("${hero.replace(/"/g, '%22')}")` : '';
+  zoneHero.hidden = !hero;
+  zoneHero.classList.toggle('visible', Boolean(hero));
+
+  $('#walletGoogle').classList.toggle('format-qr', document.querySelector('[name="walletBarcodeFormat"]:checked')?.value === 'QR_CODE');
+  actualiserZonesSecurite();
+}
+
+function genererZonesReperees(conteneurWallet, definitions) {
+  const overlay = conteneurWallet?.querySelector('.wallet-zones-overlay');
+  if (!overlay) return;
+  overlay.innerHTML = '';
+  overlay.classList.toggle('actif', walletZonesSecuriteActives);
+  if (!walletZonesSecuriteActives) return;
+  const cadre = conteneurWallet.getBoundingClientRect();
+  definitions.forEach(({ selecteur, type, label, cercle }) => {
+    const cible = conteneurWallet.querySelector(selecteur);
+    if (!cible) return;
+    const rect = cible.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const zone = document.createElement('div');
+    zone.className = `zone-reperee ${type}`;
+    zone.style.left = `${rect.left - cadre.left}px`;
+    zone.style.top = `${rect.top - cadre.top}px`;
+    zone.style.width = `${rect.width}px`;
+    zone.style.height = `${rect.height}px`;
+    if (cercle) zone.style.borderRadius = '50%';
+    const texte = document.createElement('small');
+    texte.textContent = label;
+    zone.appendChild(texte);
+    overlay.appendChild(zone);
+  });
+}
+
+function actualiserZonesSecurite() {
+  genererZonesReperees($('#wallet'), [
+    { selecteur: '.preview-logo-zone', type: 'zone-image', label: 'Logo' },
+    { selecteur: '#previewBanniere', type: 'zone-image', label: 'Bande décorative' },
+    { selecteur: '.wallet-principal', type: 'zone-texte', label: 'Champ principal' },
+    { selecteur: '.wallet-bas>div:first-child', type: 'zone-texte', label: 'Champs secondaires' },
+    { selecteur: '.codebarres', type: 'zone-code', label: 'Code / QR' }
+  ]);
+  genererZonesReperees($('#walletGoogle'), [
+    { selecteur: '.google-logo-rond', type: 'zone-image', label: 'Logo rond', cercle: true },
+    { selecteur: '.google-logo-large', type: 'zone-image', label: 'Logo large' },
+    { selecteur: '.google-hero', type: 'zone-image', label: 'Image Hero' },
+    { selecteur: '.google-points', type: 'zone-texte', label: 'Points' },
+    { selecteur: '.google-modules', type: 'zone-texte', label: 'Champs texte' },
+    { selecteur: '.codebarres', type: 'zone-code', label: 'Code / QR' }
+  ]);
+  if (walletZonesSecuriteActives) {
+    const logoRond = $('#walletGoogle .google-logo-rond');
+    const overlayGoogle = $('#walletGoogle .wallet-zones-overlay');
+    if (logoRond && overlayGoogle && logoRond.getBoundingClientRect().width > 0) {
+      const rectLogo = logoRond.getBoundingClientRect();
+      const rectCadre = $('#walletGoogle').getBoundingClientRect();
+      const marge = rectLogo.width * 0.15;
+      const zoneSecurite = document.createElement('div');
+      zoneSecurite.className = 'zone-reperee zone-securite';
+      zoneSecurite.style.left = `${rectLogo.left - rectCadre.left + marge}px`;
+      zoneSecurite.style.top = `${rectLogo.top - rectCadre.top + marge}px`;
+      zoneSecurite.style.width = `${rectLogo.width - marge * 2}px`;
+      zoneSecurite.style.height = `${rectLogo.height - marge * 2}px`;
+      const texte = document.createElement('small');
+      texte.textContent = 'Zone sûre';
+      zoneSecurite.appendChild(texte);
+      overlayGoogle.appendChild(zoneSecurite);
+    }
+  }
+  $('#walletLegendeZones').classList.toggle('visible', walletZonesSecuriteActives);
+}
+
+function basculerOngletWallet(plateforme) {
+  walletPlateformeActive = plateforme === 'google' ? 'google' : 'apple';
+  document.querySelectorAll('.wallet-onglet').forEach(bouton => {
+    const actif = bouton.dataset.plateformeWallet === walletPlateformeActive;
+    bouton.classList.toggle('actif', actif);
+    bouton.setAttribute('aria-selected', String(actif));
+  });
+  $('#walletPanneauApple').classList.toggle('masque', walletPlateformeActive !== 'apple');
+  $('#walletPanneauGoogle').classList.toggle('masque', walletPlateformeActive !== 'google');
+  $('#apercuApple').classList.toggle('masque', walletPlateformeActive !== 'apple');
+  $('#apercuGoogle').classList.toggle('masque', walletPlateformeActive !== 'google');
+  $('#walletLegende').textContent = walletPlateformeActive === 'google'
+    ? 'Aperçu indicatif Google Wallet · Google peut ajuster automatiquement certains espacements selon l’appareil.'
+    : 'Aperçu indicatif Apple Wallet · l’apparence exacte peut légèrement varier selon la version d’iOS.';
+  actualiserZonesSecurite();
+}
+
+const LIBELLES_STATUT_ASSET = {
+  conforme: 'Conforme',
+  acceptable_avec_recadrage: 'Acceptable',
+  trop_petite: 'Trop petite',
+  format_non_supporte: 'Format invalide',
+  fichier_trop_lourd: 'Trop lourd'
+};
+
+async function chargerSpecificationsWallet() {
+  const donnees = await api('/api/wallet-asset-specifications');
+  walletSpecifications = donnees.specifications;
+  initialiserAssetsWallet();
+}
+
+function initialiserAssetsWallet() {
+  if (!walletSpecifications) return;
+  document.querySelectorAll('.asset-wallet[data-asset]').forEach(element => {
+    const [plateforme, id] = element.dataset.asset.split('.');
+    const spec = specificationAsset(plateforme, id);
+    if (!spec) return;
+    element.querySelector('.asset-dimensions').textContent =
+      `Dimensions conseillées : ${spec.largeurRecommandee} × ${spec.hauteurRecommandee} px · Ratio ${spec.ratio.toFixed(2)}:1`;
+    const badge = element.querySelector('.asset-statut');
+    badge.dataset.requisDefaut = String(spec.requis);
+    if (!badge.dataset.statutActif) badge.textContent = spec.requis ? 'Requis' : 'Facultatif';
+    const zoneMessage = element.querySelector('.asset-message');
+    if (!zoneMessage.textContent.trim()) zoneMessage.textContent = spec.description;
+  });
+}
+
+function afficherStatutAsset(assetElement, statut, message) {
+  const badge = assetElement.querySelector('.asset-statut');
+  Object.keys(LIBELLES_STATUT_ASSET).forEach(cle => badge.classList.remove(cle));
+  badge.textContent = LIBELLES_STATUT_ASSET[statut] || (badge.dataset.requisDefaut === 'true' ? 'Requis' : 'Facultatif');
+  if (statut) {
+    badge.classList.add(statut);
+    badge.dataset.statutActif = 'true';
+  }
+  const zoneMessage = assetElement.querySelector('.asset-message');
+  zoneMessage.textContent = message || zoneMessage.textContent;
+  zoneMessage.classList.toggle('erreur', statut === 'trop_petite' || statut === 'format_non_supporte' || statut === 'fichier_trop_lourd');
+}
+
+function gererSelectionFichierAsset(evenement, assetElement) {
+  const fichier = evenement.target.files[0];
   if (!fichier) return;
-  if (fichier.type !== 'image/png' || fichier.size > 2 * 1024 * 1024) {
-    afficherMessage($('#messageDesign'), 'Choisissez un PNG de moins de 2 Mo.', 'erreur');
-    input.value = '';
+  if (fichier.type !== 'image/png') {
+    afficherStatutAsset(assetElement, 'format_non_supporte', 'Choisissez un fichier PNG.');
+    evenement.target.value = '';
     return;
   }
   const lecteur = new FileReader();
-  lecteur.onload = async () => {
-    try {
-      afficherMessage($('#messageDesign'), 'Import de l’image…');
-      const donnees = await api(`/api/design/${encodeURIComponent(slug)}/image`, {
-        method: 'POST',
-        body: JSON.stringify({ type, image_data: lecteur.result })
-      });
-      $(`#${cible}`).value = donnees.url;
-      actualiserApercuWallet();
-      afficherMessage($('#messageDesign'), 'Image importée. Enregistrez le design pour la publier.', 'succes');
-    } catch (erreur) {
-      afficherMessage($('#messageDesign'), erreur.message, 'erreur');
-    } finally {
-      input.value = '';
-    }
-  };
+  lecteur.onload = () => ouvrirRecadrage(lecteur.result, assetElement);
   lecteur.readAsDataURL(fichier);
+  evenement.target.value = '';
+}
+
+function ouvrirRecadrage(dataUrl, assetElement) {
+  const [plateforme, id] = assetElement.dataset.asset.split('.');
+  const spec = specificationAsset(plateforme, id);
+  if (!spec) return;
+  walletRecadrage.assetElement = assetElement;
+  walletRecadrage.plateforme = plateforme;
+  walletRecadrage.id = id;
+  $('#recadrageTitre').textContent = `Ajuster : ${spec.nom} (${plateforme === 'google' ? 'Google Wallet' : 'Apple Wallet'})`;
+  $('#recadrageAide').textContent =
+    `Dimensions conseillées : ${spec.largeurRecommandee} × ${spec.hauteurRecommandee} px · Ratio ${spec.ratio.toFixed(2)}:1.`;
+  $('#recadrageFond').classList.add('visible');
+  const image = $('#recadrageImage');
+  if (walletRecadrage.cropper) {
+    walletRecadrage.cropper.destroy();
+    walletRecadrage.cropper = null;
+  }
+  image.src = dataUrl;
+  image.onload = () => {
+    walletRecadrage.cropper = new Cropper(image, {
+      aspectRatio: spec.ratio,
+      viewMode: 1,
+      autoCropArea: 1,
+      background: true,
+      responsive: true
+    });
+    document.querySelectorAll('[data-mode-ajustement]').forEach(bouton =>
+      bouton.classList.toggle('actif', bouton.dataset.modeAjustement === 'centrer')
+    );
+  };
+}
+
+function fermerRecadrage() {
+  if (walletRecadrage.cropper) {
+    walletRecadrage.cropper.destroy();
+    walletRecadrage.cropper = null;
+  }
+  walletRecadrage.assetElement = null;
+  $('#recadrageFond').classList.remove('visible');
+}
+
+function appliquerModeAjustement(mode) {
+  if (!walletRecadrage.cropper) return;
+  document.querySelectorAll('[data-mode-ajustement]').forEach(bouton =>
+    bouton.classList.toggle('actif', bouton.dataset.modeAjustement === mode)
+  );
+  walletRecadrage.cropper.reset();
+  // "Couvrir" rapproche l'image pour remplir tout le cadre (quitte a couper les
+  // bords), "contenir" l'eloigne pour tout montrer (bords transparents visibles
+  // grace a l'option background:true), "centrer" reste au cadrage automatique.
+  if (mode === 'couvrir') walletRecadrage.cropper.zoom(0.2);
+  if (mode === 'contenir') walletRecadrage.cropper.zoom(-0.2);
+}
+
+async function validerRecadrage() {
+  const assetElement = walletRecadrage.assetElement;
+  const plateforme = walletRecadrage.plateforme;
+  const id = walletRecadrage.id;
+  if (!assetElement || !walletRecadrage.cropper) return;
+  const spec = specificationAsset(plateforme, id);
+  const bouton = $('#validerRecadrage');
+  bouton.disabled = true;
+  try {
+    const canvas = walletRecadrage.cropper.getCroppedCanvas({
+      width: spec.largeurRecommandee,
+      height: spec.hauteurRecommandee
+    });
+    const dataUrl = canvas.toDataURL('image/png');
+    afficherStatutAsset(assetElement, null, 'Import en cours…');
+    const donnees = await api(`/api/design/${encodeURIComponent(slug)}/image`, {
+      method: 'POST',
+      body: JSON.stringify({ plateforme, type: id, image_data: dataUrl })
+    });
+    definirValeurAsset(assetElement, donnees.url);
+    afficherStatutAsset(assetElement, donnees.statut, donnees.message);
+    assetElement.querySelector('.asset-supprimer').hidden = false;
+    actualiserApercuWallet();
+    actualiserApercuGoogleWallet();
+    fermerRecadrage();
+    afficherMessage($('#messageDesign'), 'Image importée. Enregistrez pour publier ce changement.', 'succes');
+  } catch (erreur) {
+    afficherStatutAsset(assetElement, 'format_non_supporte', erreur.message);
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
+function supprimerAsset(assetElement) {
+  definirValeurAsset(assetElement, '');
+  assetElement.querySelector('.asset-supprimer').hidden = true;
+  afficherStatutAsset(assetElement, null, null);
+  actualiserApercuWallet();
+  actualiserApercuGoogleWallet();
 }
 
 const modelesWallet = {
@@ -1215,17 +1503,18 @@ function appliquerModeleWallet(nom) {
   document.querySelector(`[name="preset"][value="${modele.preset}"]`).checked = true;
   $('#customColor').value = modele.color;
   $('#customColorPicker').value = modele.color;
-  $('#pointsLabel').value = modele.points;
-  $('#cardLabel').value = modele.card;
-  $('#programName').value = modele.program;
-  $('#rewardText').value = modele.reward;
-  if (modele.strip) $('#stripUrl').value = `${window.location.origin}${modele.strip}`;
-  if (modele.icon) $('#iconUrl').value = `${window.location.origin}${modele.icon}`;
-  if (modele.logo) $('#logoUrl').value = `${window.location.origin}${modele.logo}`;
+  $('#walletPointsLabel').value = modele.points;
+  $('#walletCardLabel').value = modele.card;
+  $('#walletProgramName').value = modele.program;
+  $('#walletRewardText').value = modele.reward;
+  if (modele.strip) definirValeurAsset(elementAsset('apple', 'banniere'), `${window.location.origin}${modele.strip}`);
+  if (modele.icon) definirValeurAsset(elementAsset('apple', 'icone'), `${window.location.origin}${modele.icon}`);
+  if (modele.logo) definirValeurAsset(elementAsset('apple', 'logo'), `${window.location.origin}${modele.logo}`);
   document.querySelectorAll('[data-modele-wallet]').forEach(bouton =>
     bouton.classList.toggle('actif', bouton.dataset.modeleWallet === nom)
   );
   actualiserApercuWallet();
+  actualiserApercuGoogleWallet();
 }
 
 async function enregistrerDesign() {
@@ -1235,16 +1524,19 @@ async function enregistrerDesign() {
   const corps = {
     wallet_barcode_format: document.querySelector('[name="walletBarcodeFormat"]:checked')?.value || 'CODE_128',
     apple_color_preset: document.querySelector('[name="preset"]:checked').value,
-    apple_logo_text: $('#logoText').value,
-    apple_points_label: $('#pointsLabel').value,
-    apple_card_label: $('#cardLabel').value,
     apple_custom_color: $('#customColor').value,
-    apple_logo_url: $('#logoUrl').value,
-    apple_strip_url: $('#stripUrl').value,
-    apple_icon_url: $('#iconUrl').value,
-    apple_program_name: $('#programName').value,
-    apple_reward_text: $('#rewardText').value,
-    apple_terms: $('#walletTerms').value
+    apple_points_label: $('#walletPointsLabel').value,
+    apple_card_label: $('#walletCardLabel').value,
+    apple_program_name: $('#walletProgramName').value,
+    apple_reward_text: $('#walletRewardText').value,
+    apple_logo_text: $('#appleLogoText').value,
+    apple_terms: $('#appleTerms').value,
+    apple_logo_url: valeurAsset('apple', 'logo'),
+    apple_strip_url: valeurAsset('apple', 'banniere'),
+    apple_icon_url: valeurAsset('apple', 'icone'),
+    google_program_logo_url: valeurAsset('google', 'logoRond'),
+    google_wide_logo_url: valeurAsset('google', 'logoLarge'),
+    google_hero_image_url: valeurAsset('google', 'heroImage')
   };
   try {
     const donnees = await api(`/api/design/${encodeURIComponent(slug)}`, {
@@ -1734,20 +2026,47 @@ $('#tableClients').addEventListener('click', evenement => {
   const nom = ligne?.querySelector('strong')?.textContent || 'ce client';
   supprimerClient(bouton.dataset.supprimerClient, nom);
 });
-document.querySelectorAll('.editeur-design input, .editeur-design textarea').forEach(input => input.addEventListener('input', actualiserApercuWallet));
+function actualiserLesDeuxApercusWallet() {
+  actualiserApercuWallet();
+  actualiserApercuGoogleWallet();
+}
+document.querySelectorAll('.editeur-design input, .editeur-design textarea').forEach(input =>
+  input.addEventListener('input', actualiserLesDeuxApercusWallet)
+);
 $('#customColorPicker').addEventListener('input', evenement => {
   $('#customColor').value = evenement.target.value.toUpperCase();
-  actualiserApercuWallet();
+  actualiserLesDeuxApercusWallet();
 });
-$('#logoFile').addEventListener('change', evenement => lireFichier(evenement.target, 'logoUrl', 'logo'));
-$('#stripFile').addEventListener('change', evenement => lireFichier(evenement.target, 'stripUrl', 'strip'));
-$('#iconFile').addEventListener('change', evenement => lireFichier(evenement.target, 'iconUrl', 'icon'));
+document.querySelectorAll('.asset-wallet').forEach(element => {
+  element.querySelector('.asset-file').addEventListener('change', evenement => gererSelectionFichierAsset(evenement, element));
+  const boutonSupprimer = element.querySelector('.asset-supprimer');
+  boutonSupprimer.hidden = !element.querySelector('.asset-url').value.trim();
+  boutonSupprimer.addEventListener('click', () => supprimerAsset(element));
+});
 document.querySelectorAll('[data-modele-wallet]').forEach(bouton =>
   bouton.addEventListener('click', () => appliquerModeleWallet(bouton.dataset.modeleWallet))
 );
 document.querySelectorAll('[name="walletBarcodeFormat"]').forEach(champ =>
-  champ.addEventListener('change', actualiserApercuWallet)
+  champ.addEventListener('change', actualiserLesDeuxApercusWallet)
 );
+$('#walletOnglets').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-plateforme-wallet]');
+  if (bouton) basculerOngletWallet(bouton.dataset.plateformeWallet);
+});
+$('#walletZonesSecurite').addEventListener('change', evenement => {
+  walletZonesSecuriteActives = evenement.target.checked;
+  actualiserZonesSecurite();
+});
+window.addEventListener('resize', () => {
+  clearTimeout(window.walletResizeMinuteur);
+  window.walletResizeMinuteur = setTimeout(actualiserZonesSecurite, 150);
+});
+document.querySelectorAll('[data-mode-ajustement]').forEach(bouton =>
+  bouton.addEventListener('click', () => appliquerModeAjustement(bouton.dataset.modeAjustement))
+);
+$('#annulerRecadrage').addEventListener('click', fermerRecadrage);
+$('#validerRecadrage').addEventListener('click', validerRecadrage);
+chargerSpecificationsWallet().catch(erreur => console.error('Spécifications Wallet:', erreur.message));
 $('#ajouterMembre').addEventListener('click', ajouterMembre);
 $('#actualiserEquipe').addEventListener('click', chargerEquipe);
 $('#changerMotDePasse').addEventListener('click', changerMotDePasse);

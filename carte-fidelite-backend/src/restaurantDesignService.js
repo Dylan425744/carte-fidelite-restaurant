@@ -114,9 +114,12 @@ function construireMiseAJourDesign(donnees, proAutorise) {
   }
 
   miseAJour.apple_custom_color = couleur || null;
-  miseAJour.apple_logo_url = validerImage(donnees.apple_logo_url, 'Le logo');
-  miseAJour.apple_strip_url = validerImage(donnees.apple_strip_url, 'La bannière');
-  miseAJour.apple_icon_url = validerImage(donnees.apple_icon_url, 'L’icône');
+  miseAJour.apple_logo_url = validerImage(donnees.apple_logo_url, 'Le logo Apple');
+  miseAJour.apple_strip_url = validerImage(donnees.apple_strip_url, 'La bande décorative Apple');
+  miseAJour.apple_icon_url = validerImage(donnees.apple_icon_url, 'L’icône Apple');
+  miseAJour.google_program_logo_url = validerImage(donnees.google_program_logo_url, 'Le logo rond Google');
+  miseAJour.google_wide_logo_url = validerImage(donnees.google_wide_logo_url, 'Le logo large Google');
+  miseAJour.google_hero_image_url = validerImage(donnees.google_hero_image_url, 'L’image Hero Google');
   miseAJour.apple_program_name = nettoyerTexteOptionnel(
     donnees.apple_program_name,
     48,
@@ -159,6 +162,9 @@ function serialiserRestaurant(restaurant, proDisponible) {
     apple_logo_url: proAutorise ? restaurant.apple_logo_url || '' : '',
     apple_strip_url: proAutorise ? restaurant.apple_strip_url || '' : '',
     apple_icon_url: proAutorise ? restaurant.apple_icon_url || '' : '',
+    google_program_logo_url: proAutorise ? restaurant.google_program_logo_url || '' : '',
+    google_wide_logo_url: proAutorise ? restaurant.google_wide_logo_url || '' : '',
+    google_hero_image_url: proAutorise ? restaurant.google_hero_image_url || '' : '',
     apple_program_name: restaurant.apple_program_name || 'Carte fidélité',
     apple_reward_text: restaurant.apple_reward_text || restaurant.description_recompense || 'Récompense à débloquer',
     apple_terms: restaurant.apple_terms || 'Conditions du programme disponibles auprès du restaurant.',

@@ -8,7 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/espace-restaurateur.css">
+  <link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
 </head>
 <body>
   <section class="connexion-page" id="connexionPage">
@@ -276,6 +278,14 @@
       </section>
 
       <section class="vue" id="vue-design">
+        <div class="wallet-editeur-entete">
+          <div><span class="eyebrow">Personnalisation</span><h2>Construisez vos cartes Apple Wallet et Google Wallet.</h2><p class="texte-secondaire">Chaque plateforme a ses propres images et ses propres règles. Réglez les deux séparément, avec un aperçu fidèle à ce que verra votre client.</p></div>
+          <div class="wallet-onglets" id="walletOnglets" role="tablist">
+            <button type="button" class="wallet-onglet actif" data-plateforme-wallet="apple" role="tab" aria-selected="true"> Apple Wallet</button>
+            <button type="button" class="wallet-onglet" data-plateforme-wallet="google" role="tab" aria-selected="false"> Google Wallet / Android</button>
+          </div>
+        </div>
+
         <div class="grille-design">
           <article class="panneau editeur-design">
             <label class="titre-modeles">Partir d’un modèle professionnel</label>
@@ -288,26 +298,75 @@
               <button type="button" data-modele-wallet="azur"><span class="modele-visuel azur"></span><strong>Azur Solaire</strong><small>Lumineux et méditerranéen</small></button>
               <button type="button" data-modele-wallet="patissier"><span class="modele-visuel patissier"></span><strong>Pâtisserie Chic</strong><small>Doux et raffiné</small></button>
             </div>
-            <span class="eyebrow">Identité visuelle</span><h3>Design Apple Wallet</h3><p class="texte-secondaire">Les nouvelles cartes utilisent immédiatement ce design. Les autres se mettront à jour au prochain changement.</p>
-            <label>Couleur de la carte</label><div class="palette"><label class="pastille-couleur dark" title="Noir"><input type="radio" name="preset" value="dark"></label><label class="pastille-couleur blue" title="Bleu"><input type="radio" name="preset" value="blue"></label><label class="pastille-couleur green" title="Vert"><input type="radio" name="preset" value="green"></label><label class="pastille-couleur red" title="Rouge"><input type="radio" name="preset" value="red"></label><label class="pastille-couleur purple" title="Violet"><input type="radio" name="preset" value="purple"></label><label class="pastille-couleur orange" title="Orange"><input type="radio" name="preset" value="orange"></label></div>
-            <label for="logoText">Nom en haut de la carte</label><input id="logoText" type="text" maxlength="32">
-            <div class="deux-colonnes"><div><label for="pointsLabel">Libellé des points</label><input id="pointsLabel" type="text" maxlength="28"></div><div><label for="cardLabel">Type de carte</label><input id="cardLabel" type="text" maxlength="28"></div></div>
-            <label>Code à présenter en caisse</label><div class="choix-plateforme choix-code-wallet"><label><input type="radio" name="walletBarcodeFormat" value="CODE_128" checked><span>Code-barres</span></label><label><input type="radio" name="walletBarcodeFormat" value="QR_CODE"><span>QR code</span></label></div><p class="texte-secondaire">Le choix s’applique automatiquement aux cartes Apple Wallet et Google Wallet de ce restaurant.</p>
-            <div class="zone-pro verrouille" id="zonePro">
-              <div class="pro-entete"><div><span class="pastille">PRO</span><strong>Direction artistique avancée</strong></div><span id="messagePro">WalletWallet Pro</span></div>
-              <div class="contenu-pro">
-                <div class="deux-colonnes couleur-exacte"><div><label for="customColorPicker">Couleur exacte</label><input id="customColorPicker" type="color" value="#17171D"></div><div><label for="customColor">Code hexadécimal</label><input id="customColor" type="text" maxlength="7" placeholder="#17171D"></div></div>
-                <div class="asset-wallet"><div class="asset-entete"><div><strong>Logo principal</strong><small>PNG transparent · 320 × 100 px (taille Apple, réutilisée par Google)</small></div><span class="asset-statut" id="statutLogo">Facultatif</span></div><input id="logoUrl" type="url" placeholder="https://…"><label class="upload-wallet" for="logoFile">Importer un logo PNG<input id="logoFile" type="file" accept="image/png"></label></div>
-                <div class="asset-wallet"><div class="asset-entete"><div><strong>Bannière visuelle</strong><small>PNG panoramique · 1032 × 336 px (taille Google, réutilisée par Apple)</small></div><span class="asset-statut" id="statutStrip">Facultatif</span></div><input id="stripUrl" type="url" placeholder="https://…"><label class="upload-wallet" for="stripFile">Importer une bannière PNG<input id="stripFile" type="file" accept="image/png"></label></div>
-                <div class="asset-wallet"><div class="asset-entete"><div><strong>Icône de notification</strong><small>PNG carré · 512 × 512 px conseillé pour rester net</small></div><span class="asset-statut" id="statutIcon">Facultatif</span></div><input id="iconUrl" type="url" placeholder="https://…"><label class="upload-wallet" for="iconFile">Importer une icône PNG<input id="iconFile" type="file" accept="image/png"></label></div>
-                <label for="programName">Nom du programme</label><input id="programName" type="text" maxlength="48" placeholder="Le Club Maison">
-                <label for="rewardText">Récompense affichée</label><input id="rewardText" type="text" maxlength="90" placeholder="Votre menu offert à 100 points">
-                <label for="walletTerms">Conditions visibles au dos</label><textarea id="walletTerms" rows="4" maxlength="500" placeholder="Décrivez les règles du programme et la durée de validité."></textarea>
+
+            <div class="wallet-section-commune">
+              <span class="eyebrow">Identité commune</span><h3>Utilisée par Apple ET Google</h3>
+              <label>Couleur de la carte</label><div class="palette"><label class="pastille-couleur dark" title="Noir"><input type="radio" name="preset" value="dark"></label><label class="pastille-couleur blue" title="Bleu"><input type="radio" name="preset" value="blue"></label><label class="pastille-couleur green" title="Vert"><input type="radio" name="preset" value="green"></label><label class="pastille-couleur red" title="Rouge"><input type="radio" name="preset" value="red"></label><label class="pastille-couleur purple" title="Violet"><input type="radio" name="preset" value="purple"></label><label class="pastille-couleur orange" title="Orange"><input type="radio" name="preset" value="orange"></label></div>
+              <div class="deux-colonnes"><div><label for="walletPointsLabel">Libellé des points</label><input id="walletPointsLabel" type="text" maxlength="28"></div><div><label for="walletCardLabel">Type de carte</label><input id="walletCardLabel" type="text" maxlength="28"></div></div>
+              <label for="walletProgramName">Nom du programme</label><input id="walletProgramName" type="text" maxlength="48" placeholder="Le Club Maison">
+              <label for="walletRewardText">Récompense affichée</label><input id="walletRewardText" type="text" maxlength="90" placeholder="Votre menu offert à 100 points">
+              <label>Code à présenter en caisse</label><div class="choix-plateforme choix-code-wallet"><label><input type="radio" name="walletBarcodeFormat" value="CODE_128" checked><span>Code-barres</span></label><label><input type="radio" name="walletBarcodeFormat" value="QR_CODE"><span>QR code</span></label></div><p class="texte-secondaire">Le choix s’applique automatiquement aux cartes Apple Wallet et Google Wallet de ce restaurant.</p>
+            </div>
+
+            <div class="wallet-panneau-plateforme" id="walletPanneauApple" data-plateforme="apple">
+              <div class="zone-pro verrouille" id="zoneProApple">
+                <div class="pro-entete"><div><span class="pastille">PRO</span><strong>Images et textes Apple Wallet</strong></div><span id="messageProApple">WalletWallet Pro</span></div>
+                <div class="contenu-pro">
+                  <div class="deux-colonnes couleur-exacte"><div><label for="customColorPicker">Couleur exacte (Apple et Google)</label><input id="customColorPicker" type="color" value="#17171D"></div><div><label for="customColor">Code hexadécimal</label><input id="customColor" type="text" maxlength="7" placeholder="#17171D"></div></div>
+                  <label for="appleLogoText">Nom affiché si pas de logo</label><input id="appleLogoText" type="text" maxlength="32">
+                  <div class="asset-wallet" data-asset="apple.logo"><div class="asset-entete"><div><span class="badge-plateforme apple">Apple Wallet</span><strong>Logo</strong><small class="asset-dimensions"></small></div><span class="asset-statut">Facultatif</span></div><div class="asset-apercu-miniature"><img alt="" hidden></div><input class="asset-url" type="url" placeholder="https://…"><div class="asset-boutons"><label class="upload-wallet">Importer<input class="asset-file" type="file" accept="image/png"></label><button type="button" class="lien-bouton asset-supprimer" hidden>Supprimer</button></div><p class="asset-message"></p></div>
+                  <div class="asset-wallet" data-asset="apple.icone"><div class="asset-entete"><div><span class="badge-plateforme apple">Apple Wallet</span><strong>Icône de notification</strong><small class="asset-dimensions"></small></div><span class="asset-statut">Facultatif</span></div><div class="asset-apercu-miniature"><img alt="" hidden></div><input class="asset-url" type="url" placeholder="https://…"><div class="asset-boutons"><label class="upload-wallet">Importer<input class="asset-file" type="file" accept="image/png"></label><button type="button" class="lien-bouton asset-supprimer" hidden>Supprimer</button></div><p class="asset-message"></p></div>
+                  <div class="asset-wallet" data-asset="apple.banniere"><div class="asset-entete"><div><span class="badge-plateforme apple">Apple Wallet</span><strong>Bande décorative</strong><small class="asset-dimensions"></small></div><span class="asset-statut">Facultatif</span></div><div class="asset-apercu-miniature"><img alt="" hidden></div><input class="asset-url" type="url" placeholder="https://…"><div class="asset-boutons"><label class="upload-wallet">Importer<input class="asset-file" type="file" accept="image/png"></label><button type="button" class="lien-bouton asset-supprimer" hidden>Supprimer</button></div><p class="asset-message"></p></div>
+                  <label for="appleTerms">Conditions visibles au dos</label><textarea id="appleTerms" rows="4" maxlength="500" placeholder="Décrivez les règles du programme et la durée de validité."></textarea>
+                </div>
               </div>
             </div>
+
+            <div class="wallet-panneau-plateforme masque" id="walletPanneauGoogle" data-plateforme="google">
+              <div class="zone-pro verrouille" id="zoneProGoogle">
+                <div class="pro-entete"><div><span class="pastille">PRO</span><strong>Images Google Wallet / Android</strong></div><span id="messageProGoogle">WalletWallet Pro</span></div>
+                <div class="contenu-pro">
+                  <div class="asset-wallet" data-asset="google.logoRond"><div class="asset-entete"><div><span class="badge-plateforme google">Google Wallet</span><strong>Logo rond</strong><small class="asset-dimensions"></small></div><span class="asset-statut">Requis</span></div><div class="asset-apercu-miniature asset-apercu-ronde"><img alt="" hidden></div><input class="asset-url" type="url" placeholder="https://…"><div class="asset-boutons"><label class="upload-wallet">Importer<input class="asset-file" type="file" accept="image/png"></label><button type="button" class="lien-bouton asset-supprimer" hidden>Supprimer</button></div><p class="asset-message">Google masque cette image dans un cercle : gardez l’essentiel du logo bien au centre.</p></div>
+                  <div class="asset-wallet" data-asset="google.logoLarge"><div class="asset-entete"><div><span class="badge-plateforme google">Google Wallet</span><strong>Logo large</strong><small class="asset-dimensions"></small></div><span class="asset-statut">Facultatif</span></div><div class="asset-apercu-miniature"><img alt="" hidden></div><input class="asset-url" type="url" placeholder="https://…"><div class="asset-boutons"><label class="upload-wallet">Importer<input class="asset-file" type="file" accept="image/png"></label><button type="button" class="lien-bouton asset-supprimer" hidden>Supprimer</button></div><p class="asset-message">Remplace le logo rond par un texte pleine largeur, si présent.</p></div>
+                  <div class="asset-wallet" data-asset="google.heroImage"><div class="asset-entete"><div><span class="badge-plateforme google">Google Wallet</span><strong>Image Hero</strong><small class="asset-dimensions"></small></div><span class="asset-statut">Facultatif</span></div><div class="asset-apercu-miniature"><img alt="" hidden></div><input class="asset-url" type="url" placeholder="https://…"><div class="asset-boutons"><label class="upload-wallet">Importer<input class="asset-file" type="file" accept="image/png"></label><button type="button" class="lien-bouton asset-supprimer" hidden>Supprimer</button></div><p class="asset-message">Bannière principale affichée en pleine largeur de la carte.</p></div>
+                </div>
+              </div>
+            </div>
+
+            <label class="ligne-interrupteur" id="walletLigneZonesSecurite"><span>Afficher les zones de sécurité de l’aperçu</span><label class="interrupteur"><input id="walletZonesSecurite" type="checkbox"><span></span></label></label>
+
             <button class="bouton principal" id="enregistrerDesign">Enregistrer et actualiser les cartes</button><span class="message" id="messageDesign"></span>
           </article>
-          <div class="apercu-wallet"><div class="wallet" id="wallet"><div class="wallet-entete"><div class="preview-logo-zone"><img id="previewLogoImage" alt=""><strong id="previewLogo">Bravocard</strong></div><div><small id="previewPointsLabel">POINTS SUR 100</small><span>60</span></div></div><div class="wallet-banniere" id="previewBanniere"><div><small>PROGRAMME</small><strong id="previewProgramme">Carte fidélité</strong></div></div><div class="wallet-bas"><div><small>CLIENT</small><strong>CLIENT TEST</strong><small id="previewCardLabel">FIDÉLITÉ</small><span id="previewRecompense">Récompense à débloquer</span></div><div class="codebarres"></div></div></div><p class="legende">Aperçu indicatif Apple Wallet · le rendu final dépend de l’appareil</p></div>
+
+          <div class="apercu-wallet">
+            <div class="wallet-apercu-plateforme" id="apercuApple" data-plateforme="apple">
+              <div class="wallet" id="wallet">
+                <div class="wallet-entete"><div class="preview-logo-zone"><img id="previewLogoImage" alt=""><strong id="previewLogo">Bravocard</strong></div><div><small id="previewPointsLabel">POINTS SUR 100</small><span>60</span></div></div>
+                <div class="wallet-banniere" id="previewBanniere"></div>
+                <div class="wallet-principal"><small>PROGRAMME</small><strong id="previewProgramme">Carte fidélité</strong></div>
+                <div class="wallet-bas"><div><small>CLIENT</small><strong>CLIENT TEST</strong><small id="previewCardLabel">FIDÉLITÉ</small><span id="previewRecompense">Récompense à débloquer</span></div><div class="codebarres"></div></div>
+                <div class="wallet-zones-overlay"></div>
+              </div>
+            </div>
+            <div class="wallet-apercu-plateforme masque" id="apercuGoogle" data-plateforme="google">
+              <div class="wallet wallet-google" id="walletGoogle">
+                <div class="google-entete"><div class="google-logo-rond"><img id="googlePreviewLogoRond" alt="" hidden></div><strong id="googlePreviewProgramme">Carte fidélité</strong></div>
+                <img class="google-logo-large" id="googlePreviewLogoLarge" alt="" hidden>
+                <div class="google-hero" id="googlePreviewHero" hidden></div>
+                <div class="google-points"><small id="googlePreviewPointsLabel">POINTS SUR 100</small><strong>60</strong></div>
+                <div class="google-modules"><div><small>CLIENT</small><span>CLIENT TEST</span></div><div><small>CARTE</small><span id="googlePreviewCardLabel">FIDÉLITÉ</span></div></div>
+                <div class="wallet-bas"><div></div><div class="codebarres"></div></div>
+                <div class="wallet-zones-overlay"></div>
+              </div>
+            </div>
+            <p class="legende" id="walletLegende">Aperçu indicatif Apple Wallet · le rendu final dépend de l’appareil</p>
+            <div class="wallet-legende-zones" id="walletLegendeZones" hidden>
+              <span><i class="pastille-zone zone-image"></i>Zone d’image</span>
+              <span><i class="pastille-zone zone-texte"></i>Champs texte</span>
+              <span><i class="pastille-zone zone-code"></i>QR code / code-barres</span>
+              <span><i class="pastille-zone zone-securite"></i>Zone de sécurité (recadrage)</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -441,6 +500,23 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="recadrage-fond" id="recadrageFond">
+    <div class="recadrage-boite">
+      <h3 id="recadrageTitre">Ajuster l’image</h3>
+      <div class="recadrage-image-cadre"><img id="recadrageImage" alt=""></div>
+      <div class="recadrage-modes">
+        <button type="button" data-mode-ajustement="couvrir">Couvrir</button>
+        <button type="button" data-mode-ajustement="contenir">Contenir</button>
+        <button type="button" data-mode-ajustement="centrer" class="actif">Centrer</button>
+      </div>
+      <p class="texte-secondaire" id="recadrageAide"></p>
+      <div class="recadrage-actions">
+        <button type="button" class="bouton secondaire" id="annulerRecadrage">Annuler</button>
+        <button type="button" class="bouton principal" id="validerRecadrage">Utiliser cette image</button>
+      </div>
+    </div>
   </div>
 
   <script src="/espace-restaurateur.js"></script>

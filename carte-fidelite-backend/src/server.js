@@ -19,6 +19,7 @@ const marketing = require('./marketingAssetsService');
 const communicationKit = require('./communicationKitService');
 const svgExport = require('./svgExportService');
 const roueService = require('./roueService');
+const walletAssetSpecifications = require('./walletAssetSpecifications');
 
 const app = express();
 app.use(cors());
@@ -57,6 +58,9 @@ const CHAMPS_RESTAURANT = [
   'apple_logo_url',
   'apple_strip_url',
   'apple_icon_url',
+  'google_program_logo_url',
+  'google_wide_logo_url',
+  'google_hero_image_url',
   'apple_program_name',
   'apple_reward_text',
   'apple_terms',
@@ -918,6 +922,12 @@ app.get('/api/design/:slug', async (req, res) => {
   }
 });
 
+// Editeur Wallet WYSIWYG : dimensions/ratios/formats centralises, jamais
+// dupliques dans le frontend. Route publique (aucune donnee par restaurant).
+app.get('/api/wallet-asset-specifications', (req, res) => {
+  res.json({ succes: true, specifications: walletAssetSpecifications.listerSpecifications() });
+});
+
 app.post('/api/design/:slug/image', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res, 'design_manage');
@@ -928,18 +938,23 @@ app.post('/api/design/:slug/image', async (req, res) => {
     if (!proAutorise) {
       return res.status(403).json({ erreur: 'La personnalisation WalletWallet Pro n’est pas active.' });
     }
-    const type = String(req.body.type || '').toLowerCase();
-    if (!['logo', 'strip', 'icon'].includes(type)) {
-      return res.status(400).json({ erreur: 'Type d’image inconnu.' });
+    const plateforme = String(req.body.plateforme || '').toLowerCase();
+    const type = String(req.body.type || '');
+    const specification = walletAssetSpecifications.obtenirSpecification(plateforme, type);
+    if (!specification) {
+      return res.status(400).json({ erreur: 'Type d’image inconnu pour cette plateforme.' });
     }
     const image = decoderImagePNG(req.body.image_data);
-    if (type === 'icon' && Math.abs(image.largeur - image.hauteur) > Math.max(image.largeur, image.hauteur) * 0.12) {
-      return res.status(400).json({ erreur: 'L’icône doit être carrée.' });
+    const validation = walletAssetSpecifications.validerDimensionsImage(plateforme, type, {
+      largeur: image.largeur,
+      hauteur: image.hauteur,
+      poidsOctets: image.buffer.length,
+      format: 'png'
+    });
+    if (validation.bloquant) {
+      return res.status(400).json({ erreur: validation.message, statut: validation.statut });
     }
-    if (type === 'strip' && image.largeur / image.hauteur < 2.2) {
-      return res.status(400).json({ erreur: 'La bannière doit être nettement plus large que haute.' });
-    }
-    const chemin = `${acces.restaurant.id}/${type}-${Date.now()}.png`;
+    const chemin = `${acces.restaurant.id}/${specification.champDb}-${Date.now()}.png`;
     const { error } = await supabase.storage
       .from('wallet-assets')
       .upload(chemin, image.buffer, {
@@ -953,7 +968,9 @@ app.post('/api/design/:slug/image', async (req, res) => {
       succes: true,
       url: data.publicUrl,
       largeur: image.largeur,
-      hauteur: image.hauteur
+      hauteur: image.hauteur,
+      statut: validation.statut,
+      message: validation.message
     });
   } catch (erreur) {
     console.error(erreur);

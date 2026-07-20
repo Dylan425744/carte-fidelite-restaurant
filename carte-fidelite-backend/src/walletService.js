@@ -71,9 +71,14 @@ function construireClasseFidelite(restaurant) {
   const programme = String(
     restaurant.apple_program_name || restaurant.apple_logo_text || `Carte fidélité ${nom}`
   ).trim().slice(0, 80);
-  const logo = imageGoogle(restaurant.apple_logo_url, `Logo ${nom}`) ||
+
+  // Images propres a Google Wallet : jamais celles d'Apple. Seul le logo rond
+  // retombe sur le logo Bravocard par defaut (Google l'exige), la banniere et
+  // le logo large restent facultatifs et vides si non configures.
+  const logo = imageGoogle(restaurant.google_program_logo_url, `Logo ${nom}`) ||
     imageGoogle(logoParDefaut(), 'Logo Bravocard');
-  const banniere = imageGoogle(restaurant.apple_strip_url, `Bannière ${nom}`);
+  const logoLarge = imageGoogle(restaurant.google_wide_logo_url, `Logo large ${nom}`);
+  const banniere = imageGoogle(restaurant.google_hero_image_url, `Bannière ${nom}`);
 
   return {
     id: getRestaurantClassId(restaurant),
@@ -84,6 +89,7 @@ function construireClasseFidelite(restaurant) {
     hexBackgroundColor: couleurRestaurant(restaurant),
     accountNameLabel: 'CLIENT',
     accountIdLabel: 'IDENTIFIANT',
+    ...(logoLarge ? { wideProgramLogo: logoLarge } : {}),
     ...(banniere ? { heroImage: banniere } : {}),
     classTemplateInfo: {
       cardTemplateOverride: {
