@@ -183,7 +183,7 @@
 </nav>
 
 <div class="carte">
-  <h1 id="titreRestaurant">Bienvenue chez Chez Basile</h1>
+  <h1 id="titreRestaurant">Votre carte de fidélité</h1>
   <p class="sous-titre">Créez votre carte de fidélité en quelques secondes</p>
 
   <div class="invitation" id="invitationParrainage">
@@ -224,12 +224,15 @@
 
 <script>
 const parametres = new URLSearchParams(window.location.search);
-const restaurantSlug = parametres.get('restaurant') || 'chez-basile';
+const restaurantSlug = (parametres.get('restaurant') || '').trim();
 const codeParrainage = (parametres.get('ref') || '').trim();
 let lienParrainagePersonnel = '';
 
 async function chargerRestaurant() {
   try {
+    if (!restaurantSlug) {
+      throw new Error('Ce lien de création de carte est incomplet. Scannez le QR code de votre restaurant.');
+    }
     const reponse = await fetch(`/api/restaurants/${encodeURIComponent(restaurantSlug)}/public`);
     const donnees = await reponse.json();
     if (!reponse.ok) throw new Error(donnees.erreur);

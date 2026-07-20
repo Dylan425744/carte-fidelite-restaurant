@@ -1,5 +1,5 @@
 const parametres = new URLSearchParams(window.location.search);
-let slug = parametres.get('restaurant') || 'chez-basile';
+let slug = (parametres.get('restaurant') || '').trim();
 const modeAdmin = parametres.get('admin') === '1';
 const offres = {
   starter: { nom: 'Essentiel', prix: '29 € HT / mois', limite: '1 établissement' },
@@ -168,24 +168,33 @@ async function demarrerScanner() {
   $('#relancerScanner').style.display = 'none';
   $('#lecteurRestaurateur').style.display = 'block';
   $('#resultatScan').className = 'panneau resultat-scan';
-  $('#resultatScan').innerHTML = '<div class="scan-illustration">▥</div><h3>Caméra active</h3><p>Placez le code-barres au centre du cadre.</p>';
+  const formatQr = restaurant?.wallet_barcode_format === 'QR_CODE';
+  const typeCode = formatQr ? 'QR code' : 'code-barres';
+  $('#resultatScan').innerHTML = `<div class="scan-illustration">▥</div><h3>Caméra active</h3><p>Placez le ${typeCode} au centre du cadre.</p>`;
 
   try {
     if (lecteurScanner) {
       try { await lecteurScanner.clear(); } catch { /* Le lecteur était déjà nettoyé. */ }
     }
     lecteurScanner = new Html5Qrcode('lecteurRestaurateur', {
-      formatsToSupport: [Html5QrcodeSupportedFormats.CODE_128]
+      formatsToSupport: [formatQr
+        ? Html5QrcodeSupportedFormats.QR_CODE
+        : Html5QrcodeSupportedFormats.CODE_128]
     });
     scanEnCours = true;
     await lecteurScanner.start(
       { facingMode: 'environment' },
       {
         fps: 10,
-        qrbox: (largeur, hauteur) => ({
-          width: Math.floor(largeur * 0.9),
-          height: Math.min(140, Math.floor(hauteur * 0.35))
-        })
+        qrbox: (largeur, hauteur) => formatQr
+          ? (() => {
+              const cote = Math.floor(Math.min(largeur, hauteur) * 0.72);
+              return { width: cote, height: cote };
+            })()
+          : {
+              width: Math.floor(largeur * 0.9),
+              height: Math.min(140, Math.floor(hauteur * 0.35))
+            }
       },
       traiterCodeScanne
     );
@@ -514,7 +523,10 @@ function lancerApercuRoue() {
   if (!roue || !lots.length || bouton.disabled) return;
   const index = Math.floor(Math.random() * lots.length);
   const angle = 360 / lots.length;
-  rotationApercuRoue += 360 * 5 + (360 - (index * angle + angle / 2));
+  const cible = (360 - (index * angle + angle / 2) + 360) % 360;
+  const positionActuelle = ((rotationApercuRoue % 360) + 360) % 360;
+  const mouvementVersCible = (cible - positionActuelle + 360) % 360;
+  rotationApercuRoue += 360 * 5 + mouvementVersCible;
   bouton.disabled = true;
   resultat.textContent = 'La roue tourne…';
   roue.style.setProperty('--angle', `${rotationApercuRoue}deg`);

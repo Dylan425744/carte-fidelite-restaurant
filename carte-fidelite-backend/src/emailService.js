@@ -3,9 +3,16 @@
 // (contrairement a Gmail/SMTP, bloque par Render sur le plan gratuit)
 
 async function envoyerEmail(destinataire, sujet, texte) {
-  if (!process.env.BREVO_API_KEY || !process.env.BREVO_SENDER_EMAIL) {
+  if (!process.env.BREVO_API_KEY) {
     throw new Error('Le service email Bravocard n’est pas configuré.');
   }
+
+  // L'adresse technique utilisée pour authentifier Brevo ne doit jamais être
+  // exposée aux clients. Tous les messages Bravocard utilisent exclusivement
+  // l'adresse publique de la marque.
+  const emailPublic = String(
+    process.env.BRAVOCARD_PUBLIC_EMAIL || 'contact@bravocard.fr'
+  ).trim().toLowerCase();
   const reponse = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -16,8 +23,9 @@ async function envoyerEmail(destinataire, sujet, texte) {
     body: JSON.stringify({
       sender: {
         name: process.env.BREVO_SENDER_NAME || 'Bravocard',
-        email: process.env.BREVO_SENDER_EMAIL
+        email: emailPublic
       },
+      replyTo: { name: 'Bravocard', email: emailPublic },
       to: [{ email: destinataire }],
       subject: sujet,
       textContent: texte
@@ -49,15 +57,15 @@ async function envoyerEmailAccesCompte(destinataire, nom, lien, nouveauCompte = 
   );
 }
 
-async function envoyerEmailAvis(emailDestinataire, nomClient, lienRoue) {
-  const nomRestaurant = process.env.NOM_RESTAURANT;
-  const lienAvis = process.env.LIEN_AVIS_GOOGLE;
+async function envoyerEmailAvis(emailDestinataire, nomClient, restaurant, lienRoue) {
+  const nomRestaurant = restaurant?.nom || 'votre restaurant';
+  const lienAvis = restaurant?.lien_avis_google || '';
 
   const texte =
     `Bonjour ${nomClient},\n\n` +
     `Merci d'être venu(e) chez ${nomRestaurant} aujourd'hui !\n\n` +
-    `Votre avis compte énormément pour nous. Laissez-nous un avis Google en 30 secondes :\n\n` +
-    `${lienAvis}\n\n` +
+    `Votre avis compte énormément pour nous.` +
+    (lienAvis ? ` Laissez-nous un avis Google en 30 secondes :\n\n${lienAvis}\n\n` : '\n\n') +
     `Une fois votre avis laissé, revenez ici pour tourner la roue des cadeaux :\n${lienRoue}\n\n` +
     `À très bientôt,\n` +
     `L'équipe de ${nomRestaurant}`;
@@ -88,9 +96,9 @@ async function envoyerEmailBienvenue(emailDestinataire, nomClient, restaurant, l
   await envoyerEmail(emailDestinataire, `Bienvenue chez ${nomRestaurant} !`, texte);
 }
 
-async function envoyerEmailRecompense(emailDestinataire, nomClient) {
-  const nomRestaurant = process.env.NOM_RESTAURANT;
-  const descriptionRecompense = process.env.DESCRIPTION_RECOMPENSE || 'une récompense spéciale';
+async function envoyerEmailRecompense(emailDestinataire, nomClient, restaurant) {
+  const nomRestaurant = restaurant?.nom || 'votre restaurant';
+  const descriptionRecompense = restaurant?.description_recompense || 'une récompense spéciale';
 
   const texte =
     `Bonjour ${nomClient},\n\n` +

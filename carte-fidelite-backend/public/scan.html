@@ -10,8 +10,8 @@
   <p>Ouverture du scanner sécurisé Bravocard...</p>
   <script>
     const parametres = new URLSearchParams(window.location.search);
-    if (!parametres.has('restaurant')) parametres.set('restaurant', 'chez-basile');
-    window.location.replace(`/espace-restaurateur.html?${parametres.toString()}#scanner`);
+    const suffixe = parametres.toString() ? `?${parametres.toString()}` : '';
+    window.location.replace(`/espace-restaurateur.html${suffixe}#scanner`);
   </script>
 </body>
 </html>

@@ -1617,6 +1617,7 @@ app.patch('/api/restaurateur/:slug/equipe/:membershipId', async (req, res) => {
 
 app.get('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
   try {
+    res.set('Cache-Control', 'private, no-store');
     const [resultatRestaurants, resultatAppartenances] = await Promise.all([
       supabase
         .from('restaurants')
@@ -1999,8 +2000,12 @@ app.post('/api/clients', async (req, res) => {
       return res.status(400).json({ erreur: 'L’adresse email est invalide.' });
     }
 
-    const slugRestaurant =
-      slugRecu || process.env.DEFAULT_RESTAURANT_SLUG || 'chez-basile';
+    const slugRestaurant = String(slugRecu || '').trim();
+    if (!slugRestaurant) {
+      return res.status(400).json({
+        erreur: 'Le restaurant est obligatoire. Utilisez le QR code fourni par votre établissement.'
+      });
+    }
     const restaurant = await trouverRestaurantParSlug(slugRestaurant);
 
     if (!restaurant || restaurant.actif === false) {
@@ -2103,15 +2108,21 @@ app.post('/api/clients', async (req, res) => {
       console.error('Erreur creation Apple Wallet:', erreurApple.message);
     }
 
-    await email.envoyerEmailBienvenue(
-      emailNettoye,
-      nomNettoye,
-      restaurant,
-      lienWallet,
-      lienAppleWallet,
-      codePersonnel,
-      lienParrainage
-    );
+    try {
+      await email.envoyerEmailBienvenue(
+        emailNettoye,
+        nomNettoye,
+        restaurant,
+        lienWallet,
+        lienAppleWallet,
+        codePersonnel,
+        lienParrainage
+      );
+    } catch (erreurEmail) {
+      // La carte reste créée et disponible à l'écran même si le fournisseur
+      // email refuse temporairement l'adresse publique Bravocard.
+      console.error('Email de bienvenue non envoyé:', erreurEmail.message);
+    }
 
     res.json({
       client: {
@@ -2156,7 +2167,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
     const codeEstCourt = /^BC[A-F0-9]{10}$/i.test(codeScanne);
     if (!codeEstUuid && !codeEstCourt) {
       return res.status(400).json({
-        erreur: 'Ce code-barres n’est pas reconnu. Cadrez entièrement les barres dans la caméra.'
+        erreur: 'Ce code n’est pas reconnu. Cadrez-le entièrement dans la caméra.'
       });
     }
     const requeteClient = supabase
@@ -2229,7 +2240,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
         .eq('id', client.id);
 
       try {
-        await email.envoyerEmailRecompense(client.email, client.nom);
+        await email.envoyerEmailRecompense(client.email, client.nom, restaurant);
       } catch (erreurEmail) {
         console.error('Erreur envoi email recompense:', erreurEmail.message);
       }
@@ -2460,7 +2471,7 @@ cron.schedule('*/15 * * * *', async () => {
 
   const { data: scans, error } = await supabase
     .from('scans')
-    .select('*, clients(nom, email)')
+    .select('*, clients(nom, email, restaurant_id, restaurants(nom, lien_avis_google))')
     .eq('avis_envoye', false);
 
   if (error) {
@@ -2477,7 +2488,12 @@ cron.schedule('*/15 * * * *', async () => {
     if (minutesEcoulees >= 55 && minutesEcoulees <= 75) {
       try {
         const lienRoue = `${process.env.URL_SITE}/roue.html?scan=${scan.id}`;
-        await email.envoyerEmailAvis(scan.clients.email, scan.clients.nom, lienRoue);
+        await email.envoyerEmailAvis(
+          scan.clients.email,
+          scan.clients.nom,
+          scan.clients.restaurants,
+          lienRoue
+        );
         await supabase.from('scans').update({ avis_envoye: true }).eq('id', scan.id);
         console.log(`Avis envoye a ${scan.clients.email}`);
       } catch (erreurEnvoi) {

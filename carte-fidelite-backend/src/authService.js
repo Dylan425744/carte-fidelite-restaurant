@@ -366,6 +366,23 @@ async function journaliser(action, contexte, restaurantId = null, details = {}) 
   }
 }
 
+async function trouverUtilisateurAuthParEmail(email) {
+  // Supabase Auth ne propose pas de filtre email sur listUsers. Cette recherche
+  // paginée permet de réparer proprement un ancien compte Auth dont le profil
+  // applicatif n'aurait jamais été créé, au lieu de bloquer sur "already exists".
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const utilisateurs = data?.users || [];
+    const trouve = utilisateurs.find(utilisateur =>
+      String(utilisateur.email || '').trim().toLowerCase() === email
+    );
+    if (trouve) return trouve;
+    if (utilisateurs.length < 1000) break;
+  }
+  return null;
+}
+
 async function creerOuAssocierUtilisateur({
   email,
   fullName,
@@ -387,20 +404,28 @@ async function creerOuAssocierUtilisateur({
 
   let motDePasseTemporaire = null;
   let utilisateurCree = false;
+  let identiteAuthCreee = false;
 
   if (!profil) {
     motDePasseTemporaire = genererMotDePasseTemporaire();
-    const { data: creation, error: erreurCreation } = await supabase.auth.admin.createUser({
+    let { data: creation, error: erreurCreation } = await supabase.auth.admin.createUser({
       email: emailNormalise,
       password: motDePasseTemporaire,
       email_confirm: true,
       user_metadata: { full_name: nomNormalise },
       app_metadata: { bravocard_account: true }
     });
-    if (erreurCreation || !creation.user) {
-      throw new Error(erreurCreation?.message || 'Impossible de créer ce compte.');
+    if (erreurCreation || !creation?.user) {
+      const identiteExistante = await trouverUtilisateurAuthParEmail(emailNormalise);
+      if (!identiteExistante) {
+        throw new Error(erreurCreation?.message || 'Impossible de créer ce compte.');
+      }
+      creation = { user: identiteExistante };
+      motDePasseTemporaire = null;
+    } else {
+      identiteAuthCreee = true;
+      utilisateurCree = true;
     }
-    utilisateurCree = true;
     const { data: nouveauProfil, error: erreurNouveauProfil } = await supabase
       .from('user_profiles')
       .insert({
@@ -412,7 +437,7 @@ async function creerOuAssocierUtilisateur({
       .select('user_id, email, full_name, is_super_admin, subscription_plan, stripe_subscription_status, subscription_current_period_end')
       .single();
     if (erreurNouveauProfil) {
-      await supabase.auth.admin.deleteUser(creation.user.id);
+      if (identiteAuthCreee) await supabase.auth.admin.deleteUser(creation.user.id);
       throw erreurNouveauProfil;
     }
     profil = nouveauProfil;
@@ -442,7 +467,7 @@ async function creerOuAssocierUtilisateur({
       .select('id, restaurant_id, user_id, role, active')
       .single();
     if (error) {
-      if (utilisateurCree) await supabase.auth.admin.deleteUser(profil.user_id);
+      if (identiteAuthCreee) await supabase.auth.admin.deleteUser(profil.user_id);
       throw error;
     }
     appartenance = data;
