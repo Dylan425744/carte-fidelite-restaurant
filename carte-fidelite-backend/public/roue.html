@@ -170,15 +170,22 @@ function afficherValidite(valideDu, valideAu) {
 let lots = [];
 const RAYON_TEXTE = 112; // distance du centre a laquelle placer le texte
 
-function dessinerRoue(listeLots) {
+function paletteRoue(couleurPrincipale, couleurSecondaire) {
+  // Personnalisation du restaurant si les deux couleurs sont definies,
+  // sinon la palette variee par defaut.
+  return (couleurPrincipale && couleurSecondaire) ? [couleurPrincipale, couleurSecondaire] : COULEURS;
+}
+
+function dessinerRoue(listeLots, couleurPrincipale, couleurSecondaire) {
   const nb = listeLots.length;
   const angle = 360 / nb;
+  const palette = paletteRoue(couleurPrincipale, couleurSecondaire);
 
   // Le fond colore, un secteur par lot
   let degrades = [];
   listeLots.forEach((lot, i) => {
     const debut = i * angle;
-    degrades.push(`${COULEURS[i % COULEURS.length]} ${debut}deg ${debut + angle}deg`);
+    degrades.push(`${palette[i % palette.length]} ${debut}deg ${debut + angle}deg`);
   });
   roue.style.background = `conic-gradient(${degrades.join(',')})`;
 
@@ -251,7 +258,7 @@ async function initialiser() {
     }
 
     lots = donnees.lots;
-    dessinerRoue(lots);
+    dessinerRoue(lots, donnees.couleurPrincipale, donnees.couleurSecondaire);
 
     if (!donnees.peutJouer) {
       boutonJouer.disabled = true;

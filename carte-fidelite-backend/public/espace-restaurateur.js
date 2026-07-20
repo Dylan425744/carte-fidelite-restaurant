@@ -508,12 +508,13 @@ function lotsRoue() {
 const COULEURS_ROUE_REELLE = ['#6C3CE9', '#12B886', '#5A2FD0', '#0E9469', '#7C4FF0', '#0A7A56'];
 const RAYON_TEXTE_ROUE = 112;
 
-function dessinerRoueReelle(conteneur, lots) {
+function dessinerRoueReelle(conteneur, lots, couleurPrincipale, couleurSecondaire) {
   const nb = lots.length;
   const angle = 360 / nb;
+  const palette = (couleurPrincipale && couleurSecondaire) ? [couleurPrincipale, couleurSecondaire] : COULEURS_ROUE_REELLE;
   const degrades = lots.map((lot, i) => {
     const debut = i * angle;
-    return `${COULEURS_ROUE_REELLE[i % COULEURS_ROUE_REELLE.length]} ${debut}deg ${debut + angle}deg`;
+    return `${palette[i % palette.length]} ${debut}deg ${debut + angle}deg`;
   });
   conteneur.style.background = `conic-gradient(${degrades.join(',')})`;
   conteneur.querySelectorAll('.segment-pivot').forEach(noeud => noeud.remove());
@@ -531,11 +532,16 @@ function dessinerRoueReelle(conteneur, lots) {
   });
 }
 
+function actualiserCouleursApercuRoue() {
+  const roue = $('#roueApercu');
+  if (!roue) return;
+  dessinerRoueReelle(roue, lotsRoue(), $('#roueCouleurPrincipale').value, $('#roueCouleurSecondaire').value);
+}
+
 function remplirApercuRoue() {
   const roue = $('#roueApercu');
   if (!roue) return;
   const lots = lotsRoue();
-  dessinerRoueReelle(roue, lots);
   roueLotsEdition = lots.map(lot => ({ icone: lot.icone, label: lot.label, probabilite: Number(lot.probabilite) || 10 }));
   afficherLotsEdition();
   if (!$('#roueCouleurPrincipale').value || $('#roueCouleurPrincipale').dataset.rempli !== 'oui') {
@@ -543,6 +549,7 @@ function remplirApercuRoue() {
     $('#roueCouleurSecondaire').value = donneesTableau?.roue?.couleur_secondaire || '#E8891F';
     $('#roueCouleurPrincipale').dataset.rempli = 'oui';
   }
+  actualiserCouleursApercuRoue();
 }
 
 function afficherHistoriqueRoue() {
@@ -1667,6 +1674,8 @@ $('#listeLotsEdition').addEventListener('click', evenement => {
   if (bouton) supprimerLigneLot(Number(bouton.dataset.supprimerLot));
 });
 $('#enregistrerRoue').addEventListener('click', enregistrerRoue);
+$('#roueCouleurPrincipale').addEventListener('input', actualiserCouleursApercuRoue);
+$('#roueCouleurSecondaire').addEventListener('input', actualiserCouleursApercuRoue);
 $('#validerCadeau').addEventListener('click', validerCadeauComptoir);
 $('#demarrerScanner').addEventListener('click', demarrerScanner);
 $('#relancerScanner').addEventListener('click', demarrerScanner);

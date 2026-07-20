@@ -169,13 +169,18 @@ function afficherValidite(valideDu, valideAu) {
 
 const RAYON_TEXTE = 112;
 
-function dessinerRoue(listeLots) {
+function paletteRoue(couleurPrincipale, couleurSecondaire) {
+  return (couleurPrincipale && couleurSecondaire) ? [couleurPrincipale, couleurSecondaire] : COULEURS;
+}
+
+function dessinerRoue(listeLots, couleurPrincipale, couleurSecondaire) {
   const nb = listeLots.length;
   const angle = 360 / nb;
+  const palette = paletteRoue(couleurPrincipale, couleurSecondaire);
   let degrades = [];
   listeLots.forEach((lot, i) => {
     const debut = i * angle;
-    degrades.push(`${COULEURS[i % COULEURS.length]} ${debut}deg ${debut + angle}deg`);
+    degrades.push(`${palette[i % palette.length]} ${debut}deg ${debut + angle}deg`);
   });
   roue.style.background = `conic-gradient(${degrades.join(',')})`;
 
@@ -230,7 +235,7 @@ async function initialiser() {
     restaurantData = donnees;
     document.getElementById('titreRestaurant').textContent = `Merci pour votre visite chez ${donnees.restaurantNom} !`;
     lots = donnees.lots;
-    dessinerRoue(lots);
+    dessinerRoue(lots, donnees.couleurPrincipale, donnees.couleurSecondaire);
     appliquerCouleursPersonnalisees(donnees);
     boutonAvis.onclick = () => {
       window.open(donnees.lienAvisGoogle, '_blank', 'noopener');
