@@ -96,8 +96,11 @@ async function envoyerEmailBienvenue(emailDestinataire, nomClient, restaurant, l
 
   let texte =
     `Bonjour ${nomClient},\n\n` +
-    `Merci de rejoindre notre programme de fidélité !\n\n` +
-    `Ajoutez votre carte à Google Wallet en cliquant ici :\n${lienWallet}\n\n`;
+    `Merci de rejoindre notre programme de fidélité !\n\n`;
+
+  if (lienWallet) {
+    texte += `Ajoutez votre carte à Google Wallet en cliquant ici :\n${lienWallet}\n\n`;
+  }
 
   if (lienAppleWallet) {
     texte += `Ou ajoutez-la à Apple Wallet en cliquant ici :\n${lienAppleWallet}\n\n`;

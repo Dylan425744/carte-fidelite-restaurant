@@ -2235,9 +2235,16 @@ app.post('/api/clients', async (req, res) => {
       referral_link: lienParrainage
     };
 
-    // On cree l'objet cote Google, puis on genere le lien a envoyer au client
-    await wallet.creerObjetWallet(clientWallet, restaurant);
-    const lienWallet = wallet.creerLienGoogleWallet(clientWallet, restaurant);
+    // On cree l'objet cote Google, puis on genere le lien a envoyer au client.
+    // Une panne Google (config, reseau, API) ne doit pas empecher la creation
+    // de la carte : le client existe deja en base a ce stade.
+    let lienWallet = null;
+    try {
+      await wallet.creerObjetWallet(clientWallet, restaurant);
+      lienWallet = wallet.creerLienGoogleWallet(clientWallet, restaurant);
+    } catch (erreurGoogle) {
+      console.error('Erreur creation Google Wallet:', erreurGoogle.message);
+    }
 
     // On cree aussi la carte Apple Wallet, et on garde son serialNumber
     // pour pouvoir la mettre a jour plus tard (scan, points, etc.)
