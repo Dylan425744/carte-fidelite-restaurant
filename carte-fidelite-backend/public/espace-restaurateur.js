@@ -954,8 +954,20 @@ function afficherClients(clients) {
       <td><div class="wallet-badges">${client.apple_wallet ? '<span class="wallet-badge apple"> Apple</span>' : ''}<span class="wallet-badge google">G Google</span></div></td>
       <td><span class="points-badge">${Number(client.points || 0)} pts</span></td>
       <td>${formaterDate(client.date_inscription)}</td>
+      <td><button class="bouton-table" data-supprimer-client="${echapper(client.id)}" title="Supprimer ce client">Supprimer</button></td>
     </tr>`).join('');
   $('#aucunClient').style.display = filtres.length ? 'none' : 'block';
+}
+
+async function supprimerClient(id, nom) {
+  if (!confirm(`Supprimer « ${nom} » ? Son historique de points et de parrainage sera définitivement perdu. Sa carte restera installée dans son téléphone mais ne sera plus liée à votre restaurant.`)) return;
+  try {
+    await api(`/api/restaurateur/${encodeURIComponent(slug)}/clients/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await actualiserTableau(true);
+    afficherMessage($('#messageEnvoi'), `« ${nom} » a été supprimé.`, 'succes');
+  } catch (erreur) {
+    window.alert(erreur.message);
+  }
 }
 
 function afficherDerniersClients() {
@@ -1705,6 +1717,13 @@ $('#periodeStatistiques').addEventListener('change', chargerStatistiques);
 $('#tableAlertesFraude').addEventListener('click', evenement => {
   const bouton = evenement.target.closest('[data-traiter-alerte]');
   if (bouton) traiterAlerteFraude(bouton.dataset.traiterAlerte, bouton);
+});
+$('#tableClients').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-supprimer-client]');
+  if (!bouton) return;
+  const ligne = bouton.closest('tr');
+  const nom = ligne?.querySelector('strong')?.textContent || 'ce client';
+  supprimerClient(bouton.dataset.supprimerClient, nom);
 });
 document.querySelectorAll('.editeur-design input, .editeur-design textarea').forEach(input => input.addEventListener('input', actualiserApercuWallet));
 $('#customColorPicker').addEventListener('input', evenement => {

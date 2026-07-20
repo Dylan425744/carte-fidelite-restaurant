@@ -2096,6 +2096,36 @@ app.get('/api/clients', exigerAdministrateur, async (req, res) => {
   }
 });
 
+// Supprime un client de ce restaurant (et ses donnees liees : parrainage,
+// alertes anti-fraude). Ne notifie pas Apple/Google : le pass reste installe
+// chez le client mais n'est plus rattache a aucun compte cote Bravocard.
+app.delete('/api/restaurateur/:slug/clients/:id', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'clients');
+    if (!acces) return;
+    const { data: client, error: erreurLecture } = await supabase
+      .from('clients')
+      .select('id, nom, restaurant_id')
+      .eq('id', req.params.id)
+      .eq('restaurant_id', acces.restaurant.id)
+      .maybeSingle();
+    if (erreurLecture) throw erreurLecture;
+    if (!client) return res.status(404).json({ erreur: 'Ce client est introuvable pour ce restaurant.' });
+
+    await supabase.from('referral_codes').delete().eq('client_id', client.id);
+    await supabase.from('referrals').delete().or(`sponsor_client_id.eq.${client.id},referred_client_id.eq.${client.id}`);
+    await supabase.from('fraud_alerts').delete().eq('client_id', client.id);
+    await supabase.from('scans').delete().eq('client_id', client.id);
+    const { error } = await supabase.from('clients').delete().eq('id', client.id);
+    if (error) throw error;
+
+    res.json({ succes: true, message: `« ${client.nom} » a été supprimé.` });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
 // Crée un nouveau client, son parrainage éventuel et ses cartes Wallet.
 app.post('/api/clients', async (req, res) => {
   try {
