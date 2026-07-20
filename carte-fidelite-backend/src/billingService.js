@@ -84,11 +84,18 @@ async function creerCheckout(profil, urlBase, planRecu, options = {}) {
   const retourRestaurant = options.restaurantSlug
     ? `&restaurant=${encodeURIComponent(options.restaurantSlug)}`
     : '';
+  // Offre de lancement : remise automatique sur les premières mensualites,
+  // configuree comme un Coupon Stripe classique (duration: repeating). Stripe
+  // interdit de combiner une remise automatique avec la saisie d'un code promo,
+  // d'ou le choix exclusif ci-dessous.
+  const remiseLancement = process.env.STRIPE_COUPON_LANCEMENT_ID;
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer,
     line_items: [{ price: prix, quantity: 1 }],
-    allow_promotion_codes: true,
+    ...(remiseLancement
+      ? { discounts: [{ coupon: remiseLancement }] }
+      : { allow_promotion_codes: true }),
     billing_address_collection: 'auto',
     client_reference_id: profil.user_id,
     metadata: { bravocard_user_id: profil.user_id, plan: planId },
