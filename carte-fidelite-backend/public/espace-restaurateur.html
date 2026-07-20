@@ -59,6 +59,7 @@
   </section>
 
   <div class="application" id="application">
+    <button class="fond-menu-mobile" id="fondMenuMobile" type="button" aria-label="Fermer le menu"></button>
     <aside class="barre-laterale">
       <a class="marque" href="/"><span class="marque-icone">✦</span>Bravo<span>card</span></a>
       <div class="commerce-identite"><div class="commerce-avatar" id="commerceAvatar">CB</div><div><strong id="commerceNom">Commerce</strong><span id="libelleRole">Compte commerçant</span></div></div>
@@ -81,7 +82,7 @@
     </aside>
 
     <main class="contenu">
-      <header class="entete-app"><div><span class="fil-ariane">Espace restaurateur</span><h1 id="titreVue">Vue d’ensemble</h1></div><div class="entete-actions"><span class="badge-admin" id="badgeAdmin">Administrateur</span><button class="bouton upgrade-entete" id="upgradeEntete" type="button">Passer au Premium</button><button class="bouton principal" data-ouvrir-vue="notifications">+ Nouvelle notification</button><button class="bouton secondaire bouton-deconnexion-entete" id="deconnexionEntete">Se déconnecter</button></div></header>
+      <header class="entete-app"><button class="bouton-menu-mobile" id="boutonMenuMobile" type="button" aria-label="Ouvrir le menu" aria-expanded="false">☰</button><div><span class="fil-ariane">Espace restaurateur</span><h1 id="titreVue">Vue d’ensemble</h1></div><div class="entete-actions"><span class="badge-admin" id="badgeAdmin">Administrateur</span><button class="bouton upgrade-entete" id="upgradeEntete" type="button">Passer au Premium</button><button class="bouton principal" data-ouvrir-vue="notifications">+ Nouvelle notification</button><button class="bouton secondaire bouton-deconnexion-entete" id="deconnexionEntete">Se déconnecter</button></div></header>
 
       <section class="vue active" id="vue-accueil">
         <div class="bienvenue"><div><span class="eyebrow">Aujourd’hui</span><h2 id="messageBienvenue">Bonjour 👋</h2><p>Voici ce qui se passe dans votre programme de fidélité.</p></div><div class="bienvenue-actions"><button class="bouton clair" data-ouvrir-vue="scanner">Scanner une carte</button><button class="bouton clair discret" id="copierLienCarte">Copier le lien client</button><button class="bouton clair discret" data-ouvrir-vue="notifications">Prévenir mes clients</button></div></div>

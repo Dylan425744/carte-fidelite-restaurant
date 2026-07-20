@@ -1970,7 +1970,21 @@ async function demanderRecuperation() {
   }
 }
 
-document.querySelectorAll('.navigation').forEach(bouton => bouton.addEventListener('click', () => ouvrirVue(bouton.dataset.vue)));
+function basculerMenuMobile(ouvrir) {
+  const ouverture = ouvrir ?? !document.querySelector('.barre-laterale').classList.contains('ouverte');
+  document.querySelector('.barre-laterale').classList.toggle('ouverte', ouverture);
+  $('#fondMenuMobile').classList.toggle('visible', ouverture);
+  $('#boutonMenuMobile').setAttribute('aria-expanded', String(ouverture));
+}
+$('#boutonMenuMobile').addEventListener('click', () => basculerMenuMobile());
+$('#fondMenuMobile').addEventListener('click', () => basculerMenuMobile(false));
+document.addEventListener('keydown', evenement => {
+  if (evenement.key === 'Escape') basculerMenuMobile(false);
+});
+document.querySelectorAll('.navigation').forEach(bouton => bouton.addEventListener('click', () => {
+  ouvrirVue(bouton.dataset.vue);
+  basculerMenuMobile(false);
+}));
 document.querySelectorAll('[data-ouvrir-vue]').forEach(bouton => bouton.addEventListener('click', () => ouvrirVue(bouton.dataset.ouvrirVue)));
 $('#rechercheClients').addEventListener('input', () => afficherClients(donneesTableau.clients));
 $('#messageNotification').addEventListener('input', actualiserApercuNotification);
