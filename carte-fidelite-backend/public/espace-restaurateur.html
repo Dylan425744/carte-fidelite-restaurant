@@ -369,9 +369,19 @@
                 <div><label for="genCouleurSecondaire">Couleur secondaire</label><input id="genCouleurSecondaire" type="color"></div>
               </div>
 
-              <div class="deux-colonnes">
+              <div class="deux-colonnes" id="genLigneTitreSousTitre">
                 <div><label for="genTitre">Texte principal</label><input id="genTitre" type="text" maxlength="60"></div>
                 <div><label for="genSousTitre">Sous-titre</label><input id="genSousTitre" type="text" maxlength="60"></div>
+              </div>
+
+              <div id="genBlocPoster">
+                <div class="deux-colonnes">
+                  <div><label for="genNombreTampons">Nombre de tampons</label><input id="genNombreTampons" type="number" min="2" max="10" placeholder="Auto"></div>
+                  <div><label for="genRecompense">Récompense affichée</label><input id="genRecompense" type="text" maxlength="60" placeholder="Ex : Un menu offert"></div>
+                </div>
+                <label for="genCitation">Citation en bas d'affiche</label>
+                <input id="genCitation" type="text" maxlength="90" placeholder="Ex : La fidélité, ça se mérite. Et ça se récompense.">
+                <p class="texte-secondaire">Laissez un champ vide pour reprendre automatiquement votre réglage de fidélité (nombre de tampons, récompense) ou notre citation par défaut.</p>
               </div>
 
               <label class="ligne-interrupteur" id="genLigneGagnant"><span>Activer « 100 % gagnant »</span><label class="interrupteur"><input id="genToujoursGagnant" type="checkbox"><span></span></label></label>

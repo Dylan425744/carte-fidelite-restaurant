@@ -49,6 +49,17 @@ const SUPPORTS = {
     lien: 'review',
     titreParDefaut: 'Un avis = une chance de gagner',
     sousTitreParDefaut: 'Laissez un avis Google'
+  },
+  'loyalty-poster-a5': {
+    id: 'loyalty-poster-a5',
+    nom: 'Affiche fidélité (carte à tampons)',
+    description: 'Affiche A5 comptoir · 148 × 210 mm',
+    largeurMm: 148,
+    hauteurMm: 210,
+    themeParDefaut: 'premium-violet',
+    lien: 'loyalty',
+    titreParDefaut: '',
+    sousTitreParDefaut: ''
   }
 };
 
@@ -206,9 +217,69 @@ function construireReviewSquare(contexte) {
   `;
 }
 
+// Rangee de jetons de progression (type carte a tampons). Le dernier jeton
+// porte le pictogramme cadeau pour marquer la recompense a debloquer.
+function rangeeTampons(x, y, largeurDisponible, nombre, couleur) {
+  const rayon = Math.min(4.2, (largeurDisponible / nombre) * 0.36);
+  const pas = nombre > 1 ? largeurDisponible / (nombre - 1) : 0;
+  let jetons = '';
+  for (let i = 0; i < nombre; i += 1) {
+    const cx = nombre > 1 ? x + i * pas : x + largeurDisponible / 2;
+    const dernier = i === nombre - 1;
+    jetons += dernier
+      ? `<circle cx="${cx}" cy="${y}" r="${rayon}" fill="${couleur}"/><text x="${cx}" y="${y + rayon * 0.4}" font-size="${rayon * 1.2}" text-anchor="middle">🎁</text>`
+      : `<circle cx="${cx}" cy="${y}" r="${rayon}" fill="none" stroke="${couleur}" stroke-width="0.6"/>`;
+  }
+  return `<g>${jetons}</g>`;
+}
+
+function construireLoyaltyPosterA5(contexte) {
+  const { theme, nomRestaurant, logoDataUri, nombreTampons, recompense, citation, qrCarte } = contexte;
+  const largeurPage = 148;
+  const hauteurPage = 210;
+  const margeSecurite = 8;
+  const largeurUtile = largeurPage - margeSecurite * 2;
+  const recompenseTaille = tailleAjustee(recompense, largeurUtile, 6.4, 4.2, 0.52);
+  const citationTaille = tailleAjustee(citation, largeurUtile - 30, 3.2, 2.4);
+
+  return `
+    <rect width="${largeurPage}" height="${hauteurPage}" fill="${theme.fond}"/>
+    <rect width="${largeurPage}" height="18" fill="${theme.primaire}"/>
+    <text x="${largeurPage / 2}" y="11.5" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="4.4" letter-spacing="0.6" fill="#FFFFFF" text-anchor="middle">PROGRAMME DE FIDÉLITÉ OFFICIEL</text>
+
+    ${badgeRestaurant(largeurPage / 2, 40, 15, nomRestaurant, logoDataUri, theme.primaire, '#FFFFFF')}
+
+    <text x="${largeurPage / 2}" y="68" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="8" fill="${theme.texte}" text-anchor="middle">${nombreTampons} visites cumulées</text>
+    <text x="${largeurPage / 2}" y="78" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${recompenseTaille}" fill="${theme.primaire}" text-anchor="middle">= ${echapperXml(recompense)}</text>
+
+    <text x="${margeSecurite}" y="94" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="2.6" letter-spacing="0.4" fill="${theme.texteAttenue}">VOTRE PROGRESSION</text>
+    ${rangeeTampons(margeSecurite + 6, 105, largeurUtile - 12, Math.min(nombreTampons, 10), theme.primaire)}
+
+    <rect x="${largeurPage / 2 - 32}" y="115" width="64" height="12" rx="6" fill="${theme.secondaire}"/>
+    <text x="${largeurPage / 2}" y="123" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="3.6" fill="#FFFFFF" text-anchor="middle">🎁 ${echapperXml(recompense)}</text>
+
+    <line x1="${margeSecurite}" y1="136" x2="${largeurPage - margeSecurite}" y2="136" stroke="${theme.accentFond}" stroke-width="0.6"/>
+
+    <rect x="${margeSecurite}" y="144" width="40" height="40" rx="4" fill="#FFFFFF"/>
+    ${qr.qrIntegrable(qrCarte, margeSecurite + 4, 148, 32)}
+    <text x="${margeSecurite + 46}" y="153" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="4.4" fill="${theme.texte}">Scannez pour rejoindre</text>
+    ${pictogrammeNfc(margeSecurite + 46, 164, 4, theme.secondaire)}
+    <text x="${margeSecurite + 55}" y="166" font-family="Helvetica, Arial, sans-serif" font-size="3" fill="${theme.texteAttenue}">Ouvrez l'appareil photo</text>
+    ${pictogrammeNfc(margeSecurite + 46, 176, 4, theme.secondaire)}
+    <text x="${margeSecurite + 55}" y="178" font-family="Helvetica, Arial, sans-serif" font-size="3" fill="${theme.texteAttenue}">Ajoutez à votre wallet</text>
+
+    <rect x="${margeSecurite}" y="188" width="${largeurUtile}" height="10" rx="3" fill="${theme.accentFond}"/>
+    <text x="${margeSecurite + 4}" y="194.5" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="2.6" fill="${theme.texteAttenue}">LIEN DIRECT</text>
+    <text x="${largeurPage - margeSecurite - 4}" y="194.5" font-family="Helvetica, Arial, sans-serif" font-size="2.6" fill="${theme.texte}" text-anchor="end">${echapperXml(contexte.lienAffiche)}</text>
+
+    <text x="${largeurPage / 2}" y="204" font-family="Helvetica, Arial, sans-serif" font-style="italic" font-size="${citationTaille}" fill="${theme.texteAttenue}" text-anchor="middle">${echapperXml(citation)}</text>
+  `;
+}
+
 const CONSTRUCTEURS = {
   'loyalty-square': construireLoyaltySquare,
-  'review-square': construireReviewSquare
+  'review-square': construireReviewSquare,
+  'loyalty-poster-a5': construireLoyaltyPosterA5
 };
 
 function resoudreTheme(restaurant, support, parametres) {
@@ -242,6 +313,10 @@ async function construireSupport(restaurant, parametresRecus, marketing) {
   const logoUrl = String(parametresRecus.logo_url || restaurant.communication_logo_url || restaurant.apple_logo_url || '').trim();
   const logoDataUri = await logoEnDataUri(logoUrl);
 
+  const tamponsParDefaut = Math.min(10, Math.max(2, Math.round(
+    Number(restaurant.seuil_recompense || 100) / Number(restaurant.points_per_scan || 10)
+  )));
+
   const contexte = {
     theme,
     nomRestaurant: restaurant.nom,
@@ -251,6 +326,14 @@ async function construireSupport(restaurant, parametresRecus, marketing) {
     toujoursGagnant: parametresRecus.always_winner === undefined
       ? Boolean(restaurant.always_winner)
       : parametresRecus.always_winner === 'true' || parametresRecus.always_winner === true,
+    nombreTampons: Math.min(10, Math.max(2, Number(parametresRecus.nombre_tampons) || tamponsParDefaut)),
+    recompense: ajusterTexte(
+      parametresRecus.recompense,
+      60,
+      restaurant.reward_title || restaurant.description_recompense || restaurant.apple_reward_text || 'Une récompense offerte'
+    ),
+    citation: ajusterTexte(parametresRecus.citation, 90, 'La fidélité, ça se mérite. Et ça se récompense.'),
+    lienAffiche: 'bravocard.fr',
     qrCarte: qrGenere,
     qrAvis: qrGenere
   };

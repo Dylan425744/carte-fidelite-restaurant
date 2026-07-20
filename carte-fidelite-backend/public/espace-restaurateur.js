@@ -1366,6 +1366,9 @@ function rafraichirPickersGenerateur() {
     kitCommunication.themes.map(theme => ({ ...theme, description: theme.sombre ? 'Fond sombre premium' : 'Fond clair ludique' })),
     genEtat.theme, 'theme', item => `linear-gradient(145deg, ${item.primaire}, ${item.secondaire})`);
   $('#genLigneGagnant').style.display = genEtat.support === 'review-square' ? '' : 'none';
+  const estAffichePoster = genEtat.support === 'loyalty-poster-a5';
+  $('#genLigneTitreSousTitre').style.display = estAffichePoster ? 'none' : '';
+  $('#genBlocPoster').style.display = estAffichePoster ? '' : 'none';
 }
 
 function genParametresActuels() {
@@ -1377,7 +1380,10 @@ function genParametresActuels() {
     title: $('#genTitre').value,
     subtitle: $('#genSousTitre').value,
     always_winner: $('#genToujoursGagnant').checked,
-    logo_url: $('#genLogoUrl').value.trim()
+    logo_url: $('#genLogoUrl').value.trim(),
+    nombre_tampons: $('#genNombreTampons').value,
+    recompense: $('#genRecompense').value,
+    citation: $('#genCitation').value
   };
 }
 
@@ -1413,6 +1419,9 @@ function choisirSupportGenerateur(supportId) {
   if (!genEtat.themeChoisiManuellement) genEtat.theme = support.theme_par_defaut;
   $('#genTitre').value = support.titre_par_defaut;
   $('#genSousTitre').value = support.sous_titre_par_defaut;
+  $('#genNombreTampons').value = '';
+  $('#genRecompense').value = '';
+  $('#genCitation').value = '';
   appliquerCouleursTheme(genEtat.theme);
   rafraichirPickersGenerateur();
   demanderApercuGenerateur();
@@ -1703,7 +1712,7 @@ $('#genListeThemes').addEventListener('click', evenement => {
   const bouton = evenement.target.closest('[data-theme]');
   if (bouton) choisirThemeGenerateur(bouton.dataset.theme);
 });
-['genCouleurPrincipale', 'genCouleurSecondaire', 'genTitre', 'genSousTitre', 'genToujoursGagnant', 'genLogoUrl'].forEach(id => {
+['genCouleurPrincipale', 'genCouleurSecondaire', 'genTitre', 'genSousTitre', 'genToujoursGagnant', 'genLogoUrl', 'genNombreTampons', 'genRecompense', 'genCitation'].forEach(id => {
   $(`#${id}`).addEventListener('input', demanderApercuGenerateur);
 });
 $('#genEnregistrer').addEventListener('click', enregistrerPersonnalisationGenerateur);
