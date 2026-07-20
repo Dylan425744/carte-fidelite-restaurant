@@ -41,6 +41,8 @@
   }
   .bouton:hover:not(:disabled) { transform: translateY(-2px); }
   .bouton:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .bouton.en-attente { opacity: 0.75; animation: respiration-bouton 1.6s ease-in-out infinite; }
+  @keyframes respiration-bouton { 50% { opacity: 0.45; } }
   .bouton-avis { background: linear-gradient(120deg, #e8891f, #f5aa54); box-shadow: 0 10px 24px rgba(232,137,31,.35); width: 100%; }
   .bouton-avis.fait { background: #1c3d2c; box-shadow: none; }
   .bouton-roue { background: linear-gradient(120deg, #7448df, #9b6bff); box-shadow: 0 13px 30px rgba(101,58,207,.42); min-width: 250px; padding: 16px 40px; }
@@ -148,7 +150,7 @@ const zoneCode = document.getElementById('zoneCode');
 const codeRetrait = document.getElementById('codeRetrait');
 const messageInfo = document.getElementById('messageInfo');
 
-const DELAI_MINIMUM_MS = 30000; // le temps realiste d'ecrire un avis avant de debloquer la roue
+const DELAI_MINIMUM_MS = 60000; // le temps avant de debloquer la roue, volontairement fixe et invisible pour le client
 let lots = [];
 let avisConfirme = false;
 let restaurantData = null;
@@ -258,19 +260,14 @@ function confirmerAvis() {
   avisConfirme = true;
   boutonAvis.classList.add('fait');
   boutonAvis.textContent = 'Avis Google ouvert ✓';
-  boutonJouer.textContent = 'Merci ! Débloquage dans 30s…';
-  let secondesRestantes = Math.ceil(DELAI_MINIMUM_MS / 1000);
-  const intervalle = setInterval(() => {
-    secondesRestantes -= 1;
-    if (secondesRestantes <= 0) {
-      clearInterval(intervalle);
-      boutonJouer.disabled = false;
-      boutonJouer.textContent = 'Faire tourner la roue';
-      zoneRoue.classList.add('deverrouille');
-    } else {
-      boutonJouer.textContent = `Débloquage dans ${secondesRestantes}s…`;
-    }
-  }, 1000);
+  boutonJouer.textContent = 'Merci pour votre avis, un instant';
+  boutonJouer.classList.add('en-attente');
+  setTimeout(() => {
+    boutonJouer.disabled = false;
+    boutonJouer.classList.remove('en-attente');
+    boutonJouer.textContent = 'Faire tourner la roue';
+    zoneRoue.classList.add('deverrouille');
+  }, DELAI_MINIMUM_MS);
 }
 
 boutonJouer.addEventListener('click', async () => {

@@ -478,6 +478,7 @@ function afficherTableau() {
   afficherAntiFraude();
   afficherStatistiques();
   remplirApercuRoue();
+  afficherHistoriqueRoue();
 
   const enCours = donneesTableau.notification_en_cours ||
     donneesTableau.notifications.some(campagne => campagne.statut === 'en_cours');
@@ -502,15 +503,39 @@ function lotsRoue() {
     : lotsRoueParDefaut;
 }
 
+// Palette et geometrie identiques a public/roue.html et public/avis-roue.html
+// (memes constantes, meme fonction de dessin) pour garantir un apercu fidele.
+const COULEURS_ROUE_REELLE = ['#6C3CE9', '#12B886', '#5A2FD0', '#0E9469', '#7C4FF0', '#0A7A56'];
+const RAYON_TEXTE_ROUE = 112;
+
+function dessinerRoueReelle(conteneur, lots) {
+  const nb = lots.length;
+  const angle = 360 / nb;
+  const degrades = lots.map((lot, i) => {
+    const debut = i * angle;
+    return `${COULEURS_ROUE_REELLE[i % COULEURS_ROUE_REELLE.length]} ${debut}deg ${debut + angle}deg`;
+  });
+  conteneur.style.background = `conic-gradient(${degrades.join(',')})`;
+  conteneur.querySelectorAll('.segment-pivot').forEach(noeud => noeud.remove());
+  lots.forEach((lot, i) => {
+    const centreAngle = i * angle + angle / 2;
+    const pivot = document.createElement('div');
+    pivot.className = 'segment-pivot';
+    pivot.style.transform = `rotate(${centreAngle}deg)`;
+    const contenu = document.createElement('div');
+    contenu.className = 'segment-contenu';
+    contenu.style.transform = `translateY(-${RAYON_TEXTE_ROUE}px) rotate(${-centreAngle}deg)`;
+    contenu.innerHTML = `<div class="icone-lot">${echapper(lot.icone)}</div><div class="texte-lot">${echapper(lot.label)}</div>`;
+    pivot.appendChild(contenu);
+    conteneur.appendChild(pivot);
+  });
+}
+
 function remplirApercuRoue() {
-  const segments = $('#segmentsRoueApercu');
-  if (!segments) return;
+  const roue = $('#roueApercu');
+  if (!roue) return;
   const lots = lotsRoue();
-  const angle = 360 / lots.length;
-  segments.innerHTML = lots.map((lot, index) => {
-    const position = index * angle + angle / 2;
-    return `<div class="roue-label" style="transform:rotate(${position}deg) translateY(-100px) rotate(${-position}deg) translate(-50%,-50%)"><i>${echapper(lot.icone)}</i><span>${echapper(lot.label)}</span></div>`;
-  }).join('');
+  dessinerRoueReelle(roue, lots);
   roueLotsEdition = lots.map(lot => ({ icone: lot.icone, label: lot.label, probabilite: Number(lot.probabilite) || 10 }));
   afficherLotsEdition();
   if (!$('#roueCouleurPrincipale').value || $('#roueCouleurPrincipale').dataset.rempli !== 'oui') {
@@ -518,6 +543,22 @@ function remplirApercuRoue() {
     $('#roueCouleurSecondaire').value = donneesTableau?.roue?.couleur_secondaire || '#E8891F';
     $('#roueCouleurPrincipale').dataset.rempli = 'oui';
   }
+}
+
+function afficherHistoriqueRoue() {
+  const historique = donneesTableau?.roue?.historique || [];
+  const corps = $('#tableHistoriqueRoue');
+  if (!corps) return;
+  $('#resumeHistoriqueRoue').textContent = `${historique.length} tour${historique.length > 1 ? 's' : ''}`;
+  corps.innerHTML = historique.map(ligne => `
+    <tr>
+      <td><div class="client-cell"><span class="avatar-client">${echapper(initiales(ligne.client))}</span><strong>${echapper(ligne.client)}</strong></div></td>
+      <td>${formaterDate(ligne.date, true)}</td>
+      <td><strong>${echapper(ligne.gain)}</strong></td>
+      <td>${echapper(ligne.parcours)}</td>
+      <td><span class="etat-membre ${ligne.utilise ? 'actif' : 'inactif'}">${ligne.utilise ? 'Retiré' : 'En attente'}</span></td>
+    </tr>`).join('');
+  $('#aucunHistoriqueRoue').style.display = historique.length ? 'none' : 'block';
 }
 
 function afficherLotsEdition() {
@@ -614,11 +655,11 @@ function lancerApercuRoue() {
   rotationApercuRoue += 360 * 5 + mouvementVersCible;
   bouton.disabled = true;
   resultat.textContent = 'La roue tourne…';
-  roue.style.setProperty('--angle', `${rotationApercuRoue}deg`);
+  roue.style.transform = `rotate(${rotationApercuRoue}deg)`;
   window.setTimeout(() => {
     resultat.textContent = `Aperçu : ${lots[index].icone} ${lots[index].label}`;
     bouton.disabled = false;
-  }, 4250);
+  }, 5300);
 }
 
 async function copierLienCreationCarte() {

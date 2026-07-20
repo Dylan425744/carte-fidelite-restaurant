@@ -1123,12 +1123,51 @@ app.get('/api/restaurateur/:slug/kit-communication/export', async (req, res) => 
 });
 
 // Tableau de bord unifié du restaurateur : statistiques, clients et campagnes.
+// Combine les gains des deux parcours (passage en caisse et QR avis, qui vivent
+// dans deux tables differentes) en un seul historique trie par date.
+async function obtenirHistoriqueRoue(restaurantId) {
+  const [scansGagnes, entreesAvis] = await Promise.all([
+    supabase
+      .from('scans')
+      .select('id, cadeau_gagne, date_scan, code_retrait_utilise_le, clients!inner(nom, restaurant_id)')
+      .eq('clients.restaurant_id', restaurantId)
+      .eq('roue_utilisee', true)
+      .order('date_scan', { ascending: false })
+      .limit(30),
+    supabase
+      .from('roue_avis_entries')
+      .select('id, cadeau_gagne, created_at, utilise')
+      .eq('restaurant_id', restaurantId)
+      .order('created_at', { ascending: false })
+      .limit(30)
+  ]);
+
+  const lignes = [
+    ...(scansGagnes.data || []).map(scan => ({
+      client: scan.clients?.nom || 'Client',
+      date: scan.date_scan,
+      gain: scan.cadeau_gagne,
+      parcours: 'Passage en caisse',
+      utilise: Boolean(scan.code_retrait_utilise_le)
+    })),
+    ...(entreesAvis.data || []).map(entree => ({
+      client: 'Client anonyme (QR avis)',
+      date: entree.created_at,
+      gain: entree.cadeau_gagne,
+      parcours: 'QR avis',
+      utilise: Boolean(entree.utilise)
+    }))
+  ];
+  lignes.sort((a, b) => new Date(b.date) - new Date(a.date));
+  return lignes.slice(0, 50);
+}
+
 app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res, 'dashboard');
     if (!acces) return;
 
-    const [resultatClients, tableauParrainage, tableauAntiFraude, statistiquesDetaillees] = await Promise.all([
+    const [resultatClients, tableauParrainage, tableauAntiFraude, statistiquesDetaillees, historiqueRoue] = await Promise.all([
       supabase
         .from('clients')
         .select(
@@ -1138,7 +1177,8 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
         .order('date_inscription', { ascending: false }),
       referral.obtenirTableauParrainage(acces.restaurant.id),
       antiFraude.obtenirTableauAntiFraude(acces.restaurant.id),
-      analytics.obtenirStatistiques(acces.restaurant.id, 30)
+      analytics.obtenirStatistiques(acces.restaurant.id, 30),
+      obtenirHistoriqueRoue(acces.restaurant.id)
     ]);
 
     const { data: clients, error } = resultatClients;
@@ -1195,7 +1235,8 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
       roue: {
         lots: roueService.lotsRestaurant(acces.restaurant),
         couleur_principale: acces.restaurant.roue_couleur_principale || '',
-        couleur_secondaire: acces.restaurant.roue_couleur_secondaire || ''
+        couleur_secondaire: acces.restaurant.roue_couleur_secondaire || '',
+        historique: historiqueRoue
       },
       notification_en_cours: Boolean(acces.restaurant.notification_sending),
       limite_notifications_24h: 3

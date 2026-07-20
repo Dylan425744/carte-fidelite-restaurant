@@ -144,6 +144,7 @@
             <div class="scan-illustration">▥</div><h3>Prêt à scanner</h3><p>Le résultat et le nouveau solde du client apparaîtront ici.</p>
           </article>
         </div>
+        <article class="panneau cadeau-validation"><span class="eyebrow">Comptoir</span><h3>Valider un cadeau de la roue</h3><p class="texte-secondaire">Demandez le code reçu par le client (email ou écran après son tour de roue).</p><div class="champ-copie"><input id="codeCadeauSaisie" placeholder="Ex. K7F3M2" maxlength="6" style="text-transform:uppercase"><button class="bouton principal" id="validerCadeau" type="button">Valider</button></div><span class="message" id="messageCadeau"></span></article>
       </section>
 
       <section class="vue" id="vue-clients">
@@ -253,7 +254,8 @@
         <div class="grille-roue">
           <article class="panneau apercu-roue-panneau">
             <div class="panneau-titre"><div><span class="eyebrow">Aperçu consommateur</span><h3>La roue des cadeaux</h3></div><span class="badge-doux">Démo</span></div>
-            <div class="roue-demo-zone"><div class="roue-halo"></div><div class="roue-pointeur"></div><div class="roue-demo" id="roueApercu"><div class="roue-demo-segments" id="segmentsRoueApercu"></div><div class="roue-demo-centre">✦<small>JOUER</small></div></div></div>
+            <div class="apercu-roue-reelle"><div class="roue-demo-zone"><div class="roue-halo"></div><div class="pointeur-reel"></div><div class="roue-reelle" id="roueApercu"><div class="centre-roue-reel">🎁</div></div></div></div>
+            <p class="texte-secondaire apercu-roue-note">Ce rendu est identique à celui vu par vos clients (mêmes couleurs, mêmes proportions).</p>
             <div class="roue-demo-actions"><button class="bouton principal" id="lancerApercuRoue">Lancer l’aperçu</button><span id="resultatApercuRoue">Choisissez un tour pour visualiser l’animation.</span></div>
           </article>
           <article class="panneau lots-roue-panneau"><span class="eyebrow">Personnalisation</span><h3>Vos lots et vos couleurs</h3><p class="texte-secondaire">Le tirage reste sécurisé côté serveur. Ajustez librement les lots, leurs icônes et leur probabilité relative.</p>
@@ -269,8 +271,8 @@
         </div>
         <div class="grille-roue">
           <article class="panneau parcours-roue"><div><span class="eyebrow">Deux parcours possibles</span><h3>Du passage à la prochaine visite</h3></div><div class="etapes-roue"><div><i>01</i><strong>Passage validé</strong><span>Votre équipe scanne la carte.</span></div><div><i>02</i><strong>Invitation envoyée</strong><span>Le client reçoit son lien personnel par email.</span></div><div><i>03</i><strong>Ou : QR avis en salle</strong><span>Le client scanne, laisse un avis, puis joue.</span></div><div><i>04</i><strong>Avantage présenté</strong><span>Le gain se vérifie avec un code au comptoir.</span></div></div></article>
-          <article class="panneau cadeau-validation"><span class="eyebrow">Comptoir</span><h3>Valider un cadeau</h3><p class="texte-secondaire">Demandez le code reçu par le client (email ou écran après le tour de roue).</p><div class="champ-copie"><input id="codeCadeauSaisie" placeholder="Ex. K7F3M2" maxlength="6" style="text-transform:uppercase"><button class="bouton principal" id="validerCadeau" type="button">Valider</button></div><span class="message" id="messageCadeau"></span></article>
         </div>
+        <article class="panneau historique-gains"><div class="panneau-titre"><div><span class="eyebrow">Suivi</span><h3>Historique des gains</h3></div><span class="badge-doux" id="resumeHistoriqueRoue">0 tour</span></div><p class="texte-secondaire">Les tours de roue les plus récents, tous parcours confondus (passage en caisse et QR avis).</p><div class="table-conteneur"><table><thead><tr><th>Client</th><th>Date</th><th>Gain</th><th>Parcours</th><th>Statut</th></tr></thead><tbody id="tableHistoriqueRoue"></tbody></table></div><div class="etat-vide" id="aucunHistoriqueRoue">Aucun tour de roue pour le moment.</div></article>
       </section>
 
       <section class="vue" id="vue-design">
