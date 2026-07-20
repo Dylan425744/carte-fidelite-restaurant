@@ -109,11 +109,14 @@
 /* Editeur Wallet WYSIWYG : onglets Apple / Google, deux apercus fideles et
    distincts, jamais melanges. Voir walletAssetSpecifications.js cote serveur
    pour la source unique des dimensions affichees ici. */
-.wallet-editeur-entete{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:18px}
+.wallet-editeur-entete{margin-bottom:16px}
 .wallet-editeur-entete h2{margin:4px 0 6px;font:800 24px "Manrope";letter-spacing:-.6px}
-.wallet-onglets{display:flex;gap:6px;padding:5px;border-radius:14px;background:#efe9f6;flex:0 0 auto}
-.wallet-onglet{border:0;padding:10px 16px;border-radius:10px;background:transparent;color:var(--secondaire);font-weight:700;font-size:13px;white-space:nowrap}
-.wallet-onglet.actif{background:#fff;color:var(--texte);box-shadow:0 4px 14px rgba(37,22,53,.1)}
+.wallet-selecteur-plateforme{position:sticky;z-index:7;top:12px;display:grid;grid-template-columns:minmax(190px,.55fr) minmax(420px,1fr);align-items:center;gap:18px;margin-bottom:22px;padding:14px;border:1px solid #ddd3e8;border-radius:18px;background:rgba(255,255,255,.96);box-shadow:0 12px 34px rgba(37,22,53,.1);backdrop-filter:blur(12px)}
+.wallet-selecteur-plateforme>div:first-child{padding-left:5px}.wallet-selecteur-plateforme>div:first-child strong,.wallet-selecteur-plateforme>div:first-child span{display:block}.wallet-selecteur-plateforme>div:first-child strong{font:800 13px "Manrope"}.wallet-selecteur-plateforme>div:first-child span{margin-top:3px;color:var(--secondaire);font-size:10px}
+.wallet-onglets{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:5px;border-radius:14px;background:#efe9f6}
+.wallet-onglet{display:flex;align-items:center;gap:10px;min-width:0;border:1px solid transparent;padding:10px 13px;border-radius:11px;background:transparent;color:var(--secondaire);text-align:left;cursor:pointer}.wallet-onglet>span:last-child,.wallet-onglet strong,.wallet-onglet small{display:block}.wallet-onglet strong{font:800 12px "Manrope"}.wallet-onglet small{margin-top:2px;font-size:9px}.wallet-onglet-icone{display:grid!important;place-items:center;flex:0 0 28px;width:28px;height:28px;border-radius:9px;background:#211b27;color:#fff;font-size:8px}.wallet-onglet-icone.google{background:#fff;color:#4285f4;box-shadow:inset 0 0 0 1px #d9e6fb}
+.wallet-onglet.actif{border-color:#d5c8e3;background:#fff;color:var(--texte);box-shadow:0 4px 14px rgba(37,22,53,.1)}
+.wallet-onglet:focus-visible{outline:3px solid rgba(113,72,232,.22);outline-offset:2px}
 .wallet-section-commune{margin-bottom:6px;padding-bottom:14px;border-bottom:1px dashed var(--bordure)}
 .wallet-section-commune h3{margin:2px 0 14px;font:800 16px "Manrope"}
 .wallet-panneau-plateforme.masque{display:none}
@@ -212,5 +215,5 @@
 .recadrage-modes button.actif{border-color:var(--violet);background:var(--violet-clair);color:var(--violet)}
 .recadrage-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
 
-@media(max-width:1120px){.wallet-editeur-entete{flex-direction:column;align-items:flex-start}}
-@media(max-width:560px){.wallet-onglet{padding:9px 12px;font-size:12px}.wallet-legende-zones{display:none!important}}
+@media(max-width:900px){.wallet-selecteur-plateforme{position:relative;top:auto;grid-template-columns:1fr}.wallet-selecteur-plateforme>div:first-child{padding-left:0}}
+@media(max-width:560px){.wallet-selecteur-plateforme{padding:10px}.wallet-selecteur-plateforme>div:first-child span{display:none}.wallet-onglet{padding:9px 8px;gap:7px}.wallet-onglet-icone{display:none!important}.wallet-onglet strong{font-size:11px}.wallet-onglet small{font-size:8px}.wallet-legende-zones{display:none!important}}

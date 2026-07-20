@@ -282,9 +282,13 @@
       <section class="vue" id="vue-design">
         <div class="wallet-editeur-entete">
           <div><span class="eyebrow">Personnalisation</span><h2>Construisez vos cartes Apple Wallet et Google Wallet.</h2><p class="texte-secondaire">Chaque plateforme a ses propres images et ses propres règles. Réglez les deux séparément, avec un aperçu fidèle à ce que verra votre client.</p></div>
-          <div class="wallet-onglets" id="walletOnglets" role="tablist">
-            <button type="button" class="wallet-onglet actif" data-plateforme-wallet="apple" role="tab" aria-selected="true"> Apple Wallet</button>
-            <button type="button" class="wallet-onglet" data-plateforme-wallet="google" role="tab" aria-selected="false"> Google Wallet / Android</button>
+        </div>
+
+        <div class="wallet-selecteur-plateforme">
+          <div><strong>Plateforme à personnaliser</strong><span>Les réglages et les images restent indépendants.</span></div>
+          <div class="wallet-onglets" id="walletOnglets" role="tablist" aria-label="Choisir la plateforme Wallet">
+            <button type="button" class="wallet-onglet actif" data-plateforme-wallet="apple" role="tab" aria-controls="walletPanneauApple" aria-selected="true"><span class="wallet-onglet-icone">●</span><span><strong>Apple Wallet</strong><small>iPhone et Apple Watch</small></span></button>
+            <button type="button" class="wallet-onglet" data-plateforme-wallet="google" role="tab" aria-controls="walletPanneauGoogle" aria-selected="false"><span class="wallet-onglet-icone google">◆</span><span><strong>Google Wallet</strong><small>Android</small></span></button>
           </div>
         </div>
 
