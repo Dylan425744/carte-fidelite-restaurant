@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8"><link rel="icon" href="/logo-bravocard-encadre.png"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Créez votre compte Bravocard, votre établissement et votre programme de fidélité avant de finaliser votre abonnement sur Stripe.">
-  <title>Créer mon programme — Bravocard</title>
+  <title>Créer mon programme · Bravocard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/marketing.css"><link rel="stylesheet" href="/conversion.css">
 </head>
@@ -22,7 +22,7 @@
     <aside class="signup-summary"><div class="summary-top"><span>Votre offre</span><h2 id="resumeNom">Croissance</h2><div class="summary-price"><span id="resumePrix">49 €</span><small> HT / mois</small></div></div><div class="summary-body"><strong>Votre compte comprend :</strong><div class="summary-features" id="resumeFonctions"></div><div class="secure-note"><strong>Aucun paiement automatique sur cette page</strong>Vous serez redirigé vers Stripe pour vérifier le prix et saisir votre moyen de paiement.</div><p class="tiny-legal">14 jours d’essai. Résiliation depuis votre espace. <a href="/cgv.html">Voir les conditions</a>.</p></div></aside>
   </div></main>
   <script>
-    const offres={starter:{nom:'Essentiel',prix:'29 €',fonctions:['1 établissement','Apple et Google Wallet','Points, récompenses et scanner','Notifications, parrainage et roue']},pro:{nom:'Croissance',prix:'49 €',fonctions:['1 établissement','Tout Essentiel','Statistiques détaillées','Rôles propriétaire, manager et employé']},premium:{nom:'Signature',prix:'89 €',fonctions:['Jusqu’à 5 établissements','Tout Croissance','Studio Wallet avancé','Logo, bannière, icône et templates']}};
+    const offres={starter:{nom:'Essentiel',prix:'29 €',fonctions:['1 établissement','Apple et Google Wallet','Points, récompenses et scanner','Notifications et parrainage']},pro:{nom:'Croissance',prix:'49 €',fonctions:['1 établissement','Tout Essentiel','Roue cadeaux','Statistiques détaillées','Rôles propriétaire, manager et employé']},premium:{nom:'Signature',prix:'89 €',fonctions:['Jusqu’à 5 établissements','Tout Croissance','Studio Wallet avancé','Logo, bannière, icône et templates']}};
     const params=new URLSearchParams(location.search);let plan=offres[params.get('plan')]?params.get('plan'):'pro';
     const $=s=>document.querySelector(s);function afficherPlan(){const o=offres[plan];$('#resumeNom').textContent=o.nom;$('#resumePrix').textContent=o.prix;$('#resumeFonctions').innerHTML=o.fonctions.map(f=>`<span>${f}</span>`).join('');document.querySelectorAll('[data-plan]').forEach(b=>b.classList.toggle('active',b.dataset.plan===plan));const url=new URL(location.href);url.searchParams.set('plan',plan);history.replaceState(null,'',url);$('#lienConnexion').href=`/espace-restaurateur.html?plan=${plan}`;$('#connexionExistante').href=`/espace-restaurateur.html?plan=${plan}`}
     document.querySelectorAll('[data-plan]').forEach(b=>b.onclick=()=>{plan=b.dataset.plan;afficherPlan()});

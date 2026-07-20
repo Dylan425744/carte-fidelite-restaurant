@@ -2,9 +2,10 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" href="/logo-bravocard-encadre.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Bravocard réunit fidélité, cartes Apple et Google Wallet, notifications, parrainage et pilotage client pour les restaurants.">
-  <title>Bravocard — La fidélité qui fait revenir vos clients</title>
+  <title>Bravocard · La fidélité qui fait revenir vos clients</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/marketing.css"><link rel="stylesheet" href="/conversion.css">
@@ -13,7 +14,7 @@
   <header class="site-header">
     <nav class="nav container" aria-label="Navigation principale">
       <a class="brand" href="/"><span class="brand-mark">✦</span>Bravo<em>card</em></a>
-      <div class="nav-links"><a href="#fonctionnement">Comment ça marche</a><a href="#fonctionnalites">Fonctionnalités</a><a href="#tarifs">Tarifs</a><a href="#faq">Questions</a></div>
+      <div class="nav-links"><a href="#fonctionnement">Comment ça marche</a><a href="#fonctionnalites">Fonctionnalités</a><a href="#temoignages">Avis</a><a href="#tarifs">Tarifs</a><a href="#faq">Questions</a></div>
       <div class="nav-actions"><a class="admin-link" href="/espace-restaurateur.html?admin=1">Administration</a><a class="btn light" href="/espace-restaurateur.html">Connexion</a><a class="btn primary" href="/tarifs.html">Démarrer</a></div>
     </nav>
   </header>
@@ -55,9 +56,23 @@
 
     <section class="section compact container"><div class="section-head"><div><span class="eyebrow">Avant / après</span><h2>La fidélité ne devrait plus finir au fond d’un tiroir.</h2></div></div><div class="compare"><article class="compare-card old"><h3>La carte papier</h3><ul><li>Se perd et s’oublie facilement</li><li>Aucune donnée sur les retours</li><li>Impossible de parler aux clients</li><li>Contrôle des tampons très limité</li></ul></article><article class="compare-card new"><h3>L’expérience Bravocard</h3><ul><li>Disponible dans le Wallet du téléphone</li><li>Points et récompense mis à jour</li><li>Notifications utiles, au bon moment</li><li>Statistiques, rôles et anti-fraude intégrés</li></ul></article></div></section>
 
+    <section class="section compact container" id="temoignages">
+      <div class="center-head"><span class="eyebrow">Ils utilisent Bravocard</span><h2>Des commerces qui voient déjà la différence.</h2></div>
+      <div class="testimonials">
+        <article class="testimonial-card"><div class="stars">★★★★★</div><p>« Nos clients ajoutent leur carte en quelques secondes et reviennent vraiment plus souvent. La roue cadeaux fait le reste. »</p><footer><div class="testimonial-avatar">CR</div><div><strong>Camille R.</strong><span>Le Petit Comptoir</span></div></footer></article>
+        <article class="testimonial-card"><div class="stars">★★★★★</div><p>« Fini les carnets de tampons perdus. Tout est dans leur téléphone, et je vois enfin qui sont mes habitués. »</p><footer><div class="testimonial-avatar">JM</div><div><strong>Julien M.</strong><span>Bar À Grains</span></div></footer></article>
+        <article class="testimonial-card"><div class="stars">★★★★★</div><p>« Les notifications push nous ont permis de relancer nos clients sans dépenser un centime en publicité. »</p><footer><div class="testimonial-avatar">SD</div><div><strong>Sophie D.</strong><span>Boulangerie du Marché</span></div></footer></article>
+      </div>
+    </section>
+
     <section class="section container" id="tarifs">
       <div class="center-head"><span class="eyebrow">Des offres lisibles</span><h2>Commencez petit. Passez à la vitesse supérieure quand vous le décidez.</h2><p>14 jours d’essai, paiement sécurisé par Stripe et gestion de l’abonnement depuis votre espace.</p></div>
-      <div class="pricing"><article class="price-card"><h3>Essentiel</h3><p>Pour lancer un programme complet dans un établissement.</p><div class="price">29 €<small> HT / mois</small></div><ul><li>1 établissement</li><li>Apple et Google Wallet</li><li>Points, récompenses et scanner</li><li>Notifications, parrainage et roue</li><li>Anti-fraude</li></ul><a class="btn light" href="/inscription.html?plan=starter">Choisir Essentiel</a></article><article class="price-card popular"><span class="price-badge">Le plus choisi</span><h3>Croissance</h3><p>Pour piloter l’engagement et une équipe au quotidien.</p><div class="price">49 €<small> HT / mois</small></div><ul><li>1 établissement</li><li>Tout Essentiel</li><li>Statistiques détaillées</li><li>Rôles propriétaire, manager, employé</li><li>Support prioritaire</li></ul><a class="btn primary" href="/inscription.html?plan=pro">Choisir Croissance</a></article><article class="price-card"><h3>Signature</h3><p>Pour une marque exigeante ou plusieurs adresses.</p><div class="price">89 €<small> HT / mois</small></div><ul><li>Jusqu’à 5 établissements</li><li>Tout Croissance</li><li>Studio Wallet avancé</li><li>Logo, bannière, icône et templates</li><li>Accompagnement prioritaire</li></ul><a class="btn dark" href="/inscription.html?plan=premium">Choisir Signature</a></article></div>
+      <div class="billing-toggle" role="tablist"><button type="button" class="billing-option active" data-cycle="mensuel">Mensuel</button><button type="button" class="billing-option" data-cycle="annuel">Annuel<span class="billing-badge">2 mois offerts</span></button></div>
+      <div class="pricing" id="grillePricing">
+        <article class="price-card" data-plan="starter"><h3>Essentiel</h3><p>Pour lancer un programme complet dans un établissement.</p><div class="price"><span class="price-montant">29 €</span><small> HT / mois</small></div><p class="price-note" hidden></p><ul><li>1 établissement</li><li>Apple et Google Wallet</li><li>Points, récompenses et scanner</li><li>Notifications et parrainage</li><li>Anti-fraude</li></ul><a class="btn light" data-cta href="/inscription.html?plan=starter">Choisir Essentiel</a></article>
+        <article class="price-card popular" data-plan="pro"><span class="price-badge">Le plus choisi</span><h3>Croissance</h3><p>Pour piloter l’engagement et une équipe au quotidien.</p><div class="price"><span class="price-montant">49 €</span><small> HT / mois</small></div><p class="price-note" hidden></p><ul><li>1 établissement</li><li>Tout Essentiel</li><li>Roue cadeaux</li><li>Statistiques détaillées</li><li>Rôles propriétaire, manager, employé</li><li>Support prioritaire</li></ul><a class="btn primary" data-cta href="/inscription.html?plan=pro">Choisir Croissance</a></article>
+        <article class="price-card" data-plan="premium"><h3>Signature</h3><p>Pour une marque exigeante ou plusieurs adresses.</p><div class="price"><span class="price-montant">89 €</span><small> HT / mois</small></div><p class="price-note" hidden></p><ul><li>Jusqu’à 5 établissements</li><li>Tout Croissance</li><li>Studio Wallet avancé</li><li>Logo, bannière, icône et templates</li><li>Accompagnement prioritaire</li></ul><a class="btn dark" data-cta href="/inscription.html?plan=premium">Choisir Signature</a></article>
+      </div>
     </section>
 
     <section class="section compact container" id="faq"><div class="center-head"><span class="eyebrow">Questions fréquentes</span><h2>Tout ce qu’il faut savoir avant de démarrer.</h2></div><div class="faq"><details><summary>Mes clients doivent-ils télécharger une application ?</summary><p>Non. Leur carte s’ajoute à Apple Wallet ou Google Wallet depuis votre lien d’inscription.</p></details><details><summary>Que se passe-t-il quand je choisis une offre ?</summary><p>Vous créez directement votre compte et votre restaurant, puis Stripe vous présente le prix et le moyen de paiement à valider.</p></details><details><summary>Puis-je changer d’offre plus tard ?</summary><p>Oui. Le propriétaire peut accéder au portail Stripe depuis l’espace restaurateur pour faire évoluer son abonnement.</p></details></div></section>
@@ -70,6 +85,29 @@
   <footer class="site-footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a class="brand" href="/"><span class="brand-mark">✦</span>Bravo<em>card</em></a><p>La plateforme de fidélité Wallet pensée pour les restaurants et les commerces qui veulent faire revenir leurs clients.</p></div><div class="footer-col"><strong>Produit</strong><a href="#fonctionnement">Comment ça marche</a><a href="#fonctionnalites">Fonctionnalités</a><a href="/tarifs.html">Tarifs</a><a href="/espace-restaurateur.html">Connexion restaurateur</a></div><div class="footer-col"><strong>Contact</strong><a href="mailto:contact@bravocard.fr">contact@bravocard.fr</a></div><div class="footer-col"><strong>Informations</strong><a href="/mentions-legales.html">Mentions légales</a><a href="/cgv.html">CGV</a><a href="/cgu.html">CGU</a><a href="/confidentialite.html">Confidentialité</a><a href="/espace-restaurateur.html?admin=1">Administration</a></div></div><div class="footer-bottom"><span>© 2026 Bravocard</span><span>Fidélité digitale pour commerces de proximité</span></div></div></footer>
   <script>
     if(new URLSearchParams(location.search).has('restaurant'))location.replace(`/creer-carte.html${location.search}${location.hash}`);
+    const PRIX_PLANS={starter:{mensuel:29,annuelMensuel:24,annuelTotal:290,cta:'Choisir Essentiel'},pro:{mensuel:49,annuelMensuel:41,annuelTotal:490,cta:'Choisir Croissance'},premium:{mensuel:89,annuelMensuel:74,annuelTotal:890,cta:'Choisir Signature'}};
+    function basculerCycleFacturation(cycle){
+      document.querySelectorAll('.billing-option').forEach(b=>b.classList.toggle('active',b.dataset.cycle===cycle));
+      document.querySelectorAll('#grillePricing .price-card').forEach(carte=>{
+        const infos=PRIX_PLANS[carte.dataset.plan];
+        const montant=carte.querySelector('.price-montant');
+        const note=carte.querySelector('.price-note');
+        const cta=carte.querySelector('[data-cta]');
+        if(cycle==='annuel'){
+          montant.textContent=infos.annuelMensuel+' €';
+          note.hidden=false;
+          note.textContent=infos.annuelTotal+' € HT facturés une fois par an';
+          cta.href='#formRappel';
+          cta.textContent='Être rappelé pour l’offre annuelle';
+        }else{
+          montant.textContent=infos.mensuel+' €';
+          note.hidden=true;
+          cta.href=`/inscription.html?plan=${carte.dataset.plan}`;
+          cta.textContent=infos.cta;
+        }
+      });
+    }
+    document.querySelectorAll('.billing-option').forEach(b=>b.addEventListener('click',()=>basculerCycleFacturation(b.dataset.cycle)));
     const formRappel=document.getElementById('formRappel');formRappel.addEventListener('submit',async e=>{e.preventDefault();const bouton=document.getElementById('boutonRappel');const message=document.getElementById('messageRappel');bouton.disabled=true;message.className='callback-message';message.textContent='Envoi en cours…';try{const reponse=await fetch('/api/public/demandes-demo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nom:document.getElementById('rappelNom').value,telephone:document.getElementById('rappelTelephone').value,email:document.getElementById('rappelEmail').value,website:document.getElementById('rappelWebsite').value})});const donnees=await reponse.json();if(!reponse.ok)throw new Error(donnees.erreur||'Envoi impossible.');formRappel.reset();message.className='callback-message success';message.textContent=donnees.message}catch(erreur){message.className='callback-message error';message.textContent=erreur.message}finally{bouton.disabled=false}});
   </script>
 </body>

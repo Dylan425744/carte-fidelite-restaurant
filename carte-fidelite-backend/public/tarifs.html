@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8"><link rel="icon" href="/logo-bravocard-encadre.png"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Les offres Bravocard pour créer et piloter votre programme de fidélité Wallet.">
-  <title>Tarifs — Bravocard</title>
+  <title>Tarifs · Bravocard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/marketing.css">
 </head>
@@ -12,11 +12,41 @@
   <main>
     <section class="pricing-hero container"><span class="eyebrow">Tarifs transparents</span><h1>Le bon forfait aujourd’hui. La liberté d’évoluer demain.</h1><p>Choisissez votre offre, créez directement votre compte et votre restaurant, puis validez le paiement sur Stripe.</p></section>
     <section class="container">
-      <div class="pricing"><article class="price-card"><h3>Essentiel</h3><p>Le socle complet pour faire revenir les habitués d’un établissement.</p><div class="price">29 €<small> HT / mois</small></div><ul><li>1 établissement</li><li>Cartes Apple et Google Wallet</li><li>Scanner, points et récompenses</li><li>Notifications et parrainage</li><li>Roue cadeaux et anti-fraude</li></ul><a class="btn light" href="/inscription.html?plan=starter">Démarrer avec Essentiel</a></article><article class="price-card popular"><span class="price-badge">Le plus choisi</span><h3>Croissance</h3><p>Le pilotage complet pour accélérer le retour client avec votre équipe.</p><div class="price">49 €<small> HT / mois</small></div><ul><li>1 établissement</li><li>Tout Essentiel</li><li>Statistiques détaillées</li><li>Rôles propriétaire, manager, employé</li><li>Support prioritaire</li></ul><a class="btn primary" href="/inscription.html?plan=pro">Démarrer avec Croissance</a></article><article class="price-card"><h3>Signature</h3><p>Une expérience premium pour votre marque et vos différentes adresses.</p><div class="price">89 €<small> HT / mois</small></div><ul><li>Jusqu’à 5 établissements</li><li>Tout Croissance</li><li>Studio Wallet avancé</li><li>Logo, bannière, icône et templates</li><li>Accompagnement prioritaire</li></ul><a class="btn dark" href="/inscription.html?plan=premium">Démarrer avec Signature</a></article></div>
+      <div class="billing-toggle" role="tablist"><button type="button" class="billing-option active" data-cycle="mensuel">Mensuel</button><button type="button" class="billing-option" data-cycle="annuel">Annuel<span class="billing-badge">2 mois offerts</span></button></div>
+      <div class="pricing" id="grillePricing">
+        <article class="price-card" data-plan="starter"><h3>Essentiel</h3><p>Le socle complet pour faire revenir les habitués d’un établissement.</p><div class="price"><span class="price-montant">29 €</span><small> HT / mois</small></div><p class="price-note" hidden></p><ul><li>1 établissement</li><li>Cartes Apple et Google Wallet</li><li>Scanner, points et récompenses</li><li>Notifications et parrainage</li><li>Anti-fraude</li></ul><a class="btn light" data-cta href="/inscription.html?plan=starter">Démarrer avec Essentiel</a></article>
+        <article class="price-card popular" data-plan="pro"><span class="price-badge">Le plus choisi</span><h3>Croissance</h3><p>Le pilotage complet pour accélérer le retour client avec votre équipe.</p><div class="price"><span class="price-montant">49 €</span><small> HT / mois</small></div><p class="price-note" hidden></p><ul><li>1 établissement</li><li>Tout Essentiel</li><li>Roue cadeaux</li><li>Statistiques détaillées</li><li>Rôles propriétaire, manager, employé</li><li>Support prioritaire</li></ul><a class="btn primary" data-cta href="/inscription.html?plan=pro">Démarrer avec Croissance</a></article>
+        <article class="price-card" data-plan="premium"><h3>Signature</h3><p>Une expérience premium pour votre marque et vos différentes adresses.</p><div class="price"><span class="price-montant">89 €</span><small> HT / mois</small></div><p class="price-note" hidden></p><ul><li>Jusqu’à 5 établissements</li><li>Tout Croissance</li><li>Studio Wallet avancé</li><li>Logo, bannière, icône et templates</li><li>Accompagnement prioritaire</li></ul><a class="btn dark" data-cta href="/inscription.html?plan=premium">Démarrer avec Signature</a></article>
+      </div>
       <div class="after-choice"><div><b>01</b><strong>Choisissez votre offre</strong><p>Vous gardez la possibilité de changer votre choix sur l’écran suivant.</p></div><div><b>02</b><strong>Créez votre établissement</strong><p>Votre compte propriétaire et votre restaurant sont ajoutés automatiquement à Bravocard.</p></div><div><b>03</b><strong>Confirmez sur Stripe</strong><p>Vous vérifiez le prix avant de saisir votre moyen de paiement.</p></div></div>
     </section>
     <section class="section compact container"><div class="center-head"><span class="eyebrow">Bon à savoir</span><h2>Une souscription simple et réversible.</h2></div><div class="faq"><details open><summary>Que se passe-t-il après mon inscription ?</summary><p>Votre compte et votre restaurant sont créés immédiatement, puis Stripe s’ouvre pour finaliser l’abonnement choisi.</p></details><details><summary>Puis-je gérer l’abonnement depuis Bravocard ?</summary><p>Oui. Le propriétaire dispose d’un accès au portail Stripe dans « Mon compte » pour changer d’offre ou résilier.</p></details><details><summary>Quelles sont les limites d’établissements ?</summary><p>Essentiel et Croissance permettent un établissement. Signature permet jusqu’à cinq établissements.</p></details></div></section>
   </main>
   <footer class="site-footer"><div class="container"><div class="footer-grid"><div class="footer-brand"><a class="brand" href="/"><span class="brand-mark">✦</span>Bravo<em>card</em></a><p>La fidélité Wallet pensée pour les restaurants et commerces de proximité.</p></div><div class="footer-col"><strong>Produit</strong><a href="/">Accueil</a><a href="/#fonctionnalites">Fonctionnalités</a><a href="/espace-restaurateur.html">Connexion restaurateur</a></div><div class="footer-col"><strong>Informations</strong><a href="/mentions-legales.html">Mentions légales</a><a href="/cgv.html">CGV</a><a href="/cgu.html">CGU</a><a href="/confidentialite.html">Confidentialité</a></div><div class="footer-col"><strong>Contact</strong><a href="mailto:contact@bravocard.fr">contact@bravocard.fr</a><a href="/espace-restaurateur.html?admin=1">Administration</a></div></div><div class="footer-bottom"><span>© 2026 Bravocard</span><span>Paiement sécurisé par Stripe</span></div></div></footer>
+  <script>
+    const PRIX_PLANS={starter:{mensuel:29,annuelMensuel:24,annuelTotal:290,cta:'Démarrer avec Essentiel'},pro:{mensuel:49,annuelMensuel:41,annuelTotal:490,cta:'Démarrer avec Croissance'},premium:{mensuel:89,annuelMensuel:74,annuelTotal:890,cta:'Démarrer avec Signature'}};
+    function basculerCycleFacturation(cycle){
+      document.querySelectorAll('.billing-option').forEach(b=>b.classList.toggle('active',b.dataset.cycle===cycle));
+      document.querySelectorAll('#grillePricing .price-card').forEach(carte=>{
+        const infos=PRIX_PLANS[carte.dataset.plan];
+        const montant=carte.querySelector('.price-montant');
+        const note=carte.querySelector('.price-note');
+        const cta=carte.querySelector('[data-cta]');
+        if(cycle==='annuel'){
+          montant.textContent=infos.annuelMensuel+' €';
+          note.hidden=false;
+          note.textContent=infos.annuelTotal+' € HT facturés une fois par an';
+          cta.href='/#formRappel';
+          cta.textContent='Être rappelé pour l’offre annuelle';
+        }else{
+          montant.textContent=infos.mensuel+' €';
+          note.hidden=true;
+          cta.href=`/inscription.html?plan=${carte.dataset.plan}`;
+          cta.textContent=infos.cta;
+        }
+      });
+    }
+    document.querySelectorAll('.billing-option').forEach(b=>b.addEventListener('click',()=>basculerCycleFacturation(b.dataset.cycle)));
+  </script>
 </body>
 </html>
