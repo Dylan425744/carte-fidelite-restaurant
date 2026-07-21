@@ -2440,7 +2440,11 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       )
     };
 
-    await wallet.synchroniserObjetWallet(clientPourWallet, restaurant);
+    try {
+      await wallet.synchroniserObjetWallet(clientPourWallet, restaurant);
+    } catch (erreurGoogle) {
+      console.error('Erreur mise a jour Google Wallet:', erreurGoogle.message);
+    }
 
     // On met aussi a jour la carte Apple Wallet, si le client en a une
     if (client.apple_wallet_serial) {
@@ -2478,7 +2482,11 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
         )
       };
 
-      await wallet.mettreAJourPointsWallet(parrainPourWallet, restaurant);
+      try {
+        await wallet.mettreAJourPointsWallet(parrainPourWallet, restaurant);
+      } catch (erreurGoogle) {
+        console.error('Erreur mise a jour Google Wallet du parrain:', erreurGoogle.message);
+      }
 
       if (parrain.apple_wallet_serial) {
         try {
