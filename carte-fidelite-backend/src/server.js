@@ -2547,6 +2547,13 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
     const restaurant = scan.clients?.restaurants;
     const lots = roueService.lotsRestaurant(restaurant);
     const lot = roueService.tirerUnLot(lots);
+
+    // Un lot "rejouer" ne consomme pas le tour : la roue reste jouable avec
+    // ce meme lien, sans email ni code de retrait puisqu'il n'y a pas de gain.
+    if (lot.type === 'rejouer') {
+      return res.json({ indexLot: lot.index, label: lot.label, icone: lot.icone, type: 'rejouer' });
+    }
+
     const { dateDebut, dateFin } = roueService.calculerValiditeCadeau();
     const codeRetrait = roueService.genererCodeRetrait();
 
@@ -2581,6 +2588,7 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
       indexLot: lot.index,
       label: lot.label,
       icone: lot.icone,
+      type: 'standard',
       valideDu: dateDebut.toISOString(),
       valideAu: dateFin.toISOString(),
       codeRetrait
@@ -2684,6 +2692,13 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
 
     const lots = roueService.lotsRestaurant(restaurant);
     const lot = roueService.tirerUnLot(lots);
+
+    // Un lot "rejouer" ne consomme pas le tour de la journee : aucune entree
+    // n'est enregistree, le client peut relancer immediatement.
+    if (lot.type === 'rejouer') {
+      return res.json({ indexLot: lot.index, label: lot.label, icone: lot.icone, type: 'rejouer' });
+    }
+
     const { dateDebut, dateFin } = roueService.calculerValiditeCadeau();
     const codeRetrait = roueService.genererCodeRetrait();
 
@@ -2702,6 +2717,7 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
       indexLot: lot.index,
       label: lot.label,
       icone: lot.icone,
+      type: 'standard',
       valideDu: dateDebut.toISOString(),
       valideAu: dateFin.toISOString(),
       codeRetrait

@@ -96,11 +96,12 @@
 
   .message-info { margin-top: 18px; color: #B8ABD0; font-size: 13.5px; max-width: 300px; }
 
-  /* Icones professionnelles remplacant les emojis : blanches sur les secteurs
-     colores, noires sur le centre dore ou le contraste est deja bon. */
-  .icone-lot img { width: 24px; height: 24px; object-fit: contain; filter: brightness(0) invert(1); }
-  .centre-roue img { width: 28px; height: 28px; object-fit: contain; }
-  .icone-finale img { width: 38px; height: 38px; object-fit: contain; filter: brightness(0) invert(1); }
+  /* Icones professionnelles remplacant les emojis : recolorees a l'identique
+     du texte (#FFF9F3) via un masque, le centre garde ses couleurs d'origine. */
+  .icone-glyphe { display: inline-block; background-color: #FFF9F3; -webkit-mask: var(--icone-src) center / contain no-repeat; mask: var(--icone-src) center / contain no-repeat; }
+  .icone-lot .icone-glyphe { width: 24px; height: 24px; }
+  .icone-finale .icone-glyphe { width: 38px; height: 38px; }
+  .centre-roue img { width: 30px; height: 30px; object-fit: contain; }
 </style>
 </head>
 <body>
@@ -122,7 +123,7 @@
 <div class="zone-roue" id="zoneRoue">
   <div class="pointeur"></div>
   <div class="roue" id="roue">
-    <div class="centre-roue"><img src="/roue-icones/cadeau.png" alt=""></div>
+    <div class="centre-roue"><img src="/roue-icones/cadeau-centre.png" alt=""></div>
   </div>
 </div>
 
@@ -190,15 +191,15 @@ const ICONES_ROUE = {
   '🍰': 'dessert.png',
   '🥤': 'boisson.png',
   '🔁': 'rejouer.png',
-  '🙈': 'pas-de-chance.svg',
-  '✨': 'pas-de-chance.svg',
+  '🙈': 'match.png',
+  '✨': 'match.png',
   '🎁': 'cadeau.png'
 };
 
 function rendreIconeLot(emoji) {
   const fichier = ICONES_ROUE[String(emoji || '').trim()];
   return fichier
-    ? `<img src="/roue-icones/${fichier}" alt="">`
+    ? `<span class="icone-glyphe" style="--icone-src:url(/roue-icones/${fichier})"></span>`
     : echapper(emoji);
 }
 
@@ -308,6 +309,8 @@ function confirmerAvis() {
   }, DELAI_MINIMUM_MS);
 }
 
+let rotationActuelle = 0;
+
 boutonJouer.addEventListener('click', async () => {
   boutonJouer.disabled = true;
   messageInfo.textContent = '';
@@ -320,14 +323,25 @@ boutonJouer.addEventListener('click', async () => {
     const donnees = await reponse.json();
     if (!reponse.ok) {
       messageInfo.textContent = donnees.erreur || "Impossible de jouer.";
+      boutonJouer.disabled = false;
       return;
     }
     const nb = lots.length;
     const angleSegment = 360 / nb;
     const centreSegment = donnees.indexLot * angleSegment + angleSegment / 2;
-    const rotationFinale = 360 * 6 + (360 - centreSegment);
-    roue.style.transform = `rotate(${rotationFinale}deg)`;
+    // Rotation cumulee depuis la position actuelle, pour qu'un rejeu tourne a
+    // nouveau plusieurs tours au lieu d'un petit saut vers la valeur absolue.
+    const cible = (360 - centreSegment) % 360;
+    const positionActuelle = ((rotationActuelle % 360) + 360) % 360;
+    const mouvementVersCible = (cible - positionActuelle + 360) % 360;
+    rotationActuelle += 360 * 6 + mouvementVersCible;
+    roue.style.transform = `rotate(${rotationActuelle}deg)`;
     setTimeout(() => {
+      if (donnees.type === 'rejouer') {
+        messageInfo.textContent = 'Rejouez ! Retentez votre chance.';
+        boutonJouer.disabled = false;
+        return;
+      }
       nomGain.textContent = donnees.label;
       iconeFinale.innerHTML = rendreIconeLot(donnees.icone);
       afficherValidite(donnees.valideDu, donnees.valideAu);

@@ -509,13 +509,16 @@ function afficherTableau() {
   if (enCours) programmerActualisationCampagne();
 }
 
+// Identique a LOTS_PAR_DEFAUT dans roueService.js, pour que le premier
+// enregistrement d'un restaurant qui n'a jamais personnalise sa roue
+// conserve le comportement "rejouer" du lot Rejouez.
 const lotsRoueParDefaut = [
-  { label: 'Menu offert', icone: '🍽️' },
-  { label: '-10% addition', icone: '🏷️' },
-  { label: 'Dessert offert', icone: '🍰' },
-  { label: 'Boisson offerte', icone: '🥤' },
-  { label: 'Rejouez', icone: '🔁' },
-  { label: 'Pas de gain', icone: '✨' }
+  { label: 'Menu offert', icone: '🍽️', probabilite: 5, type: 'standard' },
+  { label: '-10% addition', icone: '🏷️', probabilite: 20, type: 'standard' },
+  { label: 'Dessert offert', icone: '🍰', probabilite: 10, type: 'standard' },
+  { label: 'Boisson offerte', icone: '🥤', probabilite: 30, type: 'standard' },
+  { label: 'Rejouez', icone: '🔁', probabilite: 15, type: 'rejouer' },
+  { label: 'Perdu !', icone: '🙈', probabilite: 20, type: 'standard' }
 ];
 let rotationApercuRoue = 0;
 
@@ -528,15 +531,15 @@ const ICONES_ROUE = {
   '🍰': 'dessert.png',
   '🥤': 'boisson.png',
   '🔁': 'rejouer.png',
-  '🙈': 'pas-de-chance.svg',
-  '✨': 'pas-de-chance.svg',
+  '🙈': 'match.png',
+  '✨': 'match.png',
   '🎁': 'cadeau.png'
 };
 
 function rendreIconeLot(emoji) {
   const fichier = ICONES_ROUE[String(emoji || '').trim()];
   return fichier
-    ? `<img src="/roue-icones/${fichier}" alt="">`
+    ? `<span class="icone-glyphe" style="--icone-src:url(/roue-icones/${fichier})"></span>`
     : echapper(emoji);
 }
 
@@ -585,7 +588,12 @@ function remplirApercuRoue() {
   const roue = $('#roueApercu');
   if (!roue) return;
   const lots = lotsRoue();
-  roueLotsEdition = lots.map(lot => ({ icone: lot.icone, label: lot.label, probabilite: Number(lot.probabilite) || 10 }));
+  roueLotsEdition = lots.map(lot => ({
+    icone: lot.icone,
+    label: lot.label,
+    probabilite: Number(lot.probabilite) || 10,
+    type: lot.type === 'rejouer' ? 'rejouer' : 'standard'
+  }));
   afficherLotsEdition();
   if (!$('#roueCouleurPrincipale').value || $('#roueCouleurPrincipale').dataset.rempli !== 'oui') {
     $('#roueCouleurPrincipale').value = donneesTableau?.roue?.couleur_principale || '#6C3CE9';
@@ -618,6 +626,7 @@ function afficherLotsEdition() {
       <input type="text" class="lot-icone" maxlength="4" value="${echapper(lot.icone)}" aria-label="Icône" ${peutModifier ? '' : 'disabled'}>
       <input type="text" class="lot-label" maxlength="40" value="${echapper(lot.label)}" aria-label="Nom du lot" ${peutModifier ? '' : 'disabled'}>
       <input type="number" class="lot-probabilite" min="1" max="100" value="${Number(lot.probabilite) || 10}" aria-label="Probabilité" ${peutModifier ? '' : 'disabled'}>
+      <button type="button" class="lot-rejouer${lot.type === 'rejouer' ? ' actif' : ''}" data-basculer-rejeu="${index}" aria-pressed="${lot.type === 'rejouer'}" title="Ce lot relance la roue au lieu d’offrir un gain" ${peutModifier ? '' : 'disabled'}>↻</button>
       ${peutModifier ? `<button type="button" data-supprimer-lot="${index}" title="Supprimer ce lot">✕</button>` : ''}
     </div>`).join('');
 }
@@ -626,13 +635,22 @@ function lireLotsDepuisFormulaire() {
   return [...document.querySelectorAll('.ligne-lot-edition')].map(ligne => ({
     icone: ligne.querySelector('.lot-icone').value.trim(),
     label: ligne.querySelector('.lot-label').value.trim(),
-    probabilite: Number(ligne.querySelector('.lot-probabilite').value)
+    probabilite: Number(ligne.querySelector('.lot-probabilite').value),
+    type: ligne.querySelector('.lot-rejouer').classList.contains('actif') ? 'rejouer' : 'standard'
   }));
+}
+
+function basculerTypeLot(index) {
+  roueLotsEdition = lireLotsDepuisFormulaire();
+  const lot = roueLotsEdition[index];
+  if (!lot) return;
+  lot.type = lot.type === 'rejouer' ? 'standard' : 'rejouer';
+  afficherLotsEdition();
 }
 
 function ajouterLigneLot() {
   roueLotsEdition = lireLotsDepuisFormulaire();
-  roueLotsEdition.push({ icone: '🎁', label: 'Nouveau lot', probabilite: 10 });
+  roueLotsEdition.push({ icone: '🎁', label: 'Nouveau lot', probabilite: 10, type: 'standard' });
   afficherLotsEdition();
 }
 
@@ -2071,8 +2089,10 @@ $('#copierLienCarte').addEventListener('click', copierLienCreationCarte);
 $('#lancerApercuRoue').addEventListener('click', lancerApercuRoue);
 $('#ajouterLot').addEventListener('click', ajouterLigneLot);
 $('#listeLotsEdition').addEventListener('click', evenement => {
-  const bouton = evenement.target.closest('[data-supprimer-lot]');
-  if (bouton) supprimerLigneLot(Number(bouton.dataset.supprimerLot));
+  const boutonSupprimer = evenement.target.closest('[data-supprimer-lot]');
+  if (boutonSupprimer) return supprimerLigneLot(Number(boutonSupprimer.dataset.supprimerLot));
+  const boutonRejeu = evenement.target.closest('[data-basculer-rejeu]');
+  if (boutonRejeu) basculerTypeLot(Number(boutonRejeu.dataset.basculerRejeu));
 });
 $('#enregistrerRoue').addEventListener('click', enregistrerRoue);
 $('#roueCouleurPrincipale').addEventListener('input', actualiserCouleursApercuRoue);

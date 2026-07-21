@@ -54,9 +54,10 @@
 .segment-contenu .icone-lot{font-size:23px;line-height:1}
 .segment-contenu .texte-lot{font-size:10px;letter-spacing:-.1px;font-weight:700;font-family:"Manrope",sans-serif;color:#fff9f3;line-height:1.15;text-shadow:0 1px 3px rgba(0,0,0,.35)}
 .centre-roue-reel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:62px;height:62px;border-radius:50%;border:5px solid #fff7d4;background:radial-gradient(circle at 35% 30%,#fff6b3,#f2b944);display:flex;align-items:center;justify-content:center;font-size:24px;z-index:5;box-shadow:0 5px 14px rgba(0,0,0,.34)}
-/* Icones professionnelles remplacant les emojis : blanches sur les secteurs colores, noires sur le centre dore ou le contraste est deja bon. */
-.icone-lot img{width:24px;height:24px;object-fit:contain;filter:brightness(0) invert(1)}
-.centre-roue-reel img{width:28px;height:28px;object-fit:contain}
+/* Icones professionnelles remplacant les emojis : recolorees a l'identique du texte (#FFF9F3) via un masque, le centre garde ses couleurs d'origine. */
+.icone-glyphe{display:inline-block;background-color:#fff9f3;-webkit-mask:var(--icone-src) center/contain no-repeat;mask:var(--icone-src) center/contain no-repeat}
+.icone-lot .icone-glyphe{width:24px;height:24px}
+.centre-roue-reel img{width:30px;height:30px;object-fit:contain}
 .apercu-roue-note{margin:14px 0 0;text-align:center}
 .roue-demo-actions{display:grid;justify-items:center;gap:11px;text-align:center;margin-top:14px}.roue-demo-actions span{color:var(--secondaire);font-size:10px}.lots-roue-panneau>h3{margin-bottom:8px}.liste-lots-roue{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:19px 0}.lot-roue{display:flex;align-items:center;gap:9px;padding:11px;border:1px solid #eee6f2;border-radius:12px;background:#fbfafe}.lot-roue i{display:grid;place-items:center;width:29px;height:29px;border-radius:9px;background:var(--teinte,#eee9ff);font-size:15px;font-style:normal}.lot-roue strong{font:800 10px "Manrope"}.roue-info{margin-top:12px}.parcours-roue{display:grid;grid-template-columns:.9fr 2.1fr;align-items:center;gap:26px}.etapes-roue{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.etapes-roue>div{display:grid;gap:5px;padding-left:13px;border-left:2px solid #e4daf4}.etapes-roue i{color:#7852cf;font:800 10px "Manrope";font-style:normal}.etapes-roue strong{font-size:10px}.etapes-roue span{color:var(--secondaire);font-size:9px;line-height:1.35}.modele-visuel.bistrot{background:linear-gradient(145deg,#48221e,#be5e36 62%,#f0ad6b)}.modele-visuel.azur{background:linear-gradient(145deg,#063c68,#117fa6 57%,#f1c96d)}.modele-visuel.patissier{background:linear-gradient(145deg,#6a3047,#d6769a 56%,#f6d7df)}
 @media(max-width:1050px){.grille-roue,.parcours-roue{grid-template-columns:1fr}.etapes-roue{grid-template-columns:repeat(2,1fr)}}
@@ -99,15 +100,18 @@
 
 /* Personnalisation des lots de la roue et validation d'un cadeau au comptoir. */
 .liste-lots-edition{display:grid;gap:9px;margin:16px 0}
-.ligne-lot-edition{display:grid;grid-template-columns:52px 1fr 84px auto;gap:8px;align-items:center}
+.ligne-lot-edition{display:grid;grid-template-columns:52px 1fr 84px auto auto;gap:8px;align-items:center}
 .ligne-lot-edition input{height:44px;border:1px solid var(--bordure);border-radius:10px;background:#fff;color:var(--texte);outline:none;padding:0 10px;font:inherit}
 .ligne-lot-edition input.lot-icone{padding:0;text-align:center;font-size:18px}
 .ligne-lot-edition input:focus{border-color:#9a7df0;box-shadow:0 0 0 3px rgba(113,72,232,.12)}
 .ligne-lot-edition button{border:0;background:#fde5e8;color:#b33e4c;width:44px;height:44px;border-radius:10px;font-weight:800;cursor:pointer}
 .ligne-lot-edition button:hover{background:#fcd4d9}
+.ligne-lot-edition button.lot-rejouer{background:#f3effb;color:#7148e8}
+.ligne-lot-edition button.lot-rejouer:hover{background:#e6ddfb}
+.ligne-lot-edition button.lot-rejouer.actif{background:#7148e8;color:#fff}
 #ajouterLot{display:inline-block;margin:2px 0 4px}
 .cadeau-validation .champ-copie{margin-top:14px}
-@media(max-width:560px){.ligne-lot-edition{grid-template-columns:44px 1fr 60px auto}}
+@media(max-width:560px){.ligne-lot-edition{grid-template-columns:44px 1fr 60px auto auto}}
 
 /* Editeur Wallet WYSIWYG : onglets Apple / Google, deux apercus fideles et
    distincts, jamais melanges. Voir walletAssetSpecifications.js cote serveur

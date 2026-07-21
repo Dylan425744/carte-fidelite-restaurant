@@ -1,12 +1,14 @@
 const crypto = require('crypto');
 
+// "standard" verrouille la roue comme un tour normal (gain reel ou perdu).
+// "rejouer" ne verrouille rien : le client peut relancer immediatement.
 const LOTS_PAR_DEFAUT = [
-  { label: 'Menu offert', icone: '🍽️', probabilite: 5 },
-  { label: '-10% addition', icone: '🏷️', probabilite: 20 },
-  { label: 'Dessert offert', icone: '🍰', probabilite: 10 },
-  { label: 'Boisson offerte', icone: '🥤', probabilite: 30 },
-  { label: 'Rejouez', icone: '🔁', probabilite: 15 },
-  { label: 'Perdu !', icone: '🙈', probabilite: 20 }
+  { label: 'Menu offert', icone: '🍽️', probabilite: 5, type: 'standard' },
+  { label: '-10% addition', icone: '🏷️', probabilite: 20, type: 'standard' },
+  { label: 'Dessert offert', icone: '🍰', probabilite: 10, type: 'standard' },
+  { label: 'Boisson offerte', icone: '🥤', probabilite: 30, type: 'standard' },
+  { label: 'Rejouez', icone: '🔁', probabilite: 15, type: 'rejouer' },
+  { label: 'Perdu !', icone: '🙈', probabilite: 20, type: 'standard' }
 ];
 
 const NB_LOTS_MIN = 2;
@@ -32,6 +34,7 @@ function validerLots(lotsRecus) {
     const label = String(lot?.label || '').trim();
     const icone = String(lot?.icone || '').trim();
     const probabilite = Number(lot?.probabilite);
+    const type = lot?.type === 'rejouer' ? 'rejouer' : 'standard';
     if (!label || label.length > 40) {
       throw new Error(`Le lot ${index + 1} doit avoir un nom entre 1 et 40 caractères.`);
     }
@@ -41,7 +44,7 @@ function validerLots(lotsRecus) {
     if (!Number.isFinite(probabilite) || probabilite <= 0 || probabilite > 100) {
       throw new Error(`Le lot ${index + 1} doit avoir une probabilité entre 1 et 100.`);
     }
-    return { label, icone, probabilite };
+    return { label, icone, probabilite, type };
   });
 }
 
@@ -61,12 +64,12 @@ function tirerUnLot(lots) {
     tirage -= Number(lots[index].probabilite || 0);
     if (tirage < 0) {
       const lot = lots[index];
-      return { index, label: lot.label, icone: lot.icone };
+      return { index, label: lot.label, icone: lot.icone, type: lot.type === 'rejouer' ? 'rejouer' : 'standard' };
     }
   }
   const dernierIndex = lots.length - 1;
   const dernierLot = lots[dernierIndex];
-  return { index: dernierIndex, label: dernierLot.label, icone: dernierLot.icone };
+  return { index: dernierIndex, label: dernierLot.label, icone: dernierLot.icone, type: dernierLot.type === 'rejouer' ? 'rejouer' : 'standard' };
 }
 
 function calculerValiditeCadeau() {
