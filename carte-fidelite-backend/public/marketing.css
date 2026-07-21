@@ -11,5 +11,4 @@
 .testimonial-avatar{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:50%;background:linear-gradient(145deg,var(--purple),#4f2ab5);color:#fff;font:800 12px Manrope}
 .testimonial-card strong{display:block;font-size:13px}
 .testimonial-card span{color:var(--muted);font-size:11px}
-.launch-offer{width:max-content;margin:28px auto 0;padding:10px 20px;border-radius:99px;background:linear-gradient(145deg,var(--purple),#4f2ab5);color:#fff;font:700 12px "Work Sans",sans-serif;text-align:center}
 .price-note{margin:-8px 0 14px;color:var(--muted);font-size:11px}

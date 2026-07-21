@@ -100,18 +100,29 @@
 
 /* Personnalisation des lots de la roue et validation d'un cadeau au comptoir. */
 .liste-lots-edition{display:grid;gap:9px;margin:16px 0}
-.ligne-lot-edition{display:grid;grid-template-columns:52px 1fr 84px auto auto;gap:8px;align-items:center}
+.lots-entetes{display:grid;grid-template-columns:48px 1fr 84px 110px 44px;gap:8px;margin-bottom:6px;padding:0 2px;color:var(--secondaire);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px}
+.ligne-lot-edition{display:grid;grid-template-columns:48px 1fr 84px 110px 44px;gap:8px;align-items:center;margin-bottom:8px}
 .ligne-lot-edition input{height:44px;border:1px solid var(--bordure);border-radius:10px;background:#fff;color:var(--texte);outline:none;padding:0 10px;font:inherit}
-.ligne-lot-edition input.lot-icone{padding:0;text-align:center;font-size:18px}
 .ligne-lot-edition input:focus{border-color:#9a7df0;box-shadow:0 0 0 3px rgba(113,72,232,.12)}
-.ligne-lot-edition button{border:0;background:#fde5e8;color:#b33e4c;width:44px;height:44px;border-radius:10px;font-weight:800;cursor:pointer}
-.ligne-lot-edition button:hover{background:#fcd4d9}
-.ligne-lot-edition button.lot-rejouer{background:#f3effb;color:#7148e8}
-.ligne-lot-edition button.lot-rejouer:hover{background:#e6ddfb}
-.ligne-lot-edition button.lot-rejouer.actif{background:#7148e8;color:#fff}
+.lot-icone-bouton{border:1px solid var(--bordure);background:#faf8fc;width:44px;height:44px;border-radius:10px;cursor:pointer;display:grid;place-items:center;padding:0}
+.lot-icone-bouton:hover{border-color:#9a7df0;background:#f3effb}
+.icone-glyphe-sombre{background-color:#4b3c66;width:22px;height:22px}
+.lot-probabilite-zone{position:relative}
+.lot-probabilite-zone input{width:100%;padding-right:26px}
+.lot-probabilite-zone span{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--secondaire);font-size:11px;font-weight:700;pointer-events:none}
+.lot-type{height:44px;border:1px solid var(--bordure);border-radius:10px;background:#fff;color:var(--texte);font:600 11px "Work Sans";padding:0 8px}
+.lot-type:focus{border-color:#9a7df0;box-shadow:0 0 0 3px rgba(113,72,232,.12);outline:none}
+.lot-supprimer{border:0;background:#fde5e8;color:#b33e4c;width:44px;height:44px;border-radius:10px;font-weight:800;cursor:pointer}
+.lot-supprimer:hover{background:#fcd4d9}
+.total-probabilites{display:flex;align-items:center;justify-content:space-between;margin:4px 0 14px;padding:10px 14px;border-radius:10px;background:#f5f2fa;color:var(--secondaire);font-size:11px;font-weight:700}
+.total-probabilites strong{font:800 14px "Manrope"}
+.total-probabilites.correct{background:#e3f6ed;color:#16895f}
+.total-probabilites.correct strong{color:#16895f}
+.total-probabilites.erreur{background:#fde5e8;color:#b33e4c}
+.total-probabilites.erreur strong{color:#b33e4c}
 #ajouterLot{display:inline-block;margin:2px 0 4px}
 .cadeau-validation .champ-copie{margin-top:14px}
-@media(max-width:560px){.ligne-lot-edition{grid-template-columns:44px 1fr 60px auto auto}}
+@media(max-width:560px){.ligne-lot-edition,.lots-entetes{grid-template-columns:40px 1fr 64px 84px 40px}.lots-entetes{font-size:7.5px}}
 
 /* Editeur Wallet WYSIWYG : onglets Apple / Google, deux apercus fideles et
    distincts, jamais melanges. Voir walletAssetSpecifications.js cote serveur
@@ -240,3 +251,14 @@
 .galerie-boite{width:min(560px,100%);max-height:85vh;overflow-y:auto;padding:22px;border-radius:18px;background:#fff;box-shadow:0 30px 80px rgba(0,0,0,.35)}
 .galerie-boite h3{margin:0 0 6px;font:800 17px "Manrope"}
 .galerie-boite .galerie-bannieres{margin-top:14px}
+
+/* Fenetre de choix de pictogramme pour un lot de la roue. */
+.icone-picker-fond{position:fixed;inset:0;z-index:100;display:none;place-items:center;padding:20px;background:rgba(17,12,26,.6)}
+.icone-picker-fond.visible{display:grid}
+.icone-picker-boite{width:min(420px,100%);max-height:80vh;overflow-y:auto;padding:22px;border-radius:18px;background:#fff;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.icone-picker-boite h3{margin:0 0 14px;font:800 17px "Manrope"}
+.icone-picker-grille{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.icone-picker-grille button{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 8px;border:1px solid var(--bordure);border-radius:12px;background:#faf8fc;cursor:pointer}
+.icone-picker-grille button:hover{border-color:#9a7df0;background:#f3effb}
+.icone-picker-grille .icone-glyphe{width:26px;height:26px}
+.icone-picker-grille small{font-size:10px;font-weight:700;color:var(--texte)}

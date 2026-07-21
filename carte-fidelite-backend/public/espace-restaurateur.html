@@ -262,8 +262,10 @@
             <p class="texte-secondaire apercu-roue-note">Ce rendu est identique à celui vu par vos clients (mêmes couleurs, mêmes proportions).</p>
             <div class="roue-demo-actions"><button class="bouton principal" id="lancerApercuRoue">Lancer l’aperçu</button><span id="resultatApercuRoue">Choisissez un tour pour visualiser l’animation.</span></div>
           </article>
-          <article class="panneau lots-roue-panneau"><span class="eyebrow">Personnalisation</span><h3>Vos lots et vos couleurs</h3><p class="texte-secondaire">Le tirage reste sécurisé côté serveur. Ajustez librement les lots, leurs icônes et leur probabilité relative.</p>
+          <article class="panneau lots-roue-panneau"><span class="eyebrow">Personnalisation</span><h3>Vos lots et vos couleurs</h3><p class="texte-secondaire">Le tirage reste sécurisé côté serveur. Ajustez librement les lots, leurs icônes et leur probabilité : le total doit toujours faire 100 %.</p>
+            <div class="lots-entetes"><span>Icône</span><span>Nom</span><span>Chance</span><span>Type</span><span></span></div>
             <div class="liste-lots-edition" id="listeLotsEdition"></div>
+            <div class="total-probabilites" id="totalProbabilites"><span>Total des chances</span><strong id="totalProbabilitesValeur">100 %</strong></div>
             <button class="lien-bouton" id="ajouterLot" type="button">+ Ajouter un lot</button>
             <div class="deux-colonnes couleur-exacte">
               <div><label for="roueCouleurPrincipale">Couleur principale</label><input id="roueCouleurPrincipale" type="color"></div>
@@ -302,7 +304,7 @@
               <label>Code à présenter en caisse</label><div class="choix-plateforme choix-code-wallet"><label><input type="radio" name="walletBarcodeFormat" value="CODE_128" checked><span>Code-barres</span></label><label><input type="radio" name="walletBarcodeFormat" value="QR_CODE"><span>QR code</span></label></div><p class="texte-secondaire">Le choix s’applique automatiquement aux cartes Apple Wallet et Google Wallet de ce restaurant.</p>
             </div>
 
-            <p class="texte-secondaire galerie-astuce">Sur chaque image ci-dessous, le bouton « Galerie » propose des photos prêtes à l’emploi (sans texte). Vous pourrez toujours déplacer, zoomer ou recentrer la photo choisie, y compris après l’avoir enregistrée.</p>
+            <p class="texte-secondaire galerie-astuce">Sur chaque image ci-dessous, le bouton « Galerie » propose des photos génériques et libres de droits, les mêmes proposées à tous les restaurants Bravocard : pratique pour démarrer vite, mais pas exclusives à votre établissement. Pour un rendu unique, importez plutôt votre propre photo avec « Importer ». Vous pourrez toujours déplacer, zoomer ou recentrer l’image choisie, y compris après l’avoir enregistrée.</p>
 
             <div class="wallet-panneau-plateforme" id="walletPanneauApple" data-plateforme="apple">
               <div class="zone-pro verrouille" id="zoneProApple">
@@ -495,6 +497,14 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="icone-picker-fond" id="iconePickerFond">
+    <div class="icone-picker-boite">
+      <h3>Choisir un pictogramme</h3>
+      <div class="icone-picker-grille" id="iconePickerGrille"></div>
+      <div class="recadrage-actions"><button type="button" class="bouton secondaire" id="annulerIconePicker">Annuler</button></div>
+    </div>
   </div>
 
   <div class="galerie-fond" id="galerieFond">

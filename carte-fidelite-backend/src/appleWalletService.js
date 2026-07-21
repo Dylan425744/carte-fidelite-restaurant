@@ -206,10 +206,14 @@ function construireChampsCarte(client, restaurant = null) {
   const logoText = valeurConfiguree('apple_logo_text') || nomRestaurant;
   const pointsLabel = valeurConfiguree('apple_points_label', 'POINTS SUR 100');
   const carteLabel = valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
-  const texteRecompense = valeurConfiguree(
-    'apple_reward_text',
-    restaurant?.description_recompense || 'Récompense à débloquer'
-  );
+  // Sans .trim(), une valeur enregistree vide (mais non nulle, ex. apres un
+  // premier enregistrement du formulaire sans ce champ rempli) resterait
+  // vide au lieu de retomber sur la description : primaryFields deviendrait
+  // alors un tableau vide, ce que WalletWallet peut refuser silencieusement.
+  const texteRecompense =
+    valeurConfiguree('apple_reward_text') ||
+    restaurant?.description_recompense ||
+    'Récompense à débloquer';
   const conditions = valeurConfiguree(
     'apple_terms',
     'Conditions du programme disponibles auprès du restaurant.'

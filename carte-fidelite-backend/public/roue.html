@@ -110,6 +110,9 @@
   .bouton:before { content: ''; position: absolute; top: -80%; left: -25%; width: 25%; height: 260%; background: rgba(255,255,255,.22); transform: rotate(22deg); transition: left .4s ease; }
   .bouton:hover:not(:disabled):before { left: 115%; }
   .resultat-final { border-color: rgba(93,230,167,.75); box-shadow: 0 19px 43px rgba(0,0,0,.25); }
+  .resultat-final.perdu { background: linear-gradient(160deg, #3a141d, #2a0f16); border-color: rgba(230,93,110,.6); }
+  .resultat-final.perdu .nom-gain { color: #ff8b96; }
+  .resultat-final.perdu .validite { border-top-color: rgba(230,93,110,.3); color: #f0c7cb; }
 
   /* Icones professionnelles remplacant les emojis : recolorees a l'identique
      du texte (#FFF9F3) via un masque, le centre garde ses couleurs d'origine. */
@@ -140,7 +143,7 @@
 
 <div class="resultat-final" id="resultatFinal">
   <div class="icone-finale" id="iconeFinale"></div>
-  <div class="titre-gain">Vous avez gagné</div>
+  <div class="titre-gain" id="titreResultat">Vous avez gagné</div>
   <div class="nom-gain" id="nomGain"></div>
   <div class="validite" id="validite"></div>
 </div>
@@ -154,6 +157,7 @@ const scanId = params.get('scan');
 const roue = document.getElementById('roue');
 const boutonJouer = document.getElementById('boutonJouer');
 const resultatFinal = document.getElementById('resultatFinal');
+const titreResultat = document.getElementById('titreResultat');
 const nomGain = document.getElementById('nomGain');
 const iconeFinale = document.getElementById('iconeFinale');
 const validite = document.getElementById('validite');
@@ -297,8 +301,10 @@ async function initialiser() {
     if (!donnees.peutJouer) {
       boutonJouer.disabled = true;
       if (donnees.cadeauDejaGagne) {
+        titreResultat.textContent = 'Votre résultat';
         nomGain.textContent = donnees.cadeauDejaGagne;
         iconeFinale.textContent = '🎉';
+        resultatFinal.classList.remove('perdu');
         afficherValidite(donnees.valideDu, donnees.valideAu);
         resultatFinal.classList.add('visible');
         messageInfo.textContent = "Vous avez déjà joué avec ce lien.";
@@ -344,11 +350,18 @@ boutonJouer.addEventListener('click', async () => {
         boutonJouer.disabled = false;
         return;
       }
+      const perdu = donnees.type === 'perdu';
+      resultatFinal.classList.toggle('perdu', perdu);
+      titreResultat.textContent = perdu ? 'Pas de chance, cette fois' : 'Vous avez gagné';
       nomGain.textContent = donnees.label;
       iconeFinale.innerHTML = rendreIconeLot(donnees.icone);
-      afficherValidite(donnees.valideDu, donnees.valideAu);
+      if (perdu) {
+        validite.innerHTML = 'Retentez votre chance lors de votre prochain passage !';
+      } else {
+        afficherValidite(donnees.valideDu, donnees.valideAu);
+      }
       resultatFinal.classList.add('visible');
-      lancerConfettis();
+      if (!perdu) lancerConfettis();
     }, 5300);
 
   } catch (erreur) {

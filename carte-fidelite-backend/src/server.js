@@ -859,9 +859,17 @@ async function actualiserCartesAppleEnArrierePlan(restaurant) {
     const clientsEnrichis = await enrichirClientsParrainage(clients || [], restaurant);
     for (let index = 0; index < clientsEnrichis.length; index += 5) {
       const lot = clientsEnrichis.slice(index, index + 5);
-      await Promise.allSettled(lot.map(client =>
+      const resultats = await Promise.allSettled(lot.map(client =>
         appleWallet.mettreAJourPasseApple(client.apple_wallet_serial, client, restaurant)
       ));
+      resultats.forEach((resultat, position) => {
+        if (resultat.status === 'rejected') {
+          console.error(
+            `Echec mise a jour Apple Wallet (client ${lot[position].id}):`,
+            resultat.reason?.message || resultat.reason
+          );
+        }
+      });
     }
   } catch (erreur) {
     console.error('Synchronisation du design Apple Wallet:', erreur.message);
@@ -887,9 +895,16 @@ async function actualiserCartesGoogleEnArrierePlan(restaurant) {
     if (error) throw error;
     const clientsEnrichis = await enrichirClientsParrainage(clients || [], restaurant);
     for (let index = 0; index < clientsEnrichis.length; index += 5) {
-      await Promise.allSettled(clientsEnrichis.slice(index, index + 5).map(client =>
+      const lot = clientsEnrichis.slice(index, index + 5);
+      const resultats = await Promise.allSettled(lot.map(client =>
         wallet.diagnostiquerSynchronisationObjetWallet(client, restaurant)
       ));
+      resultats.forEach((resultat, position) => {
+        const echec = resultat.status === 'rejected'
+          ? (resultat.reason?.message || resultat.reason)
+          : (resultat.value?.succes === false ? resultat.value.erreur?.message || resultat.value.action : null);
+        if (echec) console.error(`Echec mise a jour Google Wallet (client ${lot[position].id}):`, echec);
+      });
     }
   } catch (erreur) {
     console.error('Synchronisation des cartes Google Wallet:', erreur.message);
@@ -2554,43 +2569,47 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
       return res.json({ indexLot: lot.index, label: lot.label, icone: lot.icone, type: 'rejouer' });
     }
 
-    const { dateDebut, dateFin } = roueService.calculerValiditeCadeau();
-    const codeRetrait = roueService.genererCodeRetrait();
+    const perdu = lot.type === 'perdu';
+    const validite = perdu ? null : roueService.calculerValiditeCadeau();
+    const codeRetrait = perdu ? null : roueService.genererCodeRetrait();
 
     await supabase
       .from('scans')
       .update({
         roue_utilisee: true,
         cadeau_gagne: lot.label,
-        cadeau_valide_du: dateDebut.toISOString(),
-        cadeau_valide_au: dateFin.toISOString(),
+        cadeau_valide_du: validite ? validite.dateDebut.toISOString() : null,
+        cadeau_valide_au: validite ? validite.dateFin.toISOString() : null,
         code_retrait: codeRetrait
       })
       .eq('id', req.params.scanId);
 
-    // Envoie un email de confirmation avec le code a presenter au comptoir
-    try {
-      await email.envoyerEmailCadeau(
-        scan.clients.email,
-        scan.clients.nom,
-        restaurant,
-        lot.label,
-        lot.icone,
-        dateDebut.toISOString(),
-        dateFin.toISOString(),
-        codeRetrait
-      );
-    } catch (erreurEmail) {
-      console.error('Erreur envoi email cadeau:', erreurEmail.message);
+    // Un lot "perdu" n'a rien a retirer : ni email, ni code, seul le resultat
+    // reste enregistre pour l'historique du restaurateur.
+    if (!perdu) {
+      try {
+        await email.envoyerEmailCadeau(
+          scan.clients.email,
+          scan.clients.nom,
+          restaurant,
+          lot.label,
+          lot.icone,
+          validite.dateDebut.toISOString(),
+          validite.dateFin.toISOString(),
+          codeRetrait
+        );
+      } catch (erreurEmail) {
+        console.error('Erreur envoi email cadeau:', erreurEmail.message);
+      }
     }
 
     res.json({
       indexLot: lot.index,
       label: lot.label,
       icone: lot.icone,
-      type: 'standard',
-      valideDu: dateDebut.toISOString(),
-      valideAu: dateFin.toISOString(),
+      type: lot.type,
+      valideDu: validite ? validite.dateDebut.toISOString() : null,
+      valideAu: validite ? validite.dateFin.toISOString() : null,
       codeRetrait
     });
   } catch (erreur) {
@@ -2699,16 +2718,17 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
       return res.json({ indexLot: lot.index, label: lot.label, icone: lot.icone, type: 'rejouer' });
     }
 
-    const { dateDebut, dateFin } = roueService.calculerValiditeCadeau();
-    const codeRetrait = roueService.genererCodeRetrait();
+    const perdu = lot.type === 'perdu';
+    const validite = perdu ? null : roueService.calculerValiditeCadeau();
+    const codeRetrait = perdu ? null : roueService.genererCodeRetrait();
 
     const { error } = await supabase.from('roue_avis_entries').insert({
       restaurant_id: restaurant.id,
       cookie_id: cookieId,
       cadeau_gagne: lot.label,
       cadeau_icone: lot.icone,
-      cadeau_valide_du: dateDebut.toISOString(),
-      cadeau_valide_au: dateFin.toISOString(),
+      cadeau_valide_du: validite ? validite.dateDebut.toISOString() : null,
+      cadeau_valide_au: validite ? validite.dateFin.toISOString() : null,
       code_retrait: codeRetrait
     });
     if (error) throw error;
@@ -2717,9 +2737,9 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
       indexLot: lot.index,
       label: lot.label,
       icone: lot.icone,
-      type: 'standard',
-      valideDu: dateDebut.toISOString(),
-      valideAu: dateFin.toISOString(),
+      type: lot.type,
+      valideDu: validite ? validite.dateDebut.toISOString() : null,
+      valideAu: validite ? validite.dateFin.toISOString() : null,
       codeRetrait
     });
   } catch (erreur) {

@@ -84,6 +84,9 @@
     box-shadow: 0 19px 43px rgba(0,0,0,.25);
   }
   .resultat-final.visible { display: block; animation: apparition 0.4s ease; }
+  .resultat-final.perdu { background: linear-gradient(160deg, #3a141d, #2a0f16); border-color: rgba(230,93,110,.6); }
+  .resultat-final.perdu .nom-gain { color: #ff8b96; }
+  .resultat-final.perdu .validite { border-top-color: rgba(230,93,110,.3); color: #f0c7cb; }
   @keyframes apparition { from { opacity:0; transform: scale(0.9); } to { opacity:1; transform: scale(1); } }
   .resultat-final .icone-finale { font-size: 36px; margin-bottom: 6px; }
   .resultat-final .titre-gain { font-size: 13px; color: #B8ABD0; }
@@ -131,7 +134,7 @@
 
 <div class="resultat-final" id="resultatFinal">
   <div class="icone-finale" id="iconeFinale"></div>
-  <div class="titre-gain">Vous avez gagné</div>
+  <div class="titre-gain" id="titreResultat">Vous avez gagné</div>
   <div class="nom-gain" id="nomGain"></div>
   <div class="validite" id="validite"></div>
   <div class="code-retrait" id="zoneCode" style="display:none">
@@ -151,6 +154,7 @@ const zoneRoue = document.getElementById('zoneRoue');
 const boutonAvis = document.getElementById('boutonAvis');
 const boutonJouer = document.getElementById('boutonJouer');
 const resultatFinal = document.getElementById('resultatFinal');
+const titreResultat = document.getElementById('titreResultat');
 const nomGain = document.getElementById('nomGain');
 const iconeFinale = document.getElementById('iconeFinale');
 const validite = document.getElementById('validite');
@@ -158,7 +162,7 @@ const zoneCode = document.getElementById('zoneCode');
 const codeRetrait = document.getElementById('codeRetrait');
 const messageInfo = document.getElementById('messageInfo');
 
-const DELAI_MINIMUM_MS = 60000; // le temps avant de debloquer la roue, volontairement fixe et invisible pour le client
+const DELAI_MINIMUM_MS = 45000; // le temps avant de debloquer la roue, volontairement fixe et invisible pour le client
 let lots = [];
 let avisConfirme = false;
 let restaurantData = null;
@@ -281,8 +285,10 @@ async function initialiser() {
       boutonJouer.disabled = true;
       boutonJouer.textContent = 'Roue déjà utilisée aujourd’hui';
       if (donnees.cadeauDejaGagne) {
+        titreResultat.textContent = 'Votre résultat';
         nomGain.textContent = donnees.cadeauDejaGagne;
         iconeFinale.textContent = '🎉';
+        resultatFinal.classList.remove('perdu');
         afficherValidite(donnees.valideDu, donnees.valideAu);
         resultatFinal.classList.add('visible');
       }
@@ -342,13 +348,21 @@ boutonJouer.addEventListener('click', async () => {
         boutonJouer.disabled = false;
         return;
       }
+      const perdu = donnees.type === 'perdu';
+      resultatFinal.classList.toggle('perdu', perdu);
+      titreResultat.textContent = perdu ? 'Pas de chance, cette fois' : 'Vous avez gagné';
       nomGain.textContent = donnees.label;
       iconeFinale.innerHTML = rendreIconeLot(donnees.icone);
-      afficherValidite(donnees.valideDu, donnees.valideAu);
-      codeRetrait.textContent = donnees.codeRetrait;
-      zoneCode.style.display = 'block';
+      if (perdu) {
+        validite.innerHTML = 'Merci pour votre avis ! Retentez votre chance lors de votre prochaine visite.';
+        zoneCode.style.display = 'none';
+      } else {
+        afficherValidite(donnees.valideDu, donnees.valideAu);
+        codeRetrait.textContent = donnees.codeRetrait;
+        zoneCode.style.display = 'block';
+      }
       resultatFinal.classList.add('visible');
-      lancerConfettis();
+      if (!perdu) lancerConfettis();
     }, 5300);
   } catch (erreur) {
     messageInfo.textContent = "Une erreur est survenue.";

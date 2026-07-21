@@ -1,14 +1,16 @@
 const crypto = require('crypto');
 
-// "standard" verrouille la roue comme un tour normal (gain reel ou perdu).
-// "rejouer" ne verrouille rien : le client peut relancer immediatement.
+// "gain" et "perdu" verrouillent la roue comme un tour normal (avec ou sans
+// recompense a retirer). "rejouer" ne verrouille rien : relance immediate.
+const TYPES_LOT = ['gain', 'perdu', 'rejouer'];
+
 const LOTS_PAR_DEFAUT = [
-  { label: 'Menu offert', icone: '🍽️', probabilite: 5, type: 'standard' },
-  { label: '-10% addition', icone: '🏷️', probabilite: 20, type: 'standard' },
-  { label: 'Dessert offert', icone: '🍰', probabilite: 10, type: 'standard' },
-  { label: 'Boisson offerte', icone: '🥤', probabilite: 30, type: 'standard' },
+  { label: 'Menu offert', icone: '🍽️', probabilite: 5, type: 'gain' },
+  { label: '-10% addition', icone: '🏷️', probabilite: 20, type: 'gain' },
+  { label: 'Dessert offert', icone: '🍰', probabilite: 10, type: 'gain' },
+  { label: 'Boisson offerte', icone: '🥤', probabilite: 30, type: 'gain' },
   { label: 'Rejouez', icone: '🔁', probabilite: 15, type: 'rejouer' },
-  { label: 'Perdu !', icone: '🙈', probabilite: 20, type: 'standard' }
+  { label: 'Perdu !', icone: '🙈', probabilite: 20, type: 'perdu' }
 ];
 
 const NB_LOTS_MIN = 2;
@@ -30,11 +32,11 @@ function validerLots(lotsRecus) {
   if (!Array.isArray(lotsRecus) || lotsRecus.length < NB_LOTS_MIN || lotsRecus.length > NB_LOTS_MAX) {
     throw new Error(`La roue doit contenir entre ${NB_LOTS_MIN} et ${NB_LOTS_MAX} lots.`);
   }
-  return lotsRecus.map((lot, index) => {
+  const lots = lotsRecus.map((lot, index) => {
     const label = String(lot?.label || '').trim();
     const icone = String(lot?.icone || '').trim();
     const probabilite = Number(lot?.probabilite);
-    const type = lot?.type === 'rejouer' ? 'rejouer' : 'standard';
+    const type = TYPES_LOT.includes(lot?.type) ? lot.type : 'gain';
     if (!label || label.length > 40) {
       throw new Error(`Le lot ${index + 1} doit avoir un nom entre 1 et 40 caractères.`);
     }
@@ -46,6 +48,11 @@ function validerLots(lotsRecus) {
     }
     return { label, icone, probabilite, type };
   });
+  const total = lots.reduce((somme, lot) => somme + lot.probabilite, 0);
+  if (total !== 100) {
+    throw new Error(`Le total des probabilités doit être exactement 100 (actuellement ${total}).`);
+  }
+  return lots;
 }
 
 function validerCouleur(valeur) {
@@ -64,12 +71,17 @@ function tirerUnLot(lots) {
     tirage -= Number(lots[index].probabilite || 0);
     if (tirage < 0) {
       const lot = lots[index];
-      return { index, label: lot.label, icone: lot.icone, type: lot.type === 'rejouer' ? 'rejouer' : 'standard' };
+      return { index, label: lot.label, icone: lot.icone, type: TYPES_LOT.includes(lot.type) ? lot.type : 'gain' };
     }
   }
   const dernierIndex = lots.length - 1;
   const dernierLot = lots[dernierIndex];
-  return { index: dernierIndex, label: dernierLot.label, icone: dernierLot.icone, type: dernierLot.type === 'rejouer' ? 'rejouer' : 'standard' };
+  return {
+    index: dernierIndex,
+    label: dernierLot.label,
+    icone: dernierLot.icone,
+    type: TYPES_LOT.includes(dernierLot.type) ? dernierLot.type : 'gain'
+  };
 }
 
 function calculerValiditeCadeau() {
@@ -96,6 +108,7 @@ function genererCodeRetrait() {
 
 module.exports = {
   LOTS_PAR_DEFAUT,
+  TYPES_LOT,
   NB_LOTS_MIN,
   NB_LOTS_MAX,
   lotsRestaurant,

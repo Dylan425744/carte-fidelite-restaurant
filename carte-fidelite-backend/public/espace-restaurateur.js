@@ -513,28 +513,30 @@ function afficherTableau() {
 // enregistrement d'un restaurant qui n'a jamais personnalise sa roue
 // conserve le comportement "rejouer" du lot Rejouez.
 const lotsRoueParDefaut = [
-  { label: 'Menu offert', icone: '🍽️', probabilite: 5, type: 'standard' },
-  { label: '-10% addition', icone: '🏷️', probabilite: 20, type: 'standard' },
-  { label: 'Dessert offert', icone: '🍰', probabilite: 10, type: 'standard' },
-  { label: 'Boisson offerte', icone: '🥤', probabilite: 30, type: 'standard' },
+  { label: 'Menu offert', icone: '🍽️', probabilite: 5, type: 'gain' },
+  { label: '-10% addition', icone: '🏷️', probabilite: 20, type: 'gain' },
+  { label: 'Dessert offert', icone: '🍰', probabilite: 10, type: 'gain' },
+  { label: 'Boisson offerte', icone: '🥤', probabilite: 30, type: 'gain' },
   { label: 'Rejouez', icone: '🔁', probabilite: 15, type: 'rejouer' },
-  { label: 'Perdu !', icone: '🙈', probabilite: 20, type: 'standard' }
+  { label: 'Perdu !', icone: '🙈', probabilite: 20, type: 'perdu' }
 ];
 let rotationApercuRoue = 0;
+let indexIconePickerActif = null;
 
-// Icones professionnelles remplacant les emojis par defaut. Un lot personnalise
-// avec un emoji hors de cette liste retombe simplement sur l'emoji saisi.
-// Identique a public/roue.html et public/avis-roue.html pour un apercu fidele.
-const ICONES_ROUE = {
-  '🍽️': 'repas.png',
-  '🏷️': 'reduction.png',
-  '🍰': 'dessert.png',
-  '🥤': 'boisson.png',
-  '🔁': 'rejouer.png',
-  '🙈': 'match.png',
-  '✨': 'match.png',
-  '🎁': 'cadeau.png'
-};
+// Catalogue des pictogrammes proposes dans le selecteur du tableau de bord.
+// Identique (mêmes emojis/fichiers) a public/roue.html et public/avis-roue.html
+// pour garantir un apercu fidele au rendu reel.
+const CATALOGUE_ICONES_ROUE = [
+  { emoji: '🍽️', fichier: 'repas.png', label: 'Repas' },
+  { emoji: '🏷️', fichier: 'reduction.png', label: 'Réduction' },
+  { emoji: '🍰', fichier: 'dessert.png', label: 'Dessert' },
+  { emoji: '🥤', fichier: 'boisson.png', label: 'Boisson' },
+  { emoji: '🔁', fichier: 'rejouer.png', label: 'Rejouer' },
+  { emoji: '🙈', fichier: 'match.png', label: 'Perdu' },
+  { emoji: '🎁', fichier: 'cadeau.png', label: 'Cadeau' }
+];
+const ICONES_ROUE = Object.fromEntries(CATALOGUE_ICONES_ROUE.map(({ emoji, fichier }) => [emoji, fichier]));
+ICONES_ROUE['✨'] = 'match.png';
 
 function rendreIconeLot(emoji) {
   const fichier = ICONES_ROUE[String(emoji || '').trim()];
@@ -592,7 +594,7 @@ function remplirApercuRoue() {
     icone: lot.icone,
     label: lot.label,
     probabilite: Number(lot.probabilite) || 10,
-    type: lot.type === 'rejouer' ? 'rejouer' : 'standard'
+    type: ['gain', 'perdu', 'rejouer'].includes(lot.type) ? lot.type : 'gain'
   }));
   afficherLotsEdition();
   if (!$('#roueCouleurPrincipale').value || $('#roueCouleurPrincipale').dataset.rempli !== 'oui') {
@@ -623,34 +625,88 @@ function afficherLotsEdition() {
   const peutModifier = aPermission('design_manage');
   $('#listeLotsEdition').innerHTML = roueLotsEdition.map((lot, index) => `
     <div class="ligne-lot-edition" data-index="${index}">
-      <input type="text" class="lot-icone" maxlength="4" value="${echapper(lot.icone)}" aria-label="Icône" ${peutModifier ? '' : 'disabled'}>
+      <button type="button" class="lot-icone-bouton" data-choisir-icone="${index}" aria-label="Choisir un pictogramme" ${peutModifier ? '' : 'disabled'}>${apercuIconeLot(lot.icone)}</button>
       <input type="text" class="lot-label" maxlength="40" value="${echapper(lot.label)}" aria-label="Nom du lot" ${peutModifier ? '' : 'disabled'}>
-      <input type="number" class="lot-probabilite" min="1" max="100" value="${Number(lot.probabilite) || 10}" aria-label="Probabilité" ${peutModifier ? '' : 'disabled'}>
-      <button type="button" class="lot-rejouer${lot.type === 'rejouer' ? ' actif' : ''}" data-basculer-rejeu="${index}" aria-pressed="${lot.type === 'rejouer'}" title="Ce lot relance la roue au lieu d’offrir un gain" ${peutModifier ? '' : 'disabled'}>↻</button>
-      ${peutModifier ? `<button type="button" data-supprimer-lot="${index}" title="Supprimer ce lot">✕</button>` : ''}
+      <div class="lot-probabilite-zone"><input type="number" class="lot-probabilite" min="1" max="100" value="${Number(lot.probabilite) || 10}" aria-label="Probabilité" ${peutModifier ? '' : 'disabled'}><span>%</span></div>
+      <select class="lot-type" aria-label="Type de lot" ${peutModifier ? '' : 'disabled'}>
+        <option value="gain"${lot.type === 'perdu' || lot.type === 'rejouer' ? '' : ' selected'}>Gain</option>
+        <option value="perdu"${lot.type === 'perdu' ? ' selected' : ''}>Perdu</option>
+        <option value="rejouer"${lot.type === 'rejouer' ? ' selected' : ''}>Rejouer</option>
+      </select>
+      ${peutModifier ? `<button type="button" class="lot-supprimer" data-supprimer-lot="${index}" title="Supprimer ce lot">✕</button>` : ''}
     </div>`).join('');
+  actualiserTotalProbabilites();
+}
+
+function apercuIconeLot(emoji) {
+  const fichier = ICONES_ROUE[String(emoji || '').trim()];
+  return fichier
+    ? `<span class="icone-glyphe icone-glyphe-sombre" style="--icone-src:url(/roue-icones/${fichier})"></span>`
+    : echapper(emoji);
 }
 
 function lireLotsDepuisFormulaire() {
-  return [...document.querySelectorAll('.ligne-lot-edition')].map(ligne => ({
-    icone: ligne.querySelector('.lot-icone').value.trim(),
+  return [...document.querySelectorAll('.ligne-lot-edition')].map((ligne, index) => ({
+    icone: roueLotsEdition[index]?.icone || '🎁',
     label: ligne.querySelector('.lot-label').value.trim(),
     probabilite: Number(ligne.querySelector('.lot-probabilite').value),
-    type: ligne.querySelector('.lot-rejouer').classList.contains('actif') ? 'rejouer' : 'standard'
+    type: ligne.querySelector('.lot-type').value
   }));
 }
 
-function basculerTypeLot(index) {
+function actualiserTotalProbabilites(champModifie) {
+  const champs = [...document.querySelectorAll('.lot-probabilite')];
+  if (!champs.length) return;
+  // Ne plafonne QUE le champ que la personne vient de modifier, a partir de
+  // ce que valent deja tous les AUTRES lots (jamais touches ici) : impossible
+  // physiquement de faire depasser 100 au total, sans jamais corrompre les
+  // valeurs des autres lignes (ex. un collage improbable comme "999").
+  if (champModifie) {
+    const autres = champs
+      .filter(champ => champ !== champModifie)
+      .reduce((somme, champ) => somme + (Number(champ.value) || 0), 0);
+    const maxAutorise = Math.max(1, 100 - autres);
+    if (Number(champModifie.value) > maxAutorise) champModifie.value = maxAutorise;
+  }
+  const valeurs = champs.map(champ => Number(champ.value) || 0);
+  const total = valeurs.reduce((somme, valeur) => somme + valeur, 0);
+  champs.forEach((champ, index) => {
+    const autres = total - valeurs[index];
+    champ.max = String(Math.max(1, 100 - autres));
+  });
+  const zone = $('#totalProbabilites');
+  $('#totalProbabilitesValeur').textContent = `${total} %`;
+  zone.classList.toggle('correct', total === 100);
+  zone.classList.toggle('erreur', total !== 100);
+  $('#enregistrerRoue').disabled = total !== 100;
+}
+
+function ouvrirIconePickerLot(index) {
+  indexIconePickerActif = index;
+  $('#iconePickerGrille').innerHTML = CATALOGUE_ICONES_ROUE.map(({ emoji, fichier, label }) => `
+    <button type="button" data-choisir-emoji="${echapper(emoji)}" aria-label="${echapper(label)}">
+      <span class="icone-glyphe icone-glyphe-sombre" style="--icone-src:url(/roue-icones/${fichier})"></span>
+      <small>${echapper(label)}</small>
+    </button>`).join('');
+  $('#iconePickerFond').classList.add('visible');
+}
+
+function fermerIconePickerLot() {
+  $('#iconePickerFond').classList.remove('visible');
+  indexIconePickerActif = null;
+}
+
+function choisirIconeLot(emoji) {
+  if (indexIconePickerActif === null) return;
   roueLotsEdition = lireLotsDepuisFormulaire();
-  const lot = roueLotsEdition[index];
-  if (!lot) return;
-  lot.type = lot.type === 'rejouer' ? 'standard' : 'rejouer';
+  roueLotsEdition[indexIconePickerActif].icone = emoji;
+  fermerIconePickerLot();
   afficherLotsEdition();
 }
 
 function ajouterLigneLot() {
   roueLotsEdition = lireLotsDepuisFormulaire();
-  roueLotsEdition.push({ icone: '🎁', label: 'Nouveau lot', probabilite: 10, type: 'standard' });
+  roueLotsEdition.push({ icone: '🎁', label: 'Nouveau lot', probabilite: 1, type: 'gain' });
   afficherLotsEdition();
 }
 
@@ -685,7 +741,7 @@ async function enregistrerRoue() {
   } catch (erreur) {
     afficherMessage($('#messageRoue'), erreur.message, 'erreur');
   } finally {
-    bouton.disabled = false;
+    actualiserTotalProbabilites();
   }
 }
 
@@ -2091,8 +2147,19 @@ $('#ajouterLot').addEventListener('click', ajouterLigneLot);
 $('#listeLotsEdition').addEventListener('click', evenement => {
   const boutonSupprimer = evenement.target.closest('[data-supprimer-lot]');
   if (boutonSupprimer) return supprimerLigneLot(Number(boutonSupprimer.dataset.supprimerLot));
-  const boutonRejeu = evenement.target.closest('[data-basculer-rejeu]');
-  if (boutonRejeu) basculerTypeLot(Number(boutonRejeu.dataset.basculerRejeu));
+  const boutonIcone = evenement.target.closest('[data-choisir-icone]');
+  if (boutonIcone) ouvrirIconePickerLot(Number(boutonIcone.dataset.choisirIcone));
+});
+$('#listeLotsEdition').addEventListener('input', evenement => {
+  if (evenement.target.classList.contains('lot-probabilite')) actualiserTotalProbabilites(evenement.target);
+});
+$('#iconePickerGrille').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-choisir-emoji]');
+  if (bouton) choisirIconeLot(bouton.dataset.choisirEmoji);
+});
+$('#annulerIconePicker').addEventListener('click', fermerIconePickerLot);
+$('#iconePickerFond').addEventListener('click', evenement => {
+  if (evenement.target === $('#iconePickerFond')) fermerIconePickerLot();
 });
 $('#enregistrerRoue').addEventListener('click', enregistrerRoue);
 $('#roueCouleurPrincipale').addEventListener('input', actualiserCouleursApercuRoue);
