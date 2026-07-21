@@ -1803,7 +1803,8 @@ app.post('/api/admin/restaurants', exigerAdministrateur, async (req, res) => {
         nom,
         slug,
         design_access_token_hash: designRestaurant.hacherCodeAcces(codeAcces),
-        apple_pro_design: true
+        apple_pro_design: true,
+        apple_logo_text: ''
       })
       .select(CHAMPS_RESTAURANT)
       .single();

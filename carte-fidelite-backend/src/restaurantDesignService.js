@@ -116,10 +116,6 @@ function construireMiseAJourDesign(donnees) {
   miseAJour.google_program_logo_url = validerImage(donnees.google_program_logo_url, 'Le logo rond Google');
   miseAJour.google_wide_logo_url = validerImage(donnees.google_wide_logo_url, 'Le logo large Google');
   miseAJour.google_hero_image_url = validerImage(donnees.google_hero_image_url, 'L’image Hero Google');
-  miseAJour.apple_program_name = nettoyerTexteOptionnel(
-    donnees.apple_program_name,
-    48
-  );
   miseAJour.apple_reward_text = nettoyerTexteOptionnel(
     donnees.apple_reward_text,
     90
@@ -151,7 +147,7 @@ function serialiserRestaurant(restaurant, proDisponible) {
     apple_color_preset: PRESETS_APPLE.includes(restaurant.apple_color_preset)
       ? restaurant.apple_color_preset
       : 'dark',
-    apple_logo_text: valeurOuDefaut(restaurant.apple_logo_text, 'Bravocard'),
+    apple_logo_text: restaurant.apple_logo_text || '',
     apple_points_label: valeurOuDefaut(restaurant.apple_points_label, 'POINTS SUR 100'),
     wallet_barcode_format: restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128',
     apple_card_label: valeurOuDefaut(restaurant.apple_card_label, 'FIDÉLITÉ'),
@@ -162,7 +158,6 @@ function serialiserRestaurant(restaurant, proDisponible) {
     google_program_logo_url: restaurant.google_program_logo_url || '',
     google_wide_logo_url: restaurant.google_wide_logo_url || '',
     google_hero_image_url: restaurant.google_hero_image_url || '',
-    apple_program_name: valeurOuDefaut(restaurant.apple_program_name, 'Carte fidélité'),
     apple_reward_text: valeurOuDefaut(
       restaurant.apple_reward_text,
       restaurant.description_recompense || 'Récompense à débloquer'

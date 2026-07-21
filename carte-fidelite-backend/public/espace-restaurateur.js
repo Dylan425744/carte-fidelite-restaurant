@@ -34,8 +34,26 @@ let genMinuteurApercu = null;
 let walletSpecifications = null;
 let walletPlateformeActive = 'apple';
 let walletZonesSecuriteActives = false;
-let walletRecadrage = { cropper: null, assetElement: null };
+let walletRecadrage = { cropper: null, assetElement: null, source: null };
 let roueLotsEdition = [];
+const sourceOriginalParAsset = new Map();
+const GALERIE_BANNIERES = [
+  { url: '/wallet-banners/food-flatlay.webp', alt: 'Cuisine généreuse' },
+  { url: '/wallet-banners/surf-sunset.webp', alt: 'Coucher de soleil' },
+  { url: '/wallet-banners/rooftop-cocktail.webp', alt: 'Rooftop de nuit' },
+  { url: '/wallet-banners/pizza-restaurant.webp', alt: 'Restaurant italien' },
+  { url: '/wallet-banners/burger-restaurant.webp', alt: 'Burger gourmand' },
+  { url: '/wallet-banners/ramen-restaurant.webp', alt: 'Ramen japonais' },
+  { url: '/wallet-banners/pizza-wings-frites.webp', alt: 'Pizza, ailes et frites' },
+  { url: '/wallet-banners/petit-dejeuner-gourmand.webp', alt: 'Petit-déjeuner gourmand' },
+  { url: '/wallet-banners/tacos-mexicains.webp', alt: 'Tacos mexicains' },
+  { url: '/wallet-banners/bol-healthy.webp', alt: 'Bol healthy' },
+  { url: '/wallet-banners/cerisiers-mont-fuji.webp', alt: 'Cerisiers en fleurs' },
+  { url: '/wallet-banners/lac-montagne-turquoise.webp', alt: 'Lac de montagne' },
+  { url: '/wallet-banners/chalet-lac-montagne.webp', alt: 'Chalet au bord du lac' },
+  { url: '/wallet-banners/escalade-coucher-soleil.webp', alt: 'Escalade au coucher du soleil' },
+  { url: '/wallet-banners/foret-lac-bois-flotte.webp', alt: 'Lac en forêt' }
+];
 
 const $ = selecteur => document.querySelector(selecteur);
 
@@ -501,6 +519,27 @@ const lotsRoueParDefaut = [
 ];
 let rotationApercuRoue = 0;
 
+// Icones professionnelles remplacant les emojis par defaut. Un lot personnalise
+// avec un emoji hors de cette liste retombe simplement sur l'emoji saisi.
+// Identique a public/roue.html et public/avis-roue.html pour un apercu fidele.
+const ICONES_ROUE = {
+  '🍽️': 'repas.png',
+  '🏷️': 'reduction.png',
+  '🍰': 'dessert.png',
+  '🥤': 'boisson.png',
+  '🔁': 'rejouer.png',
+  '🙈': 'pas-de-chance.svg',
+  '✨': 'pas-de-chance.svg',
+  '🎁': 'cadeau.png'
+};
+
+function rendreIconeLot(emoji) {
+  const fichier = ICONES_ROUE[String(emoji || '').trim()];
+  return fichier
+    ? `<img src="/roue-icones/${fichier}" alt="">`
+    : echapper(emoji);
+}
+
 function lotsRoue() {
   return donneesTableau?.roue?.lots?.length
     ? donneesTableau.roue.lots
@@ -530,7 +569,7 @@ function dessinerRoueReelle(conteneur, lots, couleurPrincipale, couleurSecondair
     const contenu = document.createElement('div');
     contenu.className = 'segment-contenu';
     contenu.style.transform = `translateY(-${RAYON_TEXTE_ROUE}px) rotate(${-centreAngle}deg)`;
-    contenu.innerHTML = `<div class="icone-lot">${echapper(lot.icone)}</div><div class="texte-lot">${echapper(lot.label)}</div>`;
+    contenu.innerHTML = `<div class="icone-lot">${rendreIconeLot(lot.icone)}</div><div class="texte-lot">${echapper(lot.label)}</div>`;
     pivot.appendChild(contenu);
     conteneur.appendChild(pivot);
   });
@@ -668,7 +707,7 @@ function lancerApercuRoue() {
   resultat.textContent = 'La roue tourne…';
   roue.style.transform = `rotate(${rotationApercuRoue}deg)`;
   window.setTimeout(() => {
-    resultat.textContent = `Aperçu : ${lots[index].icone} ${lots[index].label}`;
+    resultat.textContent = `Aperçu : ${lots[index].label}`;
     bouton.disabled = false;
   }, 5300);
 }
@@ -1154,6 +1193,11 @@ function actualiserApercuMiniatureAsset(element) {
 function definirValeurAsset(element, valeur) {
   element.querySelector('.asset-url').value = valeur;
   actualiserApercuMiniatureAsset(element);
+  const aValeur = Boolean(valeur);
+  const boutonSupprimer = element.querySelector('.asset-supprimer');
+  if (boutonSupprimer) boutonSupprimer.hidden = !aValeur;
+  const boutonRepositionner = element.querySelector('.asset-repositionner');
+  if (boutonRepositionner) boutonRepositionner.hidden = !aValeur;
 }
 
 function remplirDesign() {
@@ -1164,7 +1208,6 @@ function remplirDesign() {
   const correspondancesCommunes = {
     walletPointsLabel: 'apple_points_label',
     walletCardLabel: 'apple_card_label',
-    walletProgramName: 'apple_program_name',
     walletRewardText: 'apple_reward_text',
     customColor: 'apple_custom_color',
     appleLogoText: 'apple_logo_text',
@@ -1173,6 +1216,9 @@ function remplirDesign() {
   for (const [id, champ] of Object.entries(correspondancesCommunes)) $(`#${id}`).value = restaurant[champ] || '';
   $('#customColorPicker').value = /^#[0-9a-f]{6}$/i.test(restaurant.apple_custom_color || '')
     ? restaurant.apple_custom_color : couleursWallet[restaurant.apple_color_preset] || '#17171D';
+  $('#appleLogoText').placeholder = restaurant.nom
+    ? `Laissez vide pour afficher « ${restaurant.nom} »`
+    : 'Laissez vide pour reprendre le nom du restaurant';
 
   const correspondancesAssets = {
     'apple.logo': 'apple_logo_url',
@@ -1201,20 +1247,17 @@ function actualiserApercuWallet() {
   const exacte = $('#customColor').value;
   $('#wallet').style.background = /^#[0-9a-f]{6}$/i.test(exacte)
     ? exacte : couleursWallet.dark;
-  const logoTexte = $('#appleLogoText').value.trim();
+  const logoTexte = $('#appleLogoText').value.trim() || restaurant?.nom || 'Bravocard';
   const pointsTexte = $('#walletPointsLabel').value.trim();
   const carteTexte = $('#walletCardLabel').value.trim();
-  const programmeTexte = $('#walletProgramName').value.trim();
   const recompenseTexte = $('#walletRewardText').value.trim();
   $('#previewLogo').textContent = logoTexte;
   $('#previewPointsLabel').textContent = pointsTexte;
   $('#previewPointsLabel').hidden = !pointsTexte;
   $('#previewCardLabel').textContent = carteTexte;
   $('#previewCardLabel').hidden = !carteTexte;
-  $('#previewProgramme').textContent = programmeTexte;
-  $('#previewProgramme').closest('.wallet-principal').hidden = !programmeTexte;
   $('#previewRecompense').textContent = recompenseTexte;
-  $('#previewRecompense').hidden = !recompenseTexte;
+  $('#previewRecompense').closest('.wallet-principal').hidden = !recompenseTexte;
   const logo = valeurAsset('apple', 'logo');
   const banniere = valeurAsset('apple', 'banniere');
   const imageLogo = $('#previewLogoImage');
@@ -1232,11 +1275,10 @@ function actualiserApercuGoogleWallet() {
   const exacte = $('#customColor').value;
   $('#walletGoogle').style.background = /^#[0-9a-f]{6}$/i.test(exacte)
     ? exacte : couleursWallet.dark;
-  const programmeTexte = $('#walletProgramName').value.trim();
   const pointsTexte = $('#walletPointsLabel').value.trim();
   const carteTexte = $('#walletCardLabel').value.trim();
-  $('#googlePreviewProgramme').textContent = programmeTexte;
-  $('#googlePreviewProgramme').hidden = !programmeTexte;
+  $('#googlePreviewProgramme').textContent = restaurant?.nom || '';
+  $('#googlePreviewProgramme').hidden = !restaurant?.nom;
   $('#googlePreviewPointsLabel').textContent = pointsTexte;
   $('#googlePreviewPointsLabel').hidden = !pointsTexte;
   $('#googlePreviewCardLabel').textContent = carteTexte;
@@ -1410,6 +1452,7 @@ function ouvrirRecadrage(dataUrl, assetElement) {
   walletRecadrage.assetElement = assetElement;
   walletRecadrage.plateforme = plateforme;
   walletRecadrage.id = id;
+  walletRecadrage.source = dataUrl;
   $('#recadrageTitre').textContent = `Ajuster : ${spec.nom} (${plateforme === 'google' ? 'Google Wallet' : 'Apple Wallet'})`;
   const logoRond = (plateforme === 'apple' && id === 'logo') || (plateforme === 'google' && id === 'logoRond');
   $('#recadrageAide').textContent = logoRond
@@ -1433,6 +1476,9 @@ function ouvrirRecadrage(dataUrl, assetElement) {
       bouton.classList.toggle('actif', bouton.dataset.modeAjustement === 'centrer')
     );
   };
+  // Nécessaire pour recadrer à nouveau une image déjà hébergée sur Supabase
+  // (origine différente) sans « tainter » le canvas de recadrage.
+  image.crossOrigin = 'anonymous';
   image.src = dataUrl;
 }
 
@@ -1494,8 +1540,8 @@ async function validerRecadrage() {
       body: JSON.stringify({ plateforme, type: id, image_data: dataUrl })
     });
     definirValeurAsset(assetElement, donnees.url);
+    sourceOriginalParAsset.set(assetElement, walletRecadrage.source);
     afficherStatutAsset(assetElement, donnees.statut, donnees.message);
-    assetElement.querySelector('.asset-supprimer').hidden = false;
     actualiserApercuWallet();
     actualiserApercuGoogleWallet();
     fermerRecadrage();
@@ -1509,18 +1555,41 @@ async function validerRecadrage() {
 
 function supprimerAsset(assetElement) {
   definirValeurAsset(assetElement, '');
-  assetElement.querySelector('.asset-supprimer').hidden = true;
+  sourceOriginalParAsset.delete(assetElement);
   afficherStatutAsset(assetElement, null, null);
   actualiserApercuWallet();
   actualiserApercuGoogleWallet();
 }
 
-function choisirBanniereWallet(url) {
-  const assetElement = walletPlateformeActive === 'google'
-    ? elementAsset('google', 'heroImage')
-    : elementAsset('apple', 'banniere');
-  if (!assetElement) return;
-  ouvrirRecadrage(new URL(url, window.location.origin).href, assetElement);
+function ouvrirGaleriePicker(assetElement) {
+  const grille = $('#galeriePickerGrille');
+  grille.innerHTML = '';
+  GALERIE_BANNIERES.forEach(({ url, alt }) => {
+    const bouton = document.createElement('button');
+    bouton.type = 'button';
+    bouton.setAttribute('aria-label', alt);
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = alt;
+    image.loading = 'lazy';
+    bouton.appendChild(image);
+    bouton.addEventListener('click', () => {
+      fermerGaleriePicker();
+      ouvrirRecadrage(new URL(url, window.location.origin).href, assetElement);
+    });
+    grille.appendChild(bouton);
+  });
+  $('#galerieFond').classList.add('visible');
+}
+
+function fermerGaleriePicker() {
+  $('#galerieFond').classList.remove('visible');
+}
+
+function repositionnerAsset(assetElement) {
+  const source = sourceOriginalParAsset.get(assetElement) || assetElement.querySelector('.asset-url').value.trim();
+  if (!source) return;
+  ouvrirRecadrage(source, assetElement);
 }
 
 async function enregistrerDesign() {
@@ -1533,7 +1602,6 @@ async function enregistrerDesign() {
     apple_custom_color: $('#customColor').value,
     apple_points_label: $('#walletPointsLabel').value,
     apple_card_label: $('#walletCardLabel').value,
-    apple_program_name: $('#walletProgramName').value,
     apple_reward_text: $('#walletRewardText').value,
     apple_logo_text: $('#appleLogoText').value,
     apple_terms: $('#appleTerms').value,
@@ -2063,13 +2131,13 @@ $('#customColor').addEventListener('input', evenement => {
 });
 document.querySelectorAll('.asset-wallet').forEach(element => {
   element.querySelector('.asset-file').addEventListener('change', evenement => gererSelectionFichierAsset(evenement, element));
-  const boutonSupprimer = element.querySelector('.asset-supprimer');
-  boutonSupprimer.hidden = !element.querySelector('.asset-url').value.trim();
-  boutonSupprimer.addEventListener('click', () => supprimerAsset(element));
+  element.querySelector('.asset-galerie').addEventListener('click', () => ouvrirGaleriePicker(element));
+  element.querySelector('.asset-repositionner').addEventListener('click', () => repositionnerAsset(element));
+  element.querySelector('.asset-supprimer').addEventListener('click', () => supprimerAsset(element));
 });
-$('#galerieBannieres').addEventListener('click', evenement => {
-  const bouton = evenement.target.closest('[data-banniere-wallet]');
-  if (bouton) choisirBanniereWallet(bouton.dataset.banniereWallet);
+$('#annulerGaleriePicker').addEventListener('click', fermerGaleriePicker);
+$('#galerieFond').addEventListener('click', evenement => {
+  if (evenement.target === $('#galerieFond')) fermerGaleriePicker();
 });
 document.querySelectorAll('[name="walletBarcodeFormat"]').forEach(champ =>
   champ.addEventListener('change', actualiserLesDeuxApercusWallet)

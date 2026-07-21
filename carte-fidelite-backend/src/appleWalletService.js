@@ -201,10 +201,11 @@ function construireChampsCarte(client, restaurant = null) {
     }
     return String(restaurant[champ]).trim();
   };
-  const logoText = valeurConfiguree('apple_logo_text', 'Bravocard');
+  // Sans réglage explicite du restaurateur, le nom du restaurant sert de
+  // texte par défaut (y compris s'il a été explicitement vidé).
+  const logoText = valeurConfiguree('apple_logo_text') || nomRestaurant;
   const pointsLabel = valeurConfiguree('apple_points_label', 'POINTS SUR 100');
   const carteLabel = valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
-  const nomProgramme = valeurConfiguree('apple_program_name', 'Carte fidélité');
   const texteRecompense = valeurConfiguree(
     'apple_reward_text',
     restaurant?.description_recompense || 'Récompense à débloquer'
@@ -264,15 +265,15 @@ function construireChampsCarte(client, restaurant = null) {
     /*
      * Élément central principal de la carte.
      * Apple et Google affichent surtout le premier primaryField.
+     * La récompense est l'information la plus utile à mettre en avant.
      */
-    primaryFields: nomProgramme ? [{ label: 'PROGRAMME', value: nomProgramme }] : [],
+    primaryFields: texteRecompense ? [{ label: 'RÉCOMPENSE', value: texteRecompense }] : [],
 
     /*
      * Informations affichées sous le nombre de points.
      */
     secondaryFields: [
-      { label: 'CLIENT', value: nomClient },
-      ...(texteRecompense ? [{ label: 'RÉCOMPENSE', value: texteRecompense }] : [])
+      { label: 'CLIENT', value: nomClient }
     ],
 
     /*

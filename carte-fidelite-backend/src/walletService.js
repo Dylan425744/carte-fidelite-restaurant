@@ -72,8 +72,6 @@ function construireClasseFidelite(restaurant) {
     restaurant[champ] === null || restaurant[champ] === undefined
       ? valeurParDefaut
       : String(restaurant[champ]).trim();
-  const programmeConfigure = valeurConfiguree('apple_program_name', `Carte fidélité ${nom}`);
-  const programme = (programmeConfigure || nom).slice(0, 80);
   const carteLabel = valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
 
   // Images propres a Google Wallet : jamais celles d'Apple. Seul le logo rond
@@ -111,7 +109,7 @@ function construireClasseFidelite(restaurant) {
   return {
     id: getRestaurantClassId(restaurant),
     issuerName: nom.slice(0, 20),
-    programName: programme.slice(0, 20),
+    programName: nom.slice(0, 20),
     programLogo: logo,
     hexBackgroundColor: couleurRestaurant(restaurant),
     accountNameLabel: 'CLIENT',
