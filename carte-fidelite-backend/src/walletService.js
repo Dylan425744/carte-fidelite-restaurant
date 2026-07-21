@@ -227,7 +227,10 @@ async function assurerClasseRestaurant(restaurant, options = {}) {
     }
 
     if (options.force && classe) {
-      const donneesPatch = { ...payload };
+      // Une classe deja approuvee par Google refuse un PATCH qui la laisse
+      // "APPROVED" implicitement : il faut repasser explicitement par
+      // UNDER_REVIEW a chaque modification, sans quoi Google renvoie une 400.
+      const donneesPatch = { ...payload, reviewStatus: 'UNDER_REVIEW' };
       delete donneesPatch.id;
       const miseAJour = await clientGoogle.request({
         url: urlClasse,
