@@ -259,7 +259,6 @@ async function authentifierEspaceDesign(req, res, permission = 'dashboard') {
 function validerNotification(donnees) {
   const titre = String(donnees.titre || '').trim();
   const message = String(donnees.message || '').trim();
-  const plateforme = String(donnees.plateforme || 'toutes').toLowerCase();
 
   if (!titre || titre.length > 48) {
     throw new Error('Le titre doit contenir entre 1 et 48 caractères.');
@@ -269,11 +268,35 @@ function validerNotification(donnees) {
     throw new Error('Le message doit contenir entre 1 et 160 caractères.');
   }
 
-  if (!['toutes', 'apple', 'google'].includes(plateforme)) {
-    throw new Error('La plateforme choisie est invalide.');
-  }
+  return { titre, message };
+}
 
-  return { titre, message, plateforme };
+// Au dela de ce nombre de notifications recues sur 24h, une carte cliente
+// est mise de cote pour le reste de la journee (protection du consommateur,
+// independante du nombre de campagnes envoyees par le restaurant).
+const MAX_NOTIFICATIONS_CLIENT_24H = 10;
+
+async function exclureClientsSaturesEnNotifications(restaurantId, clients) {
+  if (!clients.length) return { clientsAutorises: [], exclus: 0 };
+  const depuis = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('notification_envois')
+    .select('client_id')
+    .eq('restaurant_id', restaurantId)
+    .gte('envoye_at', depuis)
+    .in('client_id', clients.map(client => client.id));
+  if (error) throw error;
+
+  const compteurs = new Map();
+  (data || []).forEach(ligne => {
+    compteurs.set(ligne.client_id, (compteurs.get(ligne.client_id) || 0) + 1);
+  });
+
+  const clientsAutorises = clients.filter(
+    client => (compteurs.get(client.id) || 0) < MAX_NOTIFICATIONS_CLIENT_24H
+  );
+
+  return { clientsAutorises, exclus: clients.length - clientsAutorises.length };
 }
 
 const tentativesConnexion = new Map();
@@ -715,10 +738,7 @@ async function traiterCampagneWallet(campagne, clients, restaurant) {
         lot.map(async client => {
           const envois = [];
 
-          if (
-            campagne.plateforme !== 'google' &&
-            client.apple_wallet_serial
-          ) {
+          if (client.apple_wallet_serial) {
             envois.push(
               appleWallet
                 .mettreAJourPasseApple(
@@ -739,29 +759,44 @@ async function traiterCampagneWallet(campagne, clients, restaurant) {
             );
           }
 
-          if (campagne.plateforme !== 'apple') {
-            envois.push(
-              wallet
-                .envoyerNotificationWallet(
-                  client,
-                  campagne.titre,
-                  campagne.message,
-                  campagne.id
-                )
-                .then(() => {
-                  resultat.google_reussies += 1;
-                })
-                .catch(erreur => {
-                  resultat.google_echecs += 1;
-                  console.error(
-                    `Notification Google impossible pour ${client.id}:`,
-                    erreur.message
-                  );
-                })
-            );
-          }
+          envois.push(
+            wallet
+              .envoyerNotificationWallet(
+                client,
+                campagne.titre,
+                campagne.message,
+                campagne.id
+              )
+              .then(() => {
+                resultat.google_reussies += 1;
+              })
+              .catch(erreur => {
+                resultat.google_echecs += 1;
+                console.error(
+                  `Notification Google impossible pour ${client.id}:`,
+                  erreur.message
+                );
+              })
+          );
 
           await Promise.all(envois);
+
+          // Un test ne consomme pas le quota de 10 notifications/24h du client.
+          if (!campagne.test) {
+            const { error: erreurJournal } = await supabase
+              .from('notification_envois')
+              .insert({
+                client_id: client.id,
+                restaurant_id: restaurant.id,
+                campagne_id: campagne.id
+              });
+            if (erreurJournal) {
+              console.error(
+                `Journal notification impossible pour ${client.id}:`,
+                erreurJournal.message
+              );
+            }
+          }
         })
       );
     }
@@ -1508,19 +1543,34 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
 
     if (erreurClients) throw erreurClients;
 
-    const clientsPlateforme = clients.filter(client => {
-      if (notification.plateforme === 'apple') {
-        return Boolean(client.apple_wallet_serial);
-      }
-      return true;
-    });
-    const clientsEligibles = clientTestId
-      ? clientsPlateforme.filter(client => client.id === clientTestId)
-      : clientsPlateforme;
+    // Sans selection manuelle, la campagne part a tous les clients.
+    const clientIdsChoisis = Array.isArray(req.body.client_ids)
+      ? new Set(req.body.client_ids.map(id => String(id)))
+      : null;
+    const clientsChoisis = clientIdsChoisis
+      ? clients.filter(client => clientIdsChoisis.has(client.id))
+      : clients;
+
+    let exclusParLimite = 0;
+    let clientsEligibles;
+    if (clientTestId) {
+      // Un test ne consomme pas le quota du client : c'est le restaurateur
+      // qui verifie sa propre campagne, pas un envoi reel supplementaire.
+      clientsEligibles = clientsChoisis.filter(client => client.id === clientTestId);
+    } else {
+      const resultatLimite = await exclureClientsSaturesEnNotifications(
+        acces.restaurant.id,
+        clientsChoisis
+      );
+      clientsEligibles = resultatLimite.clientsAutorises;
+      exclusParLimite = resultatLimite.exclus;
+    }
 
     if (clientsEligibles.length === 0) {
       return res.status(400).json({
-        erreur: 'Aucune carte Wallet compatible ne peut recevoir ce message.'
+        erreur: exclusParLimite > 0
+          ? 'Les clients sélectionnés ont déjà reçu 10 notifications aujourd’hui.'
+          : 'Aucun client éligible pour recevoir ce message.'
       });
     }
 
@@ -1528,9 +1578,9 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
       id: campagneId,
       titre: notification.titre,
       message: notification.message,
-      plateforme: notification.plateforme,
       statut: 'en_cours',
       destinataires: clientsEligibles.length,
+      exclus_limite_quotidienne: exclusParLimite,
       apple_reussies: 0,
       apple_echecs: 0,
       google_reussies: 0,
