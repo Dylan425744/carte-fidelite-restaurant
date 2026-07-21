@@ -89,7 +89,7 @@ function validerImage(valeur, nomChamp) {
 }
 
 function construireMiseAJourDesign(donnees) {
-  const preset = String(donnees.apple_color_preset || '').trim().toLowerCase();
+  const preset = String(donnees.apple_color_preset || 'dark').trim().toLowerCase();
 
   if (!PRESETS_APPLE.includes(preset)) {
     throw new Error('La couleur Apple Wallet choisie est invalide.');
@@ -98,9 +98,9 @@ function construireMiseAJourDesign(donnees) {
   const miseAJour = {
     wallet_barcode_format: donnees.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128',
     apple_color_preset: preset,
-    apple_logo_text: nettoyerTexte(donnees.apple_logo_text, 32, 'Le nom affiché'),
-    apple_points_label: nettoyerTexte(donnees.apple_points_label, 28, 'Le libellé des points'),
-    apple_card_label: nettoyerTexte(donnees.apple_card_label, 28, 'Le libellé de la carte'),
+    apple_logo_text: nettoyerTexteOptionnel(donnees.apple_logo_text, 32),
+    apple_points_label: nettoyerTexteOptionnel(donnees.apple_points_label, 28),
+    apple_card_label: nettoyerTexteOptionnel(donnees.apple_card_label, 28),
     design_updated_at: new Date().toISOString()
   };
 
@@ -118,24 +118,23 @@ function construireMiseAJourDesign(donnees) {
   miseAJour.google_hero_image_url = validerImage(donnees.google_hero_image_url, 'L’image Hero Google');
   miseAJour.apple_program_name = nettoyerTexteOptionnel(
     donnees.apple_program_name,
-    48,
-    'Carte fidélité'
+    48
   );
   miseAJour.apple_reward_text = nettoyerTexteOptionnel(
     donnees.apple_reward_text,
-    90,
-    'Récompense à débloquer'
+    90
   );
   miseAJour.apple_terms = nettoyerTexteOptionnel(
     donnees.apple_terms,
-    500,
-    'Conditions du programme disponibles auprès du restaurant.'
+    500
   );
 
   return miseAJour;
 }
 
 function serialiserRestaurant(restaurant, proDisponible) {
+  const valeurOuDefaut = (valeur, valeurParDefaut) =>
+    valeur === null || valeur === undefined ? valeurParDefaut : String(valeur);
   return {
     id: restaurant.id,
     nom: restaurant.nom,
@@ -152,10 +151,10 @@ function serialiserRestaurant(restaurant, proDisponible) {
     apple_color_preset: PRESETS_APPLE.includes(restaurant.apple_color_preset)
       ? restaurant.apple_color_preset
       : 'dark',
-    apple_logo_text: restaurant.apple_logo_text || 'Bravocard',
-    apple_points_label: restaurant.apple_points_label || 'POINTS SUR 100',
+    apple_logo_text: valeurOuDefaut(restaurant.apple_logo_text, 'Bravocard'),
+    apple_points_label: valeurOuDefaut(restaurant.apple_points_label, 'POINTS SUR 100'),
     wallet_barcode_format: restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128',
-    apple_card_label: restaurant.apple_card_label || 'FIDÉLITÉ',
+    apple_card_label: valeurOuDefaut(restaurant.apple_card_label, 'FIDÉLITÉ'),
     apple_custom_color: restaurant.apple_custom_color || '',
     apple_logo_url: restaurant.apple_logo_url || '',
     apple_strip_url: restaurant.apple_strip_url || '',
@@ -163,9 +162,15 @@ function serialiserRestaurant(restaurant, proDisponible) {
     google_program_logo_url: restaurant.google_program_logo_url || '',
     google_wide_logo_url: restaurant.google_wide_logo_url || '',
     google_hero_image_url: restaurant.google_hero_image_url || '',
-    apple_program_name: restaurant.apple_program_name || 'Carte fidélité',
-    apple_reward_text: restaurant.apple_reward_text || restaurant.description_recompense || 'Récompense à débloquer',
-    apple_terms: restaurant.apple_terms || 'Conditions du programme disponibles auprès du restaurant.',
+    apple_program_name: valeurOuDefaut(restaurant.apple_program_name, 'Carte fidélité'),
+    apple_reward_text: valeurOuDefaut(
+      restaurant.apple_reward_text,
+      restaurant.description_recompense || 'Récompense à débloquer'
+    ),
+    apple_terms: valeurOuDefaut(
+      restaurant.apple_terms,
+      'Conditions du programme disponibles auprès du restaurant.'
+    ),
     design_updated_at: restaurant.design_updated_at || null,
     acces_configure: Boolean(restaurant.design_access_token_hash)
   };

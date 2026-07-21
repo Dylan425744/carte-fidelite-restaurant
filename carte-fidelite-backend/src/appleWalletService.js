@@ -127,21 +127,19 @@ function ajouterDesignPro(champs, restaurant = null) {
   // La couleur précise est réservée au compte WalletWallet Pro.
   champs.color = restaurant?.apple_custom_color || '#1B1030';
 
-  const logoBravocard =
-    restaurant?.apple_logo_url ||
-    obtenirVariableEnvironnement('BRAVOCARD_LOGO_URL');
+  const valeurDesign = (champ, variableEnvironnement) => {
+    if (restaurant && Object.prototype.hasOwnProperty.call(restaurant, champ)) {
+      return String(restaurant[champ] || '').trim();
+    }
+    return obtenirVariableEnvironnement(variableEnvironnement);
+  };
+  const logoBravocard = valeurDesign('apple_logo_url', 'BRAVOCARD_LOGO_URL');
+  const banniereBravocard = valeurDesign('apple_strip_url', 'BRAVOCARD_STRIP_URL');
+  const iconeBravocard = valeurDesign('apple_icon_url', 'BRAVOCARD_ICON_URL');
 
-  const banniereBravocard =
-    restaurant?.apple_strip_url ||
-    obtenirVariableEnvironnement('BRAVOCARD_STRIP_URL');
-
-  const iconeBravocard =
-    restaurant?.apple_icon_url ||
-    obtenirVariableEnvironnement('BRAVOCARD_ICON_URL');
-
-  const logoRestaurant = obtenirVariableEnvironnement(
-    'RESTAURANT_LOGO_URL'
-  );
+  const logoRestaurant = restaurant
+    ? ''
+    : obtenirVariableEnvironnement('RESTAURANT_LOGO_URL');
 
   /*
    * Le logo Bravocard doit être un PNG transparent contenant :
@@ -197,14 +195,24 @@ function construireChampsCarte(client, restaurant = null) {
     ? String(restaurant.notification_title_override).trim().slice(0, 64)
     : nomRestaurant;
 
-  const logoText = restaurant?.apple_logo_text || 'Bravocard';
-  const pointsLabel = restaurant?.apple_points_label || 'POINTS SUR 100';
-  const carteLabel = restaurant?.apple_card_label || 'FIDÉLITÉ';
-  const nomProgramme = restaurant?.apple_program_name || carteLabel || 'Carte fidélité';
-  const texteRecompense = restaurant?.apple_reward_text ||
-    restaurant?.description_recompense || 'Récompense à débloquer';
-  const conditions = restaurant?.apple_terms ||
-    'Conditions du programme disponibles auprès du restaurant.';
+  const valeurConfiguree = (champ, valeurParDefaut = '') => {
+    if (!restaurant || restaurant[champ] === null || restaurant[champ] === undefined) {
+      return valeurParDefaut;
+    }
+    return String(restaurant[champ]).trim();
+  };
+  const logoText = valeurConfiguree('apple_logo_text', 'Bravocard');
+  const pointsLabel = valeurConfiguree('apple_points_label', 'POINTS SUR 100');
+  const carteLabel = valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
+  const nomProgramme = valeurConfiguree('apple_program_name', 'Carte fidélité');
+  const texteRecompense = valeurConfiguree(
+    'apple_reward_text',
+    restaurant?.description_recompense || 'Récompense à débloquer'
+  );
+  const conditions = valeurConfiguree(
+    'apple_terms',
+    'Conditions du programme disponibles auprès du restaurant.'
+  );
   const presetsAutorises = ['dark', 'blue', 'green', 'red', 'purple', 'orange'];
   const colorPreset = presetsAutorises.includes(restaurant?.apple_color_preset)
     ? restaurant.apple_color_preset
@@ -223,8 +231,6 @@ function construireChampsCarte(client, restaurant = null) {
      * Sans logo personnalisé, "Bravocard" apparaît en texte.
      * Avec le design Pro, le logo PNG remplacera visuellement ce texte.
      */
-    logoText,
-
     // Apple utilise organizationName comme titre de la notification Wallet.
     // Pendant une campagne, le serveur fournit un titre temporaire afin
     // d'afficher exactement celui saisi par le restaurateur.
@@ -259,25 +265,14 @@ function construireChampsCarte(client, restaurant = null) {
      * Élément central principal de la carte.
      * Apple et Google affichent surtout le premier primaryField.
      */
-    primaryFields: [
-      {
-        label: 'PROGRAMME',
-        value: nomProgramme
-      }
-    ],
+    primaryFields: nomProgramme ? [{ label: 'PROGRAMME', value: nomProgramme }] : [],
 
     /*
      * Informations affichées sous le nombre de points.
      */
     secondaryFields: [
-      {
-        label: 'CLIENT',
-        value: nomClient
-      },
-      {
-        label: 'RÉCOMPENSE',
-        value: texteRecompense
-      }
+      { label: 'CLIENT', value: nomClient },
+      ...(texteRecompense ? [{ label: 'RÉCOMPENSE', value: texteRecompense }] : [])
     ],
 
     /*
@@ -287,10 +282,7 @@ function construireChampsCarte(client, restaurant = null) {
      * marketing personnalisées.
      */
     backFields: [
-      {
-        label: 'CONDITIONS',
-        value: conditions
-      },
+      ...(conditions ? [{ label: 'CONDITIONS', value: conditions }] : []),
       {
         label: 'PROGRAMME DE FIDÉLITÉ',
         value: `Cette carte vous permet de cumuler des points chez ${nomRestaurant}.`
@@ -310,6 +302,8 @@ function construireChampsCarte(client, restaurant = null) {
       }
     ]
   };
+
+  if (logoText) champs.logoText = logoText;
 
   if (codeParrainage) {
     champs.backFields.push({

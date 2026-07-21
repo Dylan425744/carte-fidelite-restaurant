@@ -1157,8 +1157,6 @@ function definirValeurAsset(element, valeur) {
 }
 
 function remplirDesign() {
-  const preset = document.querySelector(`[name="preset"][value="${restaurant.apple_color_preset}"]`);
-  if (preset) preset.checked = true;
   const format = restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128';
   const choixFormat = document.querySelector(`[name="walletBarcodeFormat"][value="${format}"]`);
   if (choixFormat) choixFormat.checked = true;
@@ -1200,20 +1198,29 @@ function remplirDesign() {
 }
 
 function actualiserApercuWallet() {
-  const preset = document.querySelector('[name="preset"]:checked')?.value || 'dark';
   const exacte = $('#customColor').value;
   $('#wallet').style.background = /^#[0-9a-f]{6}$/i.test(exacte)
-    ? exacte : couleursWallet[preset];
-  $('#previewLogo').textContent = $('#appleLogoText').value || 'Bravocard';
-  $('#previewPointsLabel').textContent = $('#walletPointsLabel').value || 'POINTS SUR 100';
-  $('#previewCardLabel').textContent = $('#walletCardLabel').value || 'FIDÉLITÉ';
-  $('#previewProgramme').textContent = $('#walletProgramName').value || 'Carte fidélité';
-  $('#previewRecompense').textContent = $('#walletRewardText').value || 'Récompense à débloquer';
+    ? exacte : couleursWallet.dark;
+  const logoTexte = $('#appleLogoText').value.trim();
+  const pointsTexte = $('#walletPointsLabel').value.trim();
+  const carteTexte = $('#walletCardLabel').value.trim();
+  const programmeTexte = $('#walletProgramName').value.trim();
+  const recompenseTexte = $('#walletRewardText').value.trim();
+  $('#previewLogo').textContent = logoTexte;
+  $('#previewPointsLabel').textContent = pointsTexte;
+  $('#previewPointsLabel').hidden = !pointsTexte;
+  $('#previewCardLabel').textContent = carteTexte;
+  $('#previewCardLabel').hidden = !carteTexte;
+  $('#previewProgramme').textContent = programmeTexte;
+  $('#previewProgramme').closest('.wallet-principal').hidden = !programmeTexte;
+  $('#previewRecompense').textContent = recompenseTexte;
+  $('#previewRecompense').hidden = !recompenseTexte;
   const logo = valeurAsset('apple', 'logo');
   const banniere = valeurAsset('apple', 'banniere');
   const imageLogo = $('#previewLogoImage');
   imageLogo.src = logo;
   imageLogo.classList.toggle('visible', Boolean(logo));
+  $('#previewLogo').hidden = Boolean(logo) || !logoTexte;
   const zoneBanniere = $('#previewBanniere');
   zoneBanniere.style.backgroundImage = banniere ? `url("${banniere.replace(/"/g, '%22')}")` : '';
   zoneBanniere.classList.toggle('visible', Boolean(banniere));
@@ -1222,13 +1229,18 @@ function actualiserApercuWallet() {
 }
 
 function actualiserApercuGoogleWallet() {
-  const preset = document.querySelector('[name="preset"]:checked')?.value || 'dark';
   const exacte = $('#customColor').value;
   $('#walletGoogle').style.background = /^#[0-9a-f]{6}$/i.test(exacte)
-    ? exacte : couleursWallet[preset];
-  $('#googlePreviewProgramme').textContent = $('#walletProgramName').value || 'Carte fidélité';
-  $('#googlePreviewPointsLabel').textContent = $('#walletPointsLabel').value || 'POINTS SUR 100';
-  $('#googlePreviewCardLabel').textContent = $('#walletCardLabel').value || 'FIDÉLITÉ';
+    ? exacte : couleursWallet.dark;
+  const programmeTexte = $('#walletProgramName').value.trim();
+  const pointsTexte = $('#walletPointsLabel').value.trim();
+  const carteTexte = $('#walletCardLabel').value.trim();
+  $('#googlePreviewProgramme').textContent = programmeTexte;
+  $('#googlePreviewProgramme').hidden = !programmeTexte;
+  $('#googlePreviewPointsLabel').textContent = pointsTexte;
+  $('#googlePreviewPointsLabel').hidden = !pointsTexte;
+  $('#googlePreviewCardLabel').textContent = carteTexte;
+  $('#googlePreviewCardLabel').parentElement.hidden = !carteTexte;
 
   const logoRond = valeurAsset('google', 'logoRond');
   const logoLarge = valeurAsset('google', 'logoLarge');
@@ -1237,6 +1249,7 @@ function actualiserApercuGoogleWallet() {
   const imageLogoRond = $('#googlePreviewLogoRond');
   imageLogoRond.src = logoRond || '/logo-bravocard-encadre.png';
   imageLogoRond.hidden = false;
+  imageLogoRond.parentElement.hidden = false;
 
   const imageLogoLarge = $('#googlePreviewLogoLarge');
   imageLogoLarge.src = logoLarge;
@@ -1379,8 +1392,8 @@ function afficherStatutAsset(assetElement, statut, message) {
 function gererSelectionFichierAsset(evenement, assetElement) {
   const fichier = evenement.target.files[0];
   if (!fichier) return;
-  if (fichier.type !== 'image/png') {
-    afficherStatutAsset(assetElement, 'format_non_supporte', 'Choisissez un fichier PNG.');
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(fichier.type)) {
+    afficherStatutAsset(assetElement, 'format_non_supporte', 'Choisissez une image PNG, JPEG ou WebP.');
     evenement.target.value = '';
     return;
   }
@@ -1398,18 +1411,19 @@ function ouvrirRecadrage(dataUrl, assetElement) {
   walletRecadrage.plateforme = plateforme;
   walletRecadrage.id = id;
   $('#recadrageTitre').textContent = `Ajuster : ${spec.nom} (${plateforme === 'google' ? 'Google Wallet' : 'Apple Wallet'})`;
-  $('#recadrageAide').textContent =
-    `Dimensions conseillées : ${spec.largeurRecommandee} × ${spec.hauteurRecommandee} px · Ratio ${spec.ratio.toFixed(2)}:1.`;
+  const logoRond = (plateforme === 'apple' && id === 'logo') || (plateforme === 'google' && id === 'logoRond');
+  $('#recadrageAide').textContent = logoRond
+    ? 'Positionnez le symbole au centre du cercle. Le fichier final sera créé sans déformation.'
+    : `Dimensions conseillées : ${spec.largeurRecommandee} × ${spec.hauteurRecommandee} px · Ratio ${spec.ratio.toFixed(2)}:1.`;
   $('#recadrageFond').classList.add('visible');
   const image = $('#recadrageImage');
   if (walletRecadrage.cropper) {
     walletRecadrage.cropper.destroy();
     walletRecadrage.cropper = null;
   }
-  image.src = dataUrl;
   image.onload = () => {
     walletRecadrage.cropper = new Cropper(image, {
-      aspectRatio: spec.ratio,
+      aspectRatio: logoRond ? 1 : spec.ratio,
       viewMode: 1,
       autoCropArea: 1,
       background: true,
@@ -1419,6 +1433,7 @@ function ouvrirRecadrage(dataUrl, assetElement) {
       bouton.classList.toggle('actif', bouton.dataset.modeAjustement === 'centrer')
     );
   };
+  image.src = dataUrl;
 }
 
 function fermerRecadrage() {
@@ -1452,10 +1467,26 @@ async function validerRecadrage() {
   const bouton = $('#validerRecadrage');
   bouton.disabled = true;
   try {
-    const canvas = walletRecadrage.cropper.getCroppedCanvas({
-      width: spec.largeurRecommandee,
-      height: spec.hauteurRecommandee
-    });
+    let canvas;
+    if (plateforme === 'apple' && id === 'logo') {
+      const source = walletRecadrage.cropper.getCroppedCanvas({ width: 300, height: 300 });
+      canvas = document.createElement('canvas');
+      canvas.width = spec.largeurRecommandee;
+      canvas.height = spec.hauteurRecommandee;
+      const contexte = canvas.getContext('2d');
+      const diametre = Math.min(spec.hauteurRecommandee - 4, spec.largeurRecommandee);
+      contexte.save();
+      contexte.beginPath();
+      contexte.arc(diametre / 2 + 2, spec.hauteurRecommandee / 2, diametre / 2, 0, Math.PI * 2);
+      contexte.clip();
+      contexte.drawImage(source, 2, (spec.hauteurRecommandee - diametre) / 2, diametre, diametre);
+      contexte.restore();
+    } else {
+      canvas = walletRecadrage.cropper.getCroppedCanvas({
+        width: spec.largeurRecommandee,
+        height: spec.hauteurRecommandee
+      });
+    }
     const dataUrl = canvas.toDataURL('image/png');
     afficherStatutAsset(assetElement, null, 'Import en cours…');
     const donnees = await api(`/api/design/${encodeURIComponent(slug)}/image`, {
@@ -1484,34 +1515,12 @@ function supprimerAsset(assetElement) {
   actualiserApercuGoogleWallet();
 }
 
-const modelesWallet = {
-  signature: { preset: 'dark', color: '#17171D', points: 'POINTS', card: 'MEMBRE', program: 'Carte privilège', reward: 'Votre récompense vous attend' },
-  violet: { preset: 'purple', color: '#2B174A', points: 'POINTS', card: 'CLUB', program: 'Le Club Maison', reward: 'Un avantage à 100 points' },
-  foret: { preset: 'green', color: '#0E3B2E', points: 'POINTS', card: 'FIDÉLITÉ', program: 'Les habitués', reward: 'Une attention à débloquer' },
-  neon: { preset: 'blue', color: '#071049', points: 'CRÉDITS', card: 'VIP', program: 'Night rewards', reward: 'Votre surprise approche', strip: '/BANNER%20V3.png', icon: '/avatar-bravocard.png', logo: '/logo-bravocard-encadre.png' },
-  bistrot: { preset: 'orange', color: '#7B3023', points: 'POINTS', card: 'TABLE', program: 'Les bons vivants', reward: 'Votre prochaine attention maison' },
-  azur: { preset: 'blue', color: '#07547A', points: 'SOLEILS', card: 'CLUB', program: 'Escapade gourmande', reward: 'Une parenthèse offerte à 100 soleils' },
-  patissier: { preset: 'red', color: '#74324B', points: 'DOUCEURS', card: 'PRIVILÈGE', program: 'Le salon des habitués', reward: 'Une douceur maison vous attend' }
-};
-
-function appliquerModeleWallet(nom) {
-  const modele = modelesWallet[nom];
-  if (!modele) return;
-  document.querySelector(`[name="preset"][value="${modele.preset}"]`).checked = true;
-  $('#customColor').value = modele.color;
-  $('#customColorPicker').value = modele.color;
-  $('#walletPointsLabel').value = modele.points;
-  $('#walletCardLabel').value = modele.card;
-  $('#walletProgramName').value = modele.program;
-  $('#walletRewardText').value = modele.reward;
-  if (modele.strip) definirValeurAsset(elementAsset('apple', 'banniere'), `${window.location.origin}${modele.strip}`);
-  if (modele.icon) definirValeurAsset(elementAsset('apple', 'icone'), `${window.location.origin}${modele.icon}`);
-  if (modele.logo) definirValeurAsset(elementAsset('apple', 'logo'), `${window.location.origin}${modele.logo}`);
-  document.querySelectorAll('[data-modele-wallet]').forEach(bouton =>
-    bouton.classList.toggle('actif', bouton.dataset.modeleWallet === nom)
-  );
-  actualiserApercuWallet();
-  actualiserApercuGoogleWallet();
+function choisirBanniereWallet(url) {
+  const assetElement = walletPlateformeActive === 'google'
+    ? elementAsset('google', 'heroImage')
+    : elementAsset('apple', 'banniere');
+  if (!assetElement) return;
+  ouvrirRecadrage(new URL(url, window.location.origin).href, assetElement);
 }
 
 async function enregistrerDesign() {
@@ -1520,7 +1529,7 @@ async function enregistrerDesign() {
   afficherMessage($('#messageDesign'), 'Enregistrement...');
   const corps = {
     wallet_barcode_format: document.querySelector('[name="walletBarcodeFormat"]:checked')?.value || 'CODE_128',
-    apple_color_preset: document.querySelector('[name="preset"]:checked').value,
+    apple_color_preset: 'dark',
     apple_custom_color: $('#customColor').value,
     apple_points_label: $('#walletPointsLabel').value,
     apple_card_label: $('#walletCardLabel').value,
@@ -2048,15 +2057,20 @@ $('#customColorPicker').addEventListener('input', evenement => {
   $('#customColor').value = evenement.target.value.toUpperCase();
   actualiserLesDeuxApercusWallet();
 });
+$('#customColor').addEventListener('input', evenement => {
+  const couleur = evenement.target.value.trim();
+  if (/^#[0-9a-f]{6}$/i.test(couleur)) $('#customColorPicker').value = couleur;
+});
 document.querySelectorAll('.asset-wallet').forEach(element => {
   element.querySelector('.asset-file').addEventListener('change', evenement => gererSelectionFichierAsset(evenement, element));
   const boutonSupprimer = element.querySelector('.asset-supprimer');
   boutonSupprimer.hidden = !element.querySelector('.asset-url').value.trim();
   boutonSupprimer.addEventListener('click', () => supprimerAsset(element));
 });
-document.querySelectorAll('[data-modele-wallet]').forEach(bouton =>
-  bouton.addEventListener('click', () => appliquerModeleWallet(bouton.dataset.modeleWallet))
-);
+$('#galerieBannieres').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-banniere-wallet]');
+  if (bouton) choisirBanniereWallet(bouton.dataset.banniereWallet);
+});
 document.querySelectorAll('[name="walletBarcodeFormat"]').forEach(champ =>
   champ.addEventListener('change', actualiserLesDeuxApercusWallet)
 );

@@ -68,9 +68,13 @@ function logoParDefaut() {
 
 function construireClasseFidelite(restaurant) {
   const nom = String(restaurant.nom || 'Bravocard').trim().slice(0, 80);
-  const programme = String(
-    restaurant.apple_program_name || restaurant.apple_logo_text || `Carte fidélité ${nom}`
-  ).trim().slice(0, 80);
+  const valeurConfiguree = (champ, valeurParDefaut = '') =>
+    restaurant[champ] === null || restaurant[champ] === undefined
+      ? valeurParDefaut
+      : String(restaurant[champ]).trim();
+  const programmeConfigure = valeurConfiguree('apple_program_name', `Carte fidélité ${nom}`);
+  const programme = (programmeConfigure || nom).slice(0, 80);
+  const carteLabel = valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
 
   // Images propres a Google Wallet : jamais celles d'Apple. Seul le logo rond
   // retombe sur le logo Bravocard par defaut (Google l'exige), la banniere et
@@ -80,12 +84,35 @@ function construireClasseFidelite(restaurant) {
   const logoLarge = imageGoogle(restaurant.google_wide_logo_url, `Logo large ${nom}`);
   const banniere = imageGoogle(restaurant.google_hero_image_url, `Bannière ${nom}`);
 
+  const lignesCarte = [
+    {
+      oneItem: {
+        item: { firstValue: { fields: [{ fieldPath: 'object.loyaltyPoints.balance' }] } }
+      }
+    },
+    carteLabel
+      ? {
+          twoItems: {
+            startItem: {
+              firstValue: { fields: [{ fieldPath: "object.textModulesData['client']" }] }
+            },
+            endItem: {
+              firstValue: { fields: [{ fieldPath: "object.textModulesData['type_carte']" }] }
+            }
+          }
+        }
+      : {
+          oneItem: {
+            item: { firstValue: { fields: [{ fieldPath: "object.textModulesData['client']" }] } }
+          }
+        }
+  ];
+
   return {
     id: getRestaurantClassId(restaurant),
     issuerName: nom.slice(0, 20),
     programName: programme.slice(0, 20),
     programLogo: logo,
-    reviewStatus: 'UNDER_REVIEW',
     hexBackgroundColor: couleurRestaurant(restaurant),
     accountNameLabel: 'CLIENT',
     accountIdLabel: 'IDENTIFIANT',
@@ -93,29 +120,19 @@ function construireClasseFidelite(restaurant) {
     ...(banniere ? { heroImage: banniere } : {}),
     classTemplateInfo: {
       cardTemplateOverride: {
-        cardRowTemplateInfos: [
-          {
-            oneItem: {
-              item: { firstValue: { fields: [{ fieldPath: 'object.loyaltyPoints.balance' }] } }
-            }
-          },
-          {
-            twoItems: {
-              startItem: {
-                firstValue: { fields: [{ fieldPath: "object.textModulesData['client']" }] }
-              },
-              endItem: {
-                firstValue: { fields: [{ fieldPath: "object.textModulesData['type_carte']" }] }
-              }
-            }
-          }
-        ]
+        cardRowTemplateInfos: lignesCarte
       }
     }
   };
 }
 
 function construireObjetFidelite(client, restaurant) {
+  const pointsLabel = restaurant.apple_points_label === null || restaurant.apple_points_label === undefined
+    ? 'Points sur 100'
+    : String(restaurant.apple_points_label).trim();
+  const carteLabel = restaurant.apple_card_label === null || restaurant.apple_card_label === undefined
+    ? 'FIDÉLITÉ'
+    : String(restaurant.apple_card_label).trim();
   const objet = {
     id: getObjectId(client.id),
     classId: getRestaurantClassId(restaurant),
@@ -123,7 +140,7 @@ function construireObjetFidelite(client, restaurant) {
     accountId: client.id,
     accountName: client.nom,
     loyaltyPoints: {
-      label: restaurant.apple_points_label || 'Points sur 100',
+      label: pointsLabel,
       balance: { int: Number.parseInt(client.points || 0, 10) }
     },
     barcode: {
@@ -133,7 +150,7 @@ function construireObjetFidelite(client, restaurant) {
     },
     textModulesData: [
       { id: 'client', header: 'CLIENT', body: client.nom },
-      { id: 'type_carte', header: 'CARTE', body: restaurant.apple_card_label || 'FIDÉLITÉ' }
+      ...(carteLabel ? [{ id: 'type_carte', header: 'CARTE', body: carteLabel }] : [])
     ]
   };
 
@@ -206,7 +223,7 @@ async function assurerClasseRestaurant(restaurant, options = {}) {
       const creation = await clientGoogle.request({
         url: 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass',
         method: 'POST',
-        data: payload
+        data: { ...payload, reviewStatus: 'UNDER_REVIEW' }
       });
       classe = creation.data;
     }
