@@ -263,16 +263,19 @@ function construireChampsCarte(client, restaurant = null) {
     ],
 
     /*
-     * Élément central principal de la carte : le client, toujours présent.
-     * Apple et Google affichent surtout ce premier primaryField.
+     * Rien au centre de la carte : client et récompense vivent tous les
+     * deux dans la même rangée du bas (secondaryFields).
      */
-    primaryFields: [{ label: carteLabel, value: nomClient }],
+    primaryFields: [],
 
     /*
-     * Récompense en cours, affichée à côté du client. Absente si le
-     * restaurateur n'a rien renseigné, exactement comme dans l'aperçu.
+     * Client à gauche, récompense à droite. La récompense n'apparaît que
+     * si le restaurateur l'a renseignée, exactement comme dans l'aperçu.
      */
-    secondaryFields: texteRecompense ? [{ label: 'RÉCOMPENSE', value: texteRecompense }] : [],
+    secondaryFields: [
+      { label: 'CLIENT', value: nomClient },
+      ...(texteRecompense ? [{ label: 'RÉCOMPENSE', value: texteRecompense }] : [])
+    ],
 
     /*
      * Informations visibles lorsque le client ouvre les détails de la carte.
