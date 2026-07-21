@@ -4,6 +4,7 @@ const cors = require('cors');
 const cron = require('node-cron');
 const path = require('path');
 const crypto = require('crypto');
+const sharp = require('sharp');
 
 const supabase = require('./supabaseClient');
 const wallet = require('./walletService');
@@ -35,7 +36,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   }
 });
 
-app.use(express.json({ limit: '3mb' }));
+app.use(express.json({ limit: '15mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const CHAMPS_RESTAURANT = [
@@ -844,8 +845,8 @@ function decoderImagePNG(imageData) {
   const correspondance = String(imageData || '').match(/^data:image\/png;base64,([A-Za-z0-9+/=\r\n]+)$/);
   if (!correspondance) throw new Error('Le fichier doit être une image PNG.');
   const buffer = Buffer.from(correspondance[1], 'base64');
-  if (buffer.length < 24 || buffer.length > 2 * 1024 * 1024) {
-    throw new Error('L’image doit peser moins de 2 Mo.');
+  if (buffer.length < 24 || buffer.length > 10 * 1024 * 1024) {
+    throw new Error('L’image doit peser moins de 10 Mo.');
   }
   const signaturePNG = '89504e470d0a1a0a';
   if (buffer.subarray(0, 8).toString('hex') !== signaturePNG) {
@@ -856,6 +857,27 @@ function decoderImagePNG(imageData) {
     largeur: buffer.readUInt32BE(16),
     hauteur: buffer.readUInt32BE(20)
   };
+}
+
+/**
+ * Recompresse une image pour qu'elle passe sous la limite de poids d'Apple
+ * ou de Google, sans jamais changer ses dimensions. Le restaurateur peut
+ * ainsi choisir n'importe quelle photo (jusqu'à 10 Mo) : c'est à nous de
+ * l'alléger, plutôt que de refuser l'import.
+ */
+async function compresserImageSousLimite(buffer, poidsMaxOctets) {
+  if (buffer.length <= poidsMaxOctets) return buffer;
+
+  for (const qualite of [90, 80, 70, 60, 50, 40, 30]) {
+    const compresse = await sharp(buffer)
+      .png({ palette: true, quality: qualite, compressionLevel: 9 })
+      .toBuffer();
+    if (compresse.length <= poidsMaxOctets) return compresse;
+  }
+
+  // Dernier recours : la compression la plus forte, meme si elle depasse
+  // encore legerement la limite (bien plus rare qu'un refus pur et simple).
+  return sharp(buffer).png({ palette: true, quality: 30, compressionLevel: 9 }).toBuffer();
 }
 
 async function actualiserCartesAppleEnArrierePlan(restaurant) {
@@ -964,6 +986,7 @@ app.post('/api/design/:slug/image', async (req, res) => {
       return res.status(400).json({ erreur: 'Type d’image inconnu pour cette plateforme.' });
     }
     const image = decoderImagePNG(req.body.image_data);
+    image.buffer = await compresserImageSousLimite(image.buffer, specification.poidsMaxOctets);
     const validation = walletAssetSpecifications.validerDimensionsImage(plateforme, type, {
       largeur: image.largeur,
       hauteur: image.hauteur,
