@@ -10,7 +10,10 @@
 // - Apple : https://www.walletwallet.dev/blog/anatomy-of-an-apple-wallet-pass/
 // - Google : https://developers.google.com/wallet/retail/loyalty-cards/resources/brand-guidelines
 
-const POIDS_MAX_OCTETS = 2 * 1024 * 1024;
+// WalletWallet (Apple) refuse toute image au dela de 1 Mo, meme si Google
+// Wallet accepte davantage : chaque plateforme garde donc sa propre limite.
+const POIDS_MAX_OCTETS_APPLE = 1 * 1024 * 1024;
+const POIDS_MAX_OCTETS_GOOGLE = 2 * 1024 * 1024;
 
 const SPECIFICATIONS = {
   apple: {
@@ -26,7 +29,7 @@ const SPECIFICATIONS = {
       largeurMin: 160,
       hauteurMin: 50,
       formats: ['png'],
-      poidsMaxOctets: POIDS_MAX_OCTETS,
+      poidsMaxOctets: POIDS_MAX_OCTETS_APPLE,
       zoneSecurite: null,
       description: 'Affiché en haut à gauche de la carte, à la place du nom écrit. PNG transparent recommandé.'
     },
@@ -42,7 +45,7 @@ const SPECIFICATIONS = {
       largeurMin: 58,
       hauteurMin: 58,
       formats: ['png'],
-      poidsMaxOctets: POIDS_MAX_OCTETS,
+      poidsMaxOctets: POIDS_MAX_OCTETS_APPLE,
       zoneSecurite: null,
       description: 'Utilisée dans les notifications verrouillées de l’iPhone. Doit être carrée.'
     },
@@ -58,7 +61,7 @@ const SPECIFICATIONS = {
       largeurMin: 375,
       hauteurMin: 123,
       formats: ['png'],
-      poidsMaxOctets: POIDS_MAX_OCTETS,
+      poidsMaxOctets: POIDS_MAX_OCTETS_APPLE,
       zoneSecurite: null,
       description: 'Bande visuelle affichée sous le nom du programme.'
     }
@@ -76,7 +79,7 @@ const SPECIFICATIONS = {
       largeurMin: 660,
       hauteurMin: 660,
       formats: ['png'],
-      poidsMaxOctets: POIDS_MAX_OCTETS,
+      poidsMaxOctets: POIDS_MAX_OCTETS_GOOGLE,
       zoneSecurite: { forme: 'cercle', margeProportion: 0.15 },
       description: 'Google masque automatiquement ce logo dans un cercle. Laissez une marge de 15 % autour de l’élément principal pour qu’il ne soit pas coupé.'
     },
@@ -92,7 +95,7 @@ const SPECIFICATIONS = {
       largeurMin: 640,
       hauteurMin: 200,
       formats: ['png'],
-      poidsMaxOctets: POIDS_MAX_OCTETS,
+      poidsMaxOctets: POIDS_MAX_OCTETS_GOOGLE,
       zoneSecurite: null,
       description: 'Logo texte pleine largeur, remplace le logo rond dans certains affichages. Utilisez du blanc sur fond sombre ou du noir sur fond clair, PNG transparent.'
     },
@@ -108,7 +111,7 @@ const SPECIFICATIONS = {
       largeurMin: 516,
       hauteurMin: 168,
       formats: ['png'],
-      poidsMaxOctets: POIDS_MAX_OCTETS,
+      poidsMaxOctets: POIDS_MAX_OCTETS_GOOGLE,
       zoneSecurite: null,
       description: 'Bannière principale affichée en pleine largeur de la carte.'
     }
