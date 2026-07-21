@@ -91,7 +91,7 @@
           <article class="stat"><span class="stat-icone violet">♙</span><div><small>Clients inscrits</small><strong id="statClients">0</strong><em id="statActifs">0 actifs</em></div></article>
           <article class="stat"><span class="stat-icone vert">✦</span><div><small>Points en circulation</small><strong id="statPoints">0</strong><em>Programme en temps réel</em></div></article>
           <article class="stat"><span class="stat-icone bleu"></span><div><small>Cartes Apple</small><strong id="statApple">0</strong><em>Cartes créées</em></div></article>
-          <article class="stat"><span class="stat-icone orange">●</span><div><small>Notifications sur 24 h</small><strong><span id="statNotifications">0</span>/3</strong><em>Limite anti-spam</em></div></article>
+          <article class="stat"><span class="stat-icone orange">●</span><div><small>Notifications sur 24 h</small><strong><span id="statNotifications">0</span></strong><em>Campagnes envoyées</em></div></article>
         </div>
         <div class="grille-accueil">
           <article class="panneau"><div class="panneau-titre"><div><span class="eyebrow">Activité récente</span><h3>Derniers clients</h3></div><button class="lien-bouton" data-ouvrir-vue="clients">Voir tout</button></div><div id="derniersClients" class="liste-simple"></div></article>
@@ -241,7 +241,7 @@
             <label for="messageNotification">Message</label><textarea id="messageNotification" maxlength="160" rows="5" placeholder="Une boisson offerte avec votre menu jusqu’à 22 h !"></textarea>
             <div class="sous-champ"><span>Restez simple, clair et utile.</span><strong><span id="compteurMessage">0</span>/160</strong></div>
             <label>Envoyer vers</label><div class="choix-plateforme"><label><input type="radio" name="plateforme" value="toutes" checked><span>Tous les Wallets</span></label><label><input type="radio" name="plateforme" value="apple"><span>Apple uniquement</span></label><label><input type="radio" name="plateforme" value="google"><span>Google uniquement</span></label></div>
-            <div class="info-envoi"><span>i</span><p>Maximum 3 campagnes sur 24 heures. La réception dépend des réglages de notifications du téléphone.</p></div>
+            <div class="info-envoi"><span>i</span><p>La réception dépend des réglages de notifications du téléphone.</p></div>
             <div class="test-notification"><div><strong>Tester avant l’envoi</strong><span>Choisissez votre carte test pour vérifier la notification sur un seul téléphone.</span></div><select id="clientTest"></select><button class="bouton secondaire" id="envoyerTest">Envoyer un test</button></div>
             <button class="bouton principal large" id="envoyerNotification">Envoyer à tous mes clients</button><p class="message" id="messageEnvoi"></p>
           </article>

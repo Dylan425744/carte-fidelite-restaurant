@@ -504,8 +504,8 @@ function afficherTableau() {
 
   const enCours = donneesTableau.notification_en_cours ||
     donneesTableau.notifications.some(campagne => campagne.statut === 'en_cours');
-  $('#envoyerNotification').disabled = enCours || stats.campagnes_24h >= 3;
-  $('#envoyerTest').disabled = enCours || stats.campagnes_24h >= 3 || !$('#clientTest').value;
+  $('#envoyerNotification').disabled = enCours;
+  $('#envoyerTest').disabled = enCours || !$('#clientTest').value;
   if (enCours) programmerActualisationCampagne();
 }
 

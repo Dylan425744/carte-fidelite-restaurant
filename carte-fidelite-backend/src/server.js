@@ -1291,8 +1291,7 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
         couleur_secondaire: acces.restaurant.roue_couleur_secondaire || '',
         historique: historiqueRoue
       },
-      notification_en_cours: Boolean(acces.restaurant.notification_sending),
-      limite_notifications_24h: 3
+      notification_en_cours: Boolean(acces.restaurant.notification_sending)
     });
   } catch (erreur) {
     console.error(erreur);
@@ -1488,21 +1487,6 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
       });
     }
     const maintenant = new Date();
-    const campagnes24h = historique.filter(campagne => {
-      const date = new Date(campagne.created_at).getTime();
-      return (
-        campagne.statut !== 'echec' &&
-        Number.isFinite(date) &&
-        date > Date.now() - 24 * 60 * 60 * 1000
-      );
-    });
-
-    if (campagnes24h.length >= 3) {
-      return res.status(429).json({
-        erreur: 'La limite de 3 notifications sur 24 heures est atteinte.'
-      });
-    }
-
     const derniereDate = new Date(
       historique[0]?.created_at || acces.restaurant.last_notification_sent_at || 0
     ).getTime();
