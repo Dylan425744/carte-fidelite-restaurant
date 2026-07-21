@@ -796,7 +796,17 @@ app.get('/api/restaurants/:slug/public', async (req, res) => {
       return res.status(404).json({ erreur: 'Commerce introuvable.' });
     }
 
-    res.json({ restaurant: { nom: restaurant.nom, slug: restaurant.slug } });
+    res.json({
+      restaurant: {
+        nom: restaurant.nom,
+        slug: restaurant.slug,
+        // Necessaire au scanner cote personnel "employe" : ce role n'a pas
+        // acces a /api/design ni /api/.../tableau-de-bord, qui exposaient
+        // seuls ce reglage. Sans lui, le scanner restait fige sur
+        // code-barres et ne detectait jamais les cartes configurees en QR.
+        wallet_barcode_format: restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128'
+      }
+    });
   } catch (erreur) {
     res.status(400).json({ erreur: erreur.message });
   }
@@ -2284,21 +2294,10 @@ app.post('/api/clients', async (req, res) => {
       console.error('Erreur creation Apple Wallet:', erreurApple.message);
     }
 
-    try {
-      await email.envoyerEmailBienvenue(
-        emailNettoye,
-        nomNettoye,
-        restaurant,
-        lienWallet,
-        lienAppleWallet,
-        codePersonnel,
-        lienParrainage
-      );
-    } catch (erreurEmail) {
-      // La carte reste créée et disponible à l'écran même si le fournisseur
-      // email refuse temporairement l'adresse publique Bravocard.
-      console.error('Email de bienvenue non envoyé:', erreurEmail.message);
-    }
+    // Pas d'email immediat ici : le message de bienvenue ("tenter de gagner
+    // un cadeau") part automatiquement 1h apres l'inscription, voir le cron
+    // plus bas. Cela laisse le temps au client d'ajouter reellement sa carte
+    // avant de le solliciter.
 
     res.json({
       client: {
@@ -2860,6 +2859,47 @@ cron.schedule('*/15 * * * *', async () => {
         console.log(`Avis envoye a ${scan.clients.email}`);
       } catch (erreurEnvoi) {
         console.error('Erreur envoi avis:', erreurEnvoi.message);
+      }
+    }
+  }
+});
+
+// Verifie toutes les 15 minutes les nouveaux clients a qui envoyer l'email de
+// bienvenue ("tenter de gagner un cadeau"), 1h apres leur inscription. Le
+// meme delai (fenetre 55-75 min) que l'avis post-passage ci-dessus.
+cron.schedule('*/15 * * * *', async () => {
+  const { data: clients, error } = await supabase
+    .from('clients')
+    .select('id, nom, email, date_inscription, restaurants(nom, public_qr_token)')
+    .eq('email_bienvenue_envoye', false);
+
+  if (error) {
+    console.error('Erreur lecture clients (email bienvenue):', error.message);
+    return;
+  }
+
+  const maintenant = new Date();
+  const base = String(process.env.MARKETING_PUBLIC_BASE_URL || 'https://bravocard.fr').replace(/\/$/, '');
+
+  for (const client of clients) {
+    const dateInscription = new Date(client.date_inscription);
+    const minutesEcoulees = (maintenant - dateInscription) / (1000 * 60);
+
+    if (minutesEcoulees >= 55 && minutesEcoulees <= 75) {
+      try {
+        const token = client.restaurants?.public_qr_token;
+        if (!token) continue;
+        const lienAvis = `${base}/avis/${encodeURIComponent(token)}`;
+        await email.envoyerEmailBienvenue(
+          client.email,
+          client.nom,
+          client.restaurants,
+          lienAvis
+        );
+        await supabase.from('clients').update({ email_bienvenue_envoye: true }).eq('id', client.id);
+        console.log(`Email de bienvenue envoye a ${client.email}`);
+      } catch (erreurEnvoi) {
+        console.error('Erreur envoi email de bienvenue:', erreurEnvoi.message);
       }
     }
   }
