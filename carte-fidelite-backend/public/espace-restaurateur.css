@@ -179,9 +179,9 @@
 .wallet-banniere.visible{display:block;background-color:rgba(255,255,255,.08)}
 .wallet-principal{position:relative;z-index:2;margin-top:18px}
 .wallet-principal strong{display:block;margin-top:3px;font:800 22px "Manrope"}
-.wallet-bas{position:relative;z-index:2;margin-top:auto;padding-top:24px;display:flex;justify-content:space-between;align-items:end}
+.wallet-bas{position:relative;z-index:2;margin-top:auto;padding-top:24px;display:flex;align-items:end}
 .wallet-bas strong{display:block;margin:3px 0 8px;font-size:13px}
-.codebarres{width:42%;height:42px;border-radius:5px;background:repeating-linear-gradient(90deg,#fff 0 2px,#111 2px 4px,#fff 4px 5px,#111 5px 8px)}
+.codebarres{width:42%;height:42px;border-radius:5px;margin-left:auto;background:repeating-linear-gradient(90deg,#fff 0 2px,#111 2px 4px,#fff 4px 5px,#111 5px 8px)}
 .wallet.format-qr .codebarres{width:58px;height:58px;background:conic-gradient(#111 25%,#fff 0 50%,#111 0 75%,#fff 0) 0 0/10px 10px;border:5px solid #fff;box-shadow:0 0 0 1px rgba(255,255,255,.35)}
 .preview-logo-zone{display:flex;align-items:center;gap:9px}
 .preview-logo-zone img{display:none;width:38px;height:38px;border-radius:50%;object-fit:cover;object-position:left;background:rgba(255,255,255,.1)}

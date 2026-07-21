@@ -1331,7 +1331,7 @@ function actualiserApercuWallet() {
   $('#previewCardLabel').textContent = carteTexte;
   $('#previewCardLabel').hidden = !carteTexte;
   $('#previewRecompense').textContent = recompenseTexte;
-  $('#previewRecompense').closest('.wallet-principal').hidden = !recompenseTexte;
+  $('#previewBlocRecompense').hidden = !recompenseTexte;
   const logo = valeurAsset('apple', 'logo');
   const banniere = valeurAsset('apple', 'banniere');
   const imageLogo = $('#previewLogoImage');

@@ -206,14 +206,10 @@ function construireChampsCarte(client, restaurant = null) {
   const logoText = valeurConfiguree('apple_logo_text') || nomRestaurant;
   const pointsLabel = valeurConfiguree('apple_points_label', 'POINTS SUR 100');
   const carteLabel = valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
-  // Sans .trim(), une valeur enregistree vide (mais non nulle, ex. apres un
-  // premier enregistrement du formulaire sans ce champ rempli) resterait
-  // vide au lieu de retomber sur la description : primaryFields deviendrait
-  // alors un tableau vide, ce que WalletWallet peut refuser silencieusement.
-  const texteRecompense =
-    valeurConfiguree('apple_reward_text') ||
-    restaurant?.description_recompense ||
-    'Récompense à débloquer';
+  // Champ facultatif : si le restaurateur ne saisit rien, la carte ne doit
+  // rien afficher du tout a cet endroit (comme dans l'apercu du tableau de
+  // bord), plutot que de retomber sur une valeur par defaut.
+  const texteRecompense = valeurConfiguree('apple_reward_text');
   const conditions = valeurConfiguree(
     'apple_terms',
     'Conditions du programme disponibles auprès du restaurant.'
@@ -267,18 +263,16 @@ function construireChampsCarte(client, restaurant = null) {
     ],
 
     /*
-     * Élément central principal de la carte.
-     * Apple et Google affichent surtout le premier primaryField.
-     * La récompense est l'information la plus utile à mettre en avant.
+     * Élément central principal de la carte : le client, toujours présent.
+     * Apple et Google affichent surtout ce premier primaryField.
      */
-    primaryFields: texteRecompense ? [{ label: 'RÉCOMPENSE', value: texteRecompense }] : [],
+    primaryFields: [{ label: carteLabel, value: nomClient }],
 
     /*
-     * Informations affichées sous le nombre de points.
+     * Récompense en cours, affichée à côté du client. Absente si le
+     * restaurateur n'a rien renseigné, exactement comme dans l'aperçu.
      */
-    secondaryFields: [
-      { label: 'CLIENT', value: nomClient }
-    ],
+    secondaryFields: texteRecompense ? [{ label: 'RÉCOMPENSE', value: texteRecompense }] : [],
 
     /*
      * Informations visibles lorsque le client ouvre les détails de la carte.
