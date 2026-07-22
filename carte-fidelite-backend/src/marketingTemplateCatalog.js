@@ -26,27 +26,27 @@ const FORMATS = {
 const STYLES = {
   premium: {
     id: 'premium', nom: 'Premium', description: 'Sombre, profond et sophistiqué', sombre: true,
-    fond: '#15111F', surface: '#241B33', primaire: '#7C4DFF', secondaire: '#D8B56A', texte: '#FFFFFF', texteAttenue: '#D5CBE7', police: 'Helvetica, Arial, sans-serif'
+    fond: '#15111F', surface: '#241B33', primaire: '#7C4DFF', secondaire: '#CDBCF6', accent: '#D6B15E', texte: '#FFFFFF', texteAttenue: '#D5CBE7', police: 'Helvetica, Arial, sans-serif'
   },
   fun: {
     id: 'fun', nom: 'Fun', description: 'Énergique, coloré et généreux', sombre: false,
-    fond: '#FFF5E7', surface: '#FFE1B8', primaire: '#6C3CE9', secondaire: '#FF7A3D', texte: '#271934', texteAttenue: '#6D5C75', police: 'Helvetica, Arial, sans-serif'
+    fond: '#FFF5E7', surface: '#FFE1B8', primaire: '#6C3CE9', secondaire: '#FFB38C', accent: '#FF7A3D', texte: '#271934', texteAttenue: '#6D5C75', police: 'Helvetica, Arial, sans-serif'
   },
   minimal: {
     id: 'minimal', nom: 'Minimal', description: 'Clair, précis et intemporel', sombre: false,
-    fond: '#F7F7F5', surface: '#FFFFFF', primaire: '#17171D', secondaire: '#8A8A86', texte: '#17171D', texteAttenue: '#62625E', police: 'Helvetica, Arial, sans-serif'
+    fond: '#F7F7F5', surface: '#FFFFFF', primaire: '#17171D', secondaire: '#D7D7D2', accent: '#8A8A86', texte: '#17171D', texteAttenue: '#62625E', police: 'Helvetica, Arial, sans-serif'
   },
   'street-food': {
     id: 'street-food', nom: 'Street food', description: 'Franc, contrasté et urbain', sombre: true,
-    fond: '#171717', surface: '#292929', primaire: '#FFCC00', secondaire: '#FF4D2E', texte: '#FFFFFF', texteAttenue: '#D4D4D4', police: 'Arial Black, Helvetica, sans-serif'
+    fond: '#171717', surface: '#292929', primaire: '#FF4D2E', secondaire: '#FFD95C', accent: '#FFCC00', texte: '#FFFFFF', texteAttenue: '#D4D4D4', police: 'Arial Black, Helvetica, sans-serif'
   },
   elegant: {
     id: 'elegant', nom: 'Élégant', description: 'Raffiné, chaleureux et éditorial', sombre: true,
-    fond: '#17251F', surface: '#23372E', primaire: '#C9A46A', secondaire: '#F0E3CA', texte: '#FFFDF8', texteAttenue: '#D8D0C2', police: 'Georgia, Times New Roman, serif'
+    fond: '#17251F', surface: '#23372E', primaire: '#315B49', secondaire: '#F0E3CA', accent: '#C9A46A', texte: '#FFFDF8', texteAttenue: '#D8D0C2', police: 'Georgia, Times New Roman, serif'
   },
   modern: {
     id: 'modern', nom: 'Moderne', description: 'Graphique, net et contemporain', sombre: false,
-    fond: '#EEF4FF', surface: '#FFFFFF', primaire: '#2357FF', secondaire: '#00A88F', texte: '#101B3A', texteAttenue: '#52617E', police: 'Helvetica, Arial, sans-serif'
+    fond: '#EEF4FF', surface: '#FFFFFF', primaire: '#2357FF', secondaire: '#A9C4FF', accent: '#00A88F', texte: '#101B3A', texteAttenue: '#52617E', police: 'Helvetica, Arial, sans-serif'
   }
 };
 

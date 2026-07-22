@@ -2126,6 +2126,8 @@ function rafraichirPickersGenerateur() {
     kitCommunication.photos.map(photo => `<button type="button" class="generateur-photo ${photo.url === genEtat.photoUrl ? 'actif' : ''}" data-photo="${echapper(photo.url)}"><img src="${echapper(photo.url)}" alt=""><span>${echapper(photo.nom)}</span></button>`).join('');
   const type = kitCommunication.types_support.find(item => item.id === genEtat.kind);
   const format = kitCommunication.formats.find(item => item.id === genEtat.formatId);
+  $('#genBlocAccent').style.display = genEtat.kind === 'wheel' ? '' : 'none';
+  $('#genRoueDefaut').style.display = genEtat.kind === 'wheel' ? '' : 'none';
   $('#genApercuTitre').textContent = type?.nom || 'Support Bravocard';
   $('#genApercuFormat').textContent = format?.nom || '';
 }
@@ -2137,6 +2139,7 @@ function genParametresActuels() {
     style: genEtat.style,
     primary_color: $('#genCouleurPrincipale').value,
     secondary_color: $('#genCouleurSecondaire').value,
+    accent_color: $('#genCouleurAccent').value,
     title: $('#genTitre').value,
     subtitle: $('#genSousTitre').value,
     logo_url: $('#genLogoUrl').value.trim(),
@@ -2150,6 +2153,7 @@ function memoriserReglageGenerateur() {
     format_layout: genEtat.formatId, style: genEtat.style,
     primary_color: $('#genCouleurPrincipale').value,
     secondary_color: $('#genCouleurSecondaire').value,
+    accent_color: $('#genCouleurAccent').value,
     photo_url: genEtat.photoUrl, title: $('#genTitre').value,
     subtitle: $('#genSousTitre').value, variant: genEtat.variant
   };
@@ -2166,6 +2170,7 @@ function appliquerReglageGenerateur(kind) {
   const style = kitCommunication.styles.find(item => item.id === genEtat.style);
   $('#genCouleurPrincipale').value = reglage.primary_color || style?.primaire || '#6C3CE9';
   $('#genCouleurSecondaire').value = reglage.secondary_color || style?.secondaire || '#E8891F';
+  $('#genCouleurAccent').value = reglage.accent_color || style?.accent || '#D6B15E';
   $('#genTitre').value = reglage.title || type?.titreParDefaut || '';
   $('#genSousTitre').value = reglage.subtitle || type?.sousTitreParDefaut || '';
   rafraichirPickersGenerateur();
@@ -2217,6 +2222,7 @@ function choisirStyleGenerateur(styleId) {
   genEtat.style = styleId;
   $('#genCouleurPrincipale').value = style.primaire;
   $('#genCouleurSecondaire').value = style.secondaire;
+  $('#genCouleurAccent').value = style.accent || '#D6B15E';
   rafraichirPickersGenerateur();
   demanderApercuGenerateur();
 }
@@ -2231,6 +2237,14 @@ function genererVarianteSupport() {
   genEtat.variant = (genEtat.variant + 1) % 10;
   demanderApercuGenerateur();
   afficherMessage($('#messageGenerateur'), `Variante ${genEtat.variant + 1} générée.`, 'succes');
+}
+
+function restaurerPaletteRoueBravocard() {
+  $('#genCouleurPrincipale').value = '#663ED7';
+  $('#genCouleurSecondaire').value = '#CDBCF6';
+  $('#genCouleurAccent').value = '#D6B15E';
+  demanderApercuGenerateur();
+  afficherMessage($('#messageGenerateur'), 'Palette Bravocard restaurée.', 'succes');
 }
 
 async function chargerKitCommunication() {
@@ -2556,9 +2570,10 @@ $('#genListePhotos').addEventListener('click', evenement => {
   const bouton = evenement.target.closest('[data-photo]');
   if (bouton) choisirPhotoGenerateur(bouton.dataset.photo);
 });
-['genCouleurPrincipale', 'genCouleurSecondaire', 'genTitre', 'genSousTitre', 'genLogoUrl'].forEach(id => {
+['genCouleurPrincipale', 'genCouleurSecondaire', 'genCouleurAccent', 'genTitre', 'genSousTitre', 'genLogoUrl'].forEach(id => {
   $(`#${id}`).addEventListener('input', demanderApercuGenerateur);
 });
+$('#genRoueDefaut').addEventListener('click', restaurerPaletteRoueBravocard);
 $('#genVariante').addEventListener('click', genererVarianteSupport);
 $('#genEnregistrer').addEventListener('click', enregistrerPersonnalisationGenerateur);
 $('#genCopierNfc').addEventListener('click', copierLienNfc);

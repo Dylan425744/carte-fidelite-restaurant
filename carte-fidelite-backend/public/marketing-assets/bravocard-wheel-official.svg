@@ -1,56 +1,131 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-labelledby="title desc">
-  <title id="title">Roue cadeau officielle Bravocard</title>
-  <desc id="desc">Roue de la fortune aux couleurs Bravocard, huit sections toutes gagnantes.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="wheel-title wheel-desc">
+  <title id="wheel-title">Prototype vectoriel de la roue officielle Bravocard</title>
+  <desc id="wheel-desc">Roue premium violette et dorée, huit sections toutes marquées GAGNÉ, sans QR code.</desc>
+  <style>
+    /* La palette repose sur des classes sémantiques et des attributs explicites.
+       Le moteur ne modifie jamais les chemins ni la géométrie. */
+    .segment-label{font-family:Arial,Helvetica,sans-serif;font-size:44px;font-weight:900;letter-spacing:1px;text-anchor:middle;dominant-baseline:middle}
+  </style>
   <defs>
-    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="13" stdDeviation="14" flood-color="#0F0A1C" flood-opacity=".4"/></filter>
-    <linearGradient id="gradLavande" x1="200" y1="15" x2="200" y2="385" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F0E7FF"/><stop offset=".5" stop-color="#CDBCF6"/><stop offset="1" stop-color="#AE95E8"/>
+    <filter id="wheel-shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="22" result="blur"/>
+      <feOffset dy="24" result="offset"/>
+      <feColorMatrix in="offset" values="0 0 0 0 0.10 0 0 0 0 0.02 0 0 0 0 0.18 0 0 0 .42 0"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft-glow" x="-300%" y="-300%" width="700%" height="700%">
+      <feGaussianBlur stdDeviation="9" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="pointer-shadow" x="-50%" y="-30%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="9" stdDeviation="8" flood-color="#1b062d" flood-opacity=".65"/>
+    </filter>
+    <radialGradient id="segment-dark" cx="34%" cy="28%" r="88%">
+      <stop offset="0" class="wheel-primary-stop" stop-opacity=".72" stop-color="#54208f"/>
+      <stop offset=".5" class="wheel-primary-stop" stop-color="#54208f"/>
+      <stop offset="1" class="wheel-primary-deep-stop" stop-color="#26073f"/>
+    </radialGradient>
+    <radialGradient id="segment-light" cx="34%" cy="28%" r="92%">
+      <stop offset="0" class="wheel-secondary-light-stop" stop-color="#ead7ff"/>
+      <stop offset=".62" class="wheel-secondary-stop" stop-color="#c8a5ed"/>
+      <stop offset="1" class="wheel-primary-stop" stop-opacity=".72" stop-color="#54208f"/>
+    </radialGradient>
+    <linearGradient id="outer-purple" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="wheel-secondary-stop" stop-color="#c8a5ed"/><stop offset=".08" class="wheel-border-stop" stop-color="#6b0cab"/>
+      <stop offset=".42" class="wheel-primary-deep-stop" stop-color="#26073f"/><stop offset=".73" class="wheel-border-stop" stop-color="#6b0cab"/>
+      <stop offset=".92" class="wheel-primary-stop" stop-color="#54208f"/><stop offset="1" class="wheel-primary-deep-stop" stop-color="#26073f"/>
     </linearGradient>
-    <linearGradient id="gradViolet" x1="200" y1="6" x2="200" y2="394" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7C55EA"/><stop offset=".55" stop-color="#542FBB"/><stop offset="1" stop-color="#341C7D"/>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" class="wheel-accent-light-stop" stop-color="#fff0a8"/><stop offset=".18" class="wheel-accent-stop" stop-color="#e0a52c"/>
+      <stop offset=".46" stop-color="#7a3305"/><stop offset=".68" class="wheel-accent-light-stop" stop-color="#fff0a8"/>
+      <stop offset=".87" class="wheel-accent-stop" stop-color="#e0a52c"/><stop offset="1" stop-color="#683006"/>
     </linearGradient>
-    <linearGradient id="gradOr" x1="200" y1="0" x2="200" y2="400" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FBEAC0"/><stop offset=".5" stop-color="#E4C77A"/><stop offset="1" stop-color="#C9A24E"/>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c6993"/><stop offset=".16" stop-color="#fff"/>
+      <stop offset=".46" stop-color="#d8cedf"/><stop offset=".7" stop-color="#fff"/><stop offset="1" stop-color="#766288"/>
     </linearGradient>
+    <radialGradient id="center-fill" cx="34%" cy="28%" r="80%">
+      <stop offset="0" class="wheel-primary-stop" stop-color="#54208f"/><stop offset="1" class="wheel-primary-deep-stop" stop-color="#26073f"/>
+    </radialGradient>
+    <radialGradient id="lamp-purple" cx="35%" cy="28%" r="70%">
+      <stop offset="0" stop-color="#fff"/><stop offset=".28" stop-color="#f8d9ff"/><stop offset=".62" stop-color="#e460ff"/><stop offset="1" stop-color="#7b0ac0"/>
+    </radialGradient>
+    <radialGradient id="lamp-gold" cx="32%" cy="28%" r="75%">
+      <stop offset="0" stop-color="#fff8bb"/><stop offset=".2" class="wheel-accent-light-stop" stop-color="#fff0a8"/>
+      <stop offset=".58" class="wheel-accent-stop" stop-color="#e0a52c"/><stop offset="1" stop-color="#6f2800"/>
+    </radialGradient>
+    <clipPath id="wheel-face-clip"><circle cx="600" cy="620" r="420"/></clipPath>
   </defs>
-  <g filter="url(#shadow)">
-    <path d="M200 200L200 28A172 172 0 0 1 321.62 78.38Z" fill="#663ED7" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
-    <path d="M200 200L321.62 78.38A172 172 0 0 1 372 200Z" fill="#542FBB" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
-    <path d="M200 200L372 200A172 172 0 0 1 321.62 321.62Z" fill="#CDBCF6" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
-    <path d="M200 200L321.62 321.62A172 172 0 0 1 200 372Z" fill="#6039CE" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
-    <path d="M200 200L200 372A172 172 0 0 1 78.38 321.62Z" fill="#663ED7" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
-    <path d="M200 200L78.38 321.62A172 172 0 0 1 28 200Z" fill="#542FBB" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
-    <path d="M200 200L28 200A172 172 0 0 1 78.38 78.38Z" fill="#CDBCF6" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
-    <path d="M200 200L78.38 78.38A172 172 0 0 1 200 28Z" fill="#6039CE" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
 
-    <circle cx="200" cy="200" r="174" fill="none" stroke="#171020" stroke-opacity=".38" stroke-width="2"/>
-    <circle cx="200" cy="200" r="181" fill="none" stroke="url(#gradLavande)" stroke-width="9"/>
-    <circle cx="200" cy="200" r="189" fill="none" stroke="url(#gradViolet)" stroke-width="8"/>
-    <circle cx="200" cy="200" r="189" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="1" transform="translate(0 -1.5)"/>
-    <circle cx="200" cy="200" r="193.5" fill="none" stroke="url(#gradOr)" stroke-width="2"/>
-    <g fill="url(#gradOr)" stroke="#fff" stroke-opacity=".5" stroke-width=".5">
-      <circle cx="337.6" cy="62.4" r="3.4"/><circle cx="393.5" cy="200" r="3.4"/>
-      <circle cx="337.6" cy="337.6" r="3.4"/><circle cx="200" cy="393.5" r="3.4"/>
-      <circle cx="62.4" cy="337.6" r="3.4"/><circle cx="6.5" cy="200" r="3.4"/>
-      <circle cx="62.4" cy="62.4" r="3.4"/>
+  <g id="official-wheel" filter="url(#wheel-shadow)">
+    <!-- Outer premium frame -->
+    <circle cx="600" cy="620" r="516" fill="#230336" stroke="url(#gold)" stroke-width="7"/>
+    <circle cx="600" cy="620" r="501" fill="none" stroke="url(#outer-purple)" stroke-width="62"/>
+    <circle cx="600" cy="620" r="501" fill="none" stroke="#efc7ff" stroke-opacity=".8" stroke-width="3"/>
+    <circle cx="600" cy="620" r="476" fill="none" stroke="#210231" stroke-width="5"/>
+    <circle cx="600" cy="620" r="461" fill="none" stroke="url(#gold)" stroke-width="14"/>
+    <circle cx="600" cy="620" r="451" fill="none" stroke="#fff5c4" stroke-opacity=".86" stroke-width="2.5"/>
+    <circle cx="600" cy="620" r="440" fill="#31104f" stroke="#d9baf7" stroke-width="5"/>
+
+    <!-- Eight fixed sections -->
+    <g id="wheel-sections" clip-path="url(#wheel-face-clip)" stroke="#efe4ff" stroke-width="4" stroke-linejoin="round">
+      <path id="segment-1" d="M600 620L600 200A420 420 0 0 1 896.985 323.015Z" fill="url(#segment-dark)"/>
+      <path id="segment-2" d="M600 620L896.985 323.015A420 420 0 0 1 1020 620Z" fill="url(#segment-light)"/>
+      <path id="segment-3" d="M600 620L1020 620A420 420 0 0 1 896.985 916.985Z" fill="url(#segment-dark)"/>
+      <path id="segment-4" d="M600 620L896.985 916.985A420 420 0 0 1 600 1040Z" fill="url(#segment-light)"/>
+      <path id="segment-5" d="M600 620L600 1040A420 420 0 0 1 303.015 916.985Z" fill="url(#segment-dark)"/>
+      <path id="segment-6" d="M600 620L303.015 916.985A420 420 0 0 1 180 620Z" fill="url(#segment-light)"/>
+      <path id="segment-7" d="M600 620L180 620A420 420 0 0 1 303.015 323.015Z" fill="url(#segment-dark)"/>
+      <path id="segment-8" d="M600 620L303.015 323.015A420 420 0 0 1 600 200Z" fill="url(#segment-light)"/>
+      <ellipse cx="465" cy="402" rx="210" ry="98" fill="#fff" opacity=".07" transform="rotate(-27 465 402)" stroke="none"/>
     </g>
 
-    <g font-family="'Arial Black', Arial, sans-serif" font-weight="900" font-size="21" letter-spacing=".5" text-anchor="middle">
-      <text x="247" y="77" fill="#fff" transform="rotate(22.5 247 77)">GAGNÉ</text>
-      <text x="323" y="151" fill="#fff" transform="rotate(67.5 323 151)">GAGNÉ</text>
-      <text x="323" y="258" fill="#171020" transform="rotate(-67.5 323 258)">GAGNÉ</text>
-      <text x="247" y="333" fill="#fff" transform="rotate(-22.5 247 333)">GAGNÉ</text>
-      <text x="153" y="333" fill="#fff" transform="rotate(22.5 153 333)">GAGNÉ</text>
-      <text x="77" y="258" fill="#fff" transform="rotate(67.5 77 258)">GAGNÉ</text>
-      <text x="77" y="151" fill="#171020" transform="rotate(-67.5 77 151)">GAGNÉ</text>
-      <text x="153" y="77" fill="#fff" transform="rotate(-22.5 153 77)">GAGNÉ</text>
+    <!-- Fixed GAGNÉ labels -->
+    <g id="wheel-labels" class="segment-label" font-family="Helvetica, Arial, sans-serif" font-size="44" font-weight="900" letter-spacing="1" text-anchor="middle" dominant-baseline="middle">
+      <text class="wheel-text-light" fill="#ffffff" x="718" y="292" transform="rotate(20 718 292)">GAGNÉ</text>
+      <text class="wheel-text-dark" fill="#2a103e" x="919" y="480" transform="rotate(66 919 480)">GAGNÉ</text>
+      <text class="wheel-text-light" fill="#ffffff" x="919" y="756" transform="rotate(-66 919 756)">GAGNÉ</text>
+      <text class="wheel-text-dark" fill="#2a103e" x="720" y="948" transform="rotate(-22 720 948)">GAGNÉ</text>
+      <text class="wheel-text-light" fill="#ffffff" x="480" y="948" transform="rotate(22 480 948)">GAGNÉ</text>
+      <text class="wheel-text-dark" fill="#2a103e" x="281" y="756" transform="rotate(66 281 756)">GAGNÉ</text>
+      <text class="wheel-text-light" fill="#ffffff" x="281" y="480" transform="rotate(-66 281 480)">GAGNÉ</text>
+      <text class="wheel-text-dark" fill="#2a103e" x="482" y="292" transform="rotate(-20 482 292)">GAGNÉ</text>
     </g>
 
-    <circle cx="200" cy="200" r="50" fill="#fff"/>
-    <circle cx="200" cy="200" r="50" fill="none" stroke="url(#gradOr)" stroke-width="2"/>
-    <circle cx="200" cy="200" r="37" fill="#171020"/>
-    <text x="200" y="217" fill="#fff" font-family="Arial, sans-serif" font-size="42" text-anchor="middle">✦</text>
+    <!-- Outer lamps and studs -->
+    <g id="wheel-lights">
+      <g fill="url(#lamp-purple)" stroke="#fff" stroke-width="2" filter="url(#soft-glow)">
+        <circle cx="600" cy="121" r="13"/><circle cx="952.85" cy="267.15" r="13"/>
+        <circle cx="1099" cy="620" r="13"/><circle cx="952.85" cy="972.85" r="13"/>
+        <circle cx="600" cy="1119" r="13"/><circle cx="247.15" cy="972.85" r="13"/>
+        <circle cx="101" cy="620" r="13"/><circle cx="247.15" cy="267.15" r="13"/>
+      </g>
+      <g fill="url(#lamp-gold)" stroke="#6d2900" stroke-width="3">
+        <circle cx="408.98" cy="159.01" r="12"/><circle cx="791.02" cy="159.01" r="12"/>
+        <circle cx="1060.99" cy="428.98" r="12"/><circle cx="1060.99" cy="811.02" r="12"/>
+        <circle cx="791.02" cy="1080.99" r="12"/><circle cx="408.98" cy="1080.99" r="12"/>
+        <circle cx="139.01" cy="811.02" r="12"/><circle cx="139.01" cy="428.98" r="12"/>
+      </g>
+      <g fill="#fff" opacity=".82">
+        <circle cx="405" cy="155" r="3.2"/><circle cx="787" cy="155" r="3.2"/><circle cx="1057" cy="425" r="3.2"/>
+        <circle cx="1057" cy="807" r="3.2"/><circle cx="787" cy="1077" r="3.2"/><circle cx="405" cy="1077" r="3.2"/>
+        <circle cx="135" cy="807" r="3.2"/><circle cx="135" cy="425" r="3.2"/>
+      </g>
+    </g>
 
-    <path d="M183 4h34l-17 44z" fill="#171020" stroke="url(#gradOr)" stroke-width="3" stroke-linejoin="round"/>
+    <!-- Central fixed hub -->
+    <g id="wheel-center">
+      <circle cx="600" cy="620" r="126" fill="#2b0a46" opacity=".5"/>
+      <circle cx="600" cy="620" r="112" fill="url(#silver)" stroke="#3b1456" stroke-width="8"/>
+      <circle cx="600" cy="620" r="88" fill="url(#center-fill)" stroke="#9d52d4" stroke-width="5"/>
+      <ellipse cx="575" cy="586" rx="46" ry="22" fill="#fff" opacity=".08" transform="rotate(-20 575 586)"/>
+    </g>
+
+    <!-- Fixed pointer -->
+    <g id="wheel-pointer" filter="url(#pointer-shadow)">
+      <path d="M548 77Q600 57 652 77L621 193Q614 219 600 240Q586 219 579 193Z" fill="url(#gold)" stroke="#fff2b0" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M565 91Q600 80 635 91L612 184Q607 203 600 216Q593 203 588 184Z" fill="url(#outer-purple)" stroke="#390557" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M579 98Q600 91 621 98" fill="none" stroke="#efc8ff" stroke-width="4" stroke-linecap="round" opacity=".8"/>
+      <circle cx="600" cy="121" r="7" fill="#f7d7ff" filter="url(#soft-glow)"/>
+    </g>
   </g>
 </svg>

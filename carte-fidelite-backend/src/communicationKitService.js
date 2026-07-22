@@ -20,6 +20,33 @@ function nettoyerCouleur(valeur, defaut) {
   return COULEUR_HEX.test(texte) ? texte.toUpperCase() : defaut;
 }
 
+function couleurRgb(hex) {
+  const valeur = nettoyerCouleur(hex, '#000000').slice(1);
+  return [0, 2, 4].map(index => Number.parseInt(valeur.slice(index, index + 2), 16));
+}
+
+function couleurHex(rgb) {
+  return `#${rgb.map(canal => Math.max(0, Math.min(255, Math.round(canal))).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+}
+
+function melangerCouleurs(couleur, destination, proportion) {
+  const source = couleurRgb(couleur);
+  const cible = couleurRgb(destination);
+  return couleurHex(source.map((canal, index) => canal + (cible[index] - canal) * proportion));
+}
+
+function luminance(couleur) {
+  const canaux = couleurRgb(couleur).map(canal => {
+    const normalise = canal / 255;
+    return normalise <= .03928 ? normalise / 12.92 : ((normalise + .055) / 1.055) ** 2.4;
+  });
+  return .2126 * canaux[0] + .7152 * canaux[1] + .0722 * canaux[2];
+}
+
+function texteContraste(couleur) {
+  return luminance(couleur) > .43 ? '#24102F' : '#FFFFFF';
+}
+
 function texteLimite(valeur, defaut, longueur = 90) {
   const texte = String(valeur ?? '').trim() || defaut;
   return texte.length > longueur ? `${texte.slice(0, longueur - 1).trim()}…` : texte;
@@ -96,10 +123,36 @@ function lienPourType(type, restaurant, marketing) {
   return type.lien === 'review' ? marketing.lienAvisRestaurant(restaurant) : marketing.lienPublicRestaurant(restaurant);
 }
 
-function roueFixe(x, y, taille) {
-  const source = fs.readFileSync(ROUE_OFFICIELLE, 'utf8');
+function appliquerAttributPalette(svg, balise, classe, attribut, valeur) {
+  const expression = new RegExp(`<${balise}\\b([^>]*\\bclass="[^"]*\\b${classe}\\b[^"]*"[^>]*)>`, 'g');
+  return svg.replace(expression, (ouverture, attributs) => {
+    const autoFermante = /\/\s*$/.test(attributs);
+    let propres = attributs.replace(/\/\s*$/, '').replace(new RegExp(`\\s${attribut}="[^"]*"`, 'g'), '');
+    return `<${balise}${propres} ${attribut}="${valeur}"${autoFermante ? '/' : ''}>`;
+  });
+}
+
+function roueFixe(x, y, taille, style) {
+  let source = fs.readFileSync(ROUE_OFFICIELLE, 'utf8');
+  const primaire = nettoyerCouleur(style.primaire, '#663ED7');
+  const secondaire = nettoyerCouleur(style.secondaire, '#CDBCF6');
+  const accent = nettoyerCouleur(style.accent, '#D6B15E');
+  const couleursStops = {
+    'wheel-primary-stop': primaire,
+    'wheel-primary-deep-stop': melangerCouleurs(primaire, '#000000', .58),
+    'wheel-secondary-stop': secondaire,
+    'wheel-secondary-light-stop': melangerCouleurs(secondaire, '#FFFFFF', .52),
+    'wheel-border-stop': melangerCouleurs(primaire, '#000000', .2),
+    'wheel-accent-stop': accent,
+    'wheel-accent-light-stop': melangerCouleurs(accent, '#FFFFFF', .58)
+  };
+  for (const [classe, couleur] of Object.entries(couleursStops)) {
+    source = appliquerAttributPalette(source, 'stop', classe, 'stop-color', couleur);
+  }
+  source = appliquerAttributPalette(source, 'text', 'wheel-text-light', 'fill', texteContraste(primaire));
+  source = appliquerAttributPalette(source, 'text', 'wheel-text-dark', 'fill', texteContraste(secondaire));
   const interieur = source.replace(/^.*?<svg[^>]*>/s, '').replace(/<\/svg>\s*$/s, '');
-  return `<svg x="${x}" y="${y}" width="${taille}" height="${taille}" viewBox="0 0 400 400" aria-label="Roue cadeau officielle">${interieur}</svg>`;
+  return `<svg x="${x}" y="${y}" width="${taille}" height="${taille}" viewBox="0 0 1200 1200" overflow="visible" aria-label="Roue cadeau officielle">${interieur}</svg>`;
 }
 
 function badgeRestaurant(x, y, rayon, nom, logo, style, suffixe) {
@@ -142,6 +195,33 @@ function blocQr(ctx, x, y, taille, libelle) {
     <text x="${x + taille / 2}" y="${y + taille + bord + 4}" fill="${style.texte}" font-family="Helvetica, Arial, sans-serif" font-size="${Math.max(2.4, taille * .08)}" font-weight="800" text-anchor="middle">${echapperXml(libelle)}</text>`;
 }
 
+// La carte QR est un composant indépendant posé au-dessus de la roue. Elle
+// reprend la composition du visuel de référence, mais contient toujours le QR
+// réellement généré pour le restaurant courant.
+function carteQrRoue(ctx, x, y, largeur, angle = 7) {
+  const { style, qrGenere } = ctx;
+  const hauteur = largeur * .94;
+  const rayon = largeur * .075;
+  const qrTaille = largeur * .57;
+  const qrX = x + (largeur - qrTaille) / 2;
+  const qrY = y + largeur * .105;
+  const centreX = x + largeur / 2;
+  const centreY = y + hauteur / 2;
+  const epaisseur = Math.max(.45, largeur * .012);
+  const coin = largeur * .09;
+  return `<g id="restaurant-real-qr-card" transform="rotate(${angle} ${centreX} ${centreY})">
+    <rect x="${x + largeur * .035}" y="${y + largeur * .065}" width="${largeur}" height="${hauteur}" rx="${rayon}" fill="#160D22" opacity=".2"/>
+    <rect x="${x}" y="${y}" width="${largeur}" height="${hauteur}" rx="${rayon}" fill="#FCFBF8" stroke="#E6E0E9" stroke-width="${epaisseur * 1.6}"/>
+    <rect x="${x + largeur * .035}" y="${y + largeur * .035}" width="${largeur * .93}" height="${hauteur - largeur * .07}" rx="${rayon * .7}" fill="none" stroke="${style.primaire}" stroke-opacity=".65" stroke-width="${epaisseur}"/>
+    <path d="M${x + coin * .7} ${y + coin * 1.35}v-${coin * .55}h${coin * .55} M${x + largeur - coin * .7} ${y + coin * 1.35}v-${coin * .55}h-${coin * .55}
+      M${x + coin * .7} ${y + hauteur - coin * 1.35}v${coin * .55}h${coin * .55} M${x + largeur - coin * .7} ${y + hauteur - coin * 1.35}v${coin * .55}h-${coin * .55}"
+      fill="none" stroke="${style.primaire}" stroke-width="${epaisseur * 1.25}" stroke-linecap="round" stroke-linejoin="round"/>
+    ${qr.qrIntegrable(qrGenere, qrX, qrY, qrTaille)}
+    <text x="${centreX}" y="${y + hauteur * .82}" fill="#17111D" font-family="Helvetica, Arial, sans-serif" font-size="${largeur * .075}" font-weight="900" text-anchor="middle">SCANNEZ &amp; <tspan fill="${style.primaire}">GAGNEZ</tspan></text>
+    <text x="${centreX}" y="${y + hauteur * .9}" fill="#302A34" font-family="Helvetica, Arial, sans-serif" font-size="${largeur * .052}" letter-spacing="${largeur * .003}" text-anchor="middle">VOTRE CADEAU</text>
+  </g>`;
+}
+
 function rendreCarre(ctx) {
   const { largeur: w, hauteur: h, marge: m, style, type, titre, sousTitre } = ctx;
   const titleSize = tailleTexte(titre, w - 2 * m, 6.7, 4.1);
@@ -153,10 +233,9 @@ function rendreCarre(ctx) {
       <rect x="18" y="91" width="64" height="5" rx="2.5" fill="${style.primaire}"/><text x="50" y="94.5" fill="#fff" font-family="Helvetica, Arial, sans-serif" font-size="2.25" font-weight="800" text-anchor="middle">APPLE WALLET · GOOGLE WALLET</text>`;
   }
   return `${fondSupport(ctx)}${marque(ctx, true)}
-    <text x="${w / 2}" y="29" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
-    ${roueFixe(12, 35, 38)}${blocQr(ctx, 61, 40, 26, 'Scannez pour jouer')}
-    <text x="${w / 2}" y="85" fill="${style.texte}" font-family="Helvetica, Arial, sans-serif" font-size="3.2" font-weight="800" text-anchor="middle">${echapperXml(sousTitre)}</text>
-    <text x="${w / 2}" y="93" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="2.4" text-anchor="middle">Un avis · Une chance · Une surprise</text>`;
+    <text x="${w / 2}" y="27" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
+    <text x="${w / 2}" y="34" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="2.45" text-anchor="middle">${echapperXml(sousTitre)}</text>
+    ${roueFixe(7, 35, 61, style)}${carteQrRoue(ctx, 54, 56, 40, 7)}`;
 }
 
 function rendrePortrait(ctx) {
@@ -176,18 +255,17 @@ function rendrePortrait(ctx) {
       <text x="${w / 2}" y="${h - m}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${2.5 * echelle}" text-anchor="middle">Aucune application à télécharger</text>`;
   }
   const grand = formatId === 'a4-portrait';
-  const roueTaille = grand ? 103 : 47;
-  const roueX = grand ? 20 : 8;
-  const roueY = grand ? 137 : 77;
-  const qrTaille = grand ? 55 : 31;
-  const qrX = grand ? 142 : 65;
-  const qrY = grand ? 157 : 84;
-  const sousTitreY = grand ? 252 : 132;
+  const roueTaille = grand ? 125 : 70;
+  const roueX = grand ? 18 : 7;
+  const roueY = grand ? 143 : 73;
+  const carteLargeur = grand ? 86 : 49;
+  const carteX = grand ? 108 : 50;
+  const carteY = grand ? 182 : 91;
   return `${fondSupport(ctx)}${marque(ctx)}
     <text x="${w / 2}" y="${heroFin + 13 * echelle}" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
-    ${roueFixe(roueX, roueY, roueTaille)}
-    ${blocQr(ctx, qrX, qrY, qrTaille, 'Scannez pour tenter votre chance')}
-    <text x="${w / 2}" y="${sousTitreY}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${3.2 * echelle}" text-anchor="middle">${echapperXml(sousTitre)}</text>
+    <text x="${w / 2}" y="${heroFin + 22 * echelle}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${3.1 * echelle}" text-anchor="middle">${echapperXml(sousTitre)}</text>
+    ${roueFixe(roueX, roueY, roueTaille, style)}
+    ${carteQrRoue(ctx, carteX, carteY, carteLargeur, 7)}
     <text x="${w / 2}" y="${h - m}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${2.4 * echelle}" text-anchor="middle">Avis Google → validation → roue cadeau</text>`;
 }
 
@@ -199,7 +277,8 @@ async function construireSupport(restaurant, parametresRecus, marketing) {
   const style = {
     ...baseStyle,
     primaire: nettoyerCouleur(parametresRecus.primary_color, nettoyerCouleur(restaurant.communication_primary_color, baseStyle.primaire)),
-    secondaire: nettoyerCouleur(parametresRecus.secondary_color, nettoyerCouleur(restaurant.communication_secondary_color, baseStyle.secondaire))
+    secondaire: nettoyerCouleur(parametresRecus.secondary_color, nettoyerCouleur(restaurant.communication_secondary_color, baseStyle.secondaire)),
+    accent: nettoyerCouleur(parametresRecus.accent_color, baseStyle.accent || '#D6B15E')
   };
   const lien = lienPourType(type, restaurant, marketing);
   const qrGenere = await qr.genererQr(lien, { marge: 4, correction: 'H' });
@@ -234,6 +313,7 @@ function normaliserReglage(reglage, kind) {
     format_layout: formatId, style,
     primary_color: nettoyerCouleur(reglage?.primary_color, catalogue.STYLES[style].primaire),
     secondary_color: nettoyerCouleur(reglage?.secondary_color, catalogue.STYLES[style].secondaire),
+    accent_color: nettoyerCouleur(reglage?.accent_color, catalogue.STYLES[style].accent || '#D6B15E'),
     photo_url: String(reglage?.photo_url || '').slice(0, 500),
     title: texteLimite(reglage?.title, type.titreParDefaut, 72),
     subtitle: texteLimite(reglage?.subtitle, type.sousTitreParDefaut, 100),
