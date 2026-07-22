@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
   body {
     font-family: 'Work Sans', sans-serif;
     color: #FFF9F3;
@@ -49,6 +50,37 @@
   .bouton-roue { background: linear-gradient(120deg, #7448df, #9b6bff); box-shadow: 0 13px 30px rgba(101,58,207,.42); min-width: 250px; padding: 16px 40px; }
   .bouton-roue:before { content: ''; position: absolute; top: -80%; left: -25%; width: 25%; height: 260%; background: rgba(255,255,255,.22); transform: rotate(22deg); transition: left .4s ease; }
   .bouton-roue:hover:not(:disabled):before { left: 115%; }
+
+  .verification-avis {
+    width: 100%; max-width: 360px; margin: -8px 0 24px; padding: 20px;
+    display: grid; grid-template-columns: 62px 1fr; gap: 16px; align-items: center;
+    text-align: left; border-radius: 20px; position: relative; overflow: hidden;
+    background: linear-gradient(145deg, rgba(116,72,223,.22), rgba(18,184,134,.11));
+    border: 1px solid rgba(190,166,255,.28); box-shadow: 0 18px 42px rgba(4,1,10,.3);
+    animation: apparition-verification .4s ease both;
+  }
+  .verification-avis:before { content:''; position:absolute; inset:0; background:linear-gradient(105deg, transparent 20%, rgba(255,255,255,.08) 48%, transparent 72%); transform:translateX(-110%); animation:balayage-verification 2.4s ease-in-out infinite; }
+  .detecteur-avis { width:58px; height:58px; border-radius:50%; position:relative; display:grid; place-items:center; background:rgba(11,7,22,.6); box-shadow:inset 0 0 0 1px rgba(255,255,255,.1), 0 0 28px rgba(139,92,246,.26); }
+  .detecteur-avis:before,.detecteur-avis:after { content:''; position:absolute; border-radius:50%; border:2px solid transparent; }
+  .detecteur-avis:before { inset:7px; border-top-color:#b89cff; border-right-color:#b89cff; animation:rotation-detecteur 1.2s linear infinite; }
+  .detecteur-avis:after { inset:15px; border-bottom-color:#12b886; border-left-color:#12b886; animation:rotation-detecteur .9s linear infinite reverse; }
+  .detecteur-coeur { width:8px; height:8px; border-radius:50%; background:#fff; box-shadow:0 0 0 5px rgba(255,255,255,.08),0 0 18px #b89cff; }
+  .verification-contenu { position:relative; z-index:1; }
+  .verification-kicker { display:block; margin-bottom:4px; color:#a98aef; font:800 9px 'Manrope',sans-serif; letter-spacing:1.2px; text-transform:uppercase; }
+  .verification-contenu h2 { font:800 15px/1.3 'Manrope',sans-serif; margin:0 0 5px; }
+  .verification-contenu p { color:#c9bddc; font-size:11.5px; line-height:1.45; }
+  .verification-progression { grid-column:1/-1; height:4px; border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden; position:relative; z-index:1; }
+  .verification-progression span { display:block; width:100%; height:100%; border-radius:inherit; transform-origin:left; background:linear-gradient(90deg,#7950e8,#12b886); animation:progression-verification 45s linear both; }
+  .verification-avis.terminee { border-color:rgba(18,184,134,.55); background:linear-gradient(145deg,rgba(18,184,134,.19),rgba(18,90,74,.12)); }
+  .verification-avis.terminee:before,.verification-avis.terminee .verification-progression span { animation:none; }
+  .verification-avis.terminee .detecteur-avis:before,.verification-avis.terminee .detecteur-avis:after { display:none; }
+  .verification-avis.terminee .detecteur-coeur { width:32px; height:32px; display:grid; place-items:center; background:#12b886; box-shadow:0 8px 20px rgba(18,184,134,.3); }
+  .verification-avis.terminee .detecteur-coeur:after { content:'✓'; font:800 18px 'Manrope',sans-serif; }
+  .verification-avis.terminee .verification-kicker { color:#5de0ad; }
+  @keyframes apparition-verification { from { opacity:0; transform:translateY(10px) scale(.98); } }
+  @keyframes balayage-verification { 55%,100% { transform:translateX(110%); } }
+  @keyframes rotation-detecteur { to { transform:rotate(360deg); } }
+  @keyframes progression-verification { from { transform:scaleX(0); } to { transform:scaleX(1); } }
 
   .zone-roue { position: relative; width: 340px; height: 340px; margin: 4px 0 30px; isolation: isolate; opacity: .35; filter: grayscale(.6); transition: opacity .4s ease, filter .4s ease; pointer-events: none; }
   .zone-roue.deverrouille { opacity: 1; filter: none; pointer-events: auto; }
@@ -98,7 +130,7 @@
   .resultat-final .code-retrait strong { font-family: 'Manrope', sans-serif; font-size: 26px; letter-spacing: 4px; }
 
   .message-info { margin-top: 18px; color: #B8ABD0; font-size: 13.5px; max-width: 300px; }
-  .identification-cadeau label,.identification-cadeau small{display:block}.identification-cadeau label{margin:0 0 10px;font-weight:800;line-height:1.35}.identification-cadeau input{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid rgba(255,255,255,.2);border-radius:11px;background:rgba(255,255,255,.08);color:#fff;font:600 14px Arial,sans-serif;outline:none}.identification-cadeau input:focus{border-color:#9d7cf4;box-shadow:0 0 0 3px rgba(157,124,244,.14)}.identification-cadeau small{margin-top:8px;color:#b8abd0;font-size:11px;line-height:1.45}
+  .identification-cadeau{margin:0 0 24px;padding:20px;border-radius:20px;text-align:left;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.14);box-shadow:0 16px 36px rgba(4,1,10,.22);animation:apparition-verification .4s ease both}.identification-cadeau .numero{display:inline-grid;place-items:center;width:25px;height:25px;margin-bottom:10px;border-radius:50%;background:linear-gradient(135deg,#7950e8,#12b886);font:800 11px 'Manrope',sans-serif}.identification-cadeau label,.identification-cadeau small{display:block}.identification-cadeau label{margin:0 0 10px;font-weight:800;line-height:1.35}.identification-cadeau input{width:100%;box-sizing:border-box;padding:14px 15px;border:1px solid rgba(255,255,255,.2);border-radius:12px;background:rgba(255,255,255,.08);color:#fff;font:600 14px Arial,sans-serif;outline:none;transition:.2s ease}.identification-cadeau input:focus{border-color:#9d7cf4;box-shadow:0 0 0 3px rgba(157,124,244,.14);background:rgba(255,255,255,.11)}.identification-cadeau input.valide{border-color:#12b886;box-shadow:0 0 0 3px rgba(18,184,134,.12)}.identification-cadeau small{margin-top:8px;color:#b8abd0;font-size:11px;line-height:1.45}
 
   /* Icones professionnelles remplacant les emojis : recolorees a l'identique
      du texte (#FFF9F3) via un masque, le centre garde ses couleurs d'origine. */
@@ -124,11 +156,21 @@
   <button class="bouton bouton-avis" id="boutonAvis">Laisser un avis Google</button>
 </div>
 
+<div class="verification-avis" id="verificationAvis" hidden aria-live="polite" aria-busy="true">
+  <div class="detecteur-avis"><span class="detecteur-coeur"></span></div>
+  <div class="verification-contenu">
+    <span class="verification-kicker" id="verificationKicker">Vérification sécurisée</span>
+    <h2 id="titreVerification">Attente de détection du dépôt d’avis</h2>
+    <p id="texteVerification">Nous recherchons la confirmation de votre avis Google. Cette étape peut prendre quelques instants.</p>
+  </div>
+  <div class="verification-progression"><span></span></div>
+</div>
+
 <div class="etape identification-cadeau" id="identificationCadeau" hidden>
   <span class="numero">2</span>
   <label for="emailCadeau">Où devons-nous envoyer votre cadeau si vous gagnez&nbsp;?</label>
-  <input id="emailCadeau" type="email" maxlength="254" autocomplete="email" placeholder="votre@email.fr">
-  <small>Votre code cadeau et sa date de validité seront envoyés immédiatement par email.</small>
+  <input id="emailCadeau" type="email" maxlength="254" autocomplete="email" inputmode="email" placeholder="votre@email.fr" required aria-describedby="aideEmailCadeau">
+  <small id="aideEmailCadeau">Votre adresse est nécessaire pour enregistrer votre participation et vous transmettre immédiatement votre code cadeau.</small>
 </div>
 
 <div class="zone-roue" id="zoneRoue">
@@ -172,6 +214,10 @@ const codeRetrait = document.getElementById('codeRetrait');
 const messageInfo = document.getElementById('messageInfo');
 const identificationCadeau = document.getElementById('identificationCadeau');
 const emailCadeau = document.getElementById('emailCadeau');
+const verificationAvis = document.getElementById('verificationAvis');
+const verificationKicker = document.getElementById('verificationKicker');
+const titreVerification = document.getElementById('titreVerification');
+const texteVerification = document.getElementById('texteVerification');
 
 const DELAI_MINIMUM_MS = 45000; // le temps avant de debloquer la roue, volontairement fixe et invisible pour le client
 let lots = [];
@@ -293,7 +339,7 @@ async function initialiser() {
     lots = donnees.lots;
     dessinerRoue(lots, donnees.couleurPrincipale, donnees.couleurSecondaire);
     appliquerCouleursPersonnalisees(donnees);
-    identificationCadeau.hidden = !donnees.emailRequis;
+    identificationCadeau.hidden = true;
     boutonAvis.onclick = () => {
       window.open(donnees.lienAvisGoogle, '_blank', 'noopener');
       confirmerAvis();
@@ -324,20 +370,42 @@ function confirmerAvis() {
   avisConfirme = true;
   boutonAvis.classList.add('fait');
   boutonAvis.textContent = 'Avis Google ouvert ✓';
-  boutonJouer.textContent = 'Merci pour votre avis, un instant';
+  verificationAvis.hidden = false;
+  boutonJouer.textContent = 'Vérification du dépôt d’avis…';
   boutonJouer.classList.add('en-attente');
   setTimeout(() => {
-    boutonJouer.disabled = false;
+    verificationAvis.classList.add('terminee');
+    verificationAvis.setAttribute('aria-busy', 'false');
+    verificationKicker.textContent = 'Vérification terminée';
+    titreVerification.textContent = 'Votre avis a bien été pris en compte';
+    texteVerification.textContent = 'Dernière étape : renseignez votre adresse e-mail pour enregistrer votre participation.';
+    identificationCadeau.hidden = false;
     boutonJouer.classList.remove('en-attente');
-    boutonJouer.textContent = 'Faire tourner la roue';
-    zoneRoue.classList.add('deverrouille');
+    actualiserAccesRoue();
+    emailCadeau.focus();
   }, DELAI_MINIMUM_MS);
 }
+
+function emailCadeauValide() {
+  const valeur = emailCadeau.value.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valeur) && valeur.length <= 254;
+}
+
+function actualiserAccesRoue() {
+  if (identificationCadeau.hidden) return;
+  const valide = emailCadeauValide();
+  emailCadeau.classList.toggle('valide', valide);
+  boutonJouer.disabled = !valide;
+  boutonJouer.textContent = valide ? 'Faire tourner la roue' : 'Renseignez votre e-mail pour jouer';
+  zoneRoue.classList.toggle('deverrouille', valide);
+}
+
+emailCadeau.addEventListener('input', actualiserAccesRoue);
 
 let rotationActuelle = 0;
 
 boutonJouer.addEventListener('click', async () => {
-  if (!identificationCadeau.hidden && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCadeau.value.trim())) {
+  if (!emailCadeauValide()) {
     messageInfo.textContent = 'Indiquez une adresse email valide pour recevoir votre cadeau.';
     emailCadeau.focus();
     return;
@@ -351,7 +419,7 @@ boutonJouer.addEventListener('click', async () => {
       body: JSON.stringify({
         avisConfirme: true,
         clientCode,
-        email: identificationCadeau.hidden ? '' : emailCadeau.value.trim()
+        email: emailCadeau.value.trim()
       })
     });
     const donnees = await reponse.json();

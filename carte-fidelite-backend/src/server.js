@@ -1225,29 +1225,34 @@ async function obtenirHistoriqueRoue(restaurantId) {
   const [scansGagnes, entreesAvis] = await Promise.all([
     supabase
       .from('scans')
-      .select('id, cadeau_gagne, date_scan, code_retrait_utilise_le, clients!inner(nom, restaurant_id)')
+      .select('id, cadeau_gagne, date_scan, code_retrait_utilise_le, clients!inner(nom, email, restaurant_id)')
       .eq('clients.restaurant_id', restaurantId)
       .eq('roue_utilisee', true)
       .order('date_scan', { ascending: false })
       .limit(30),
     supabase
       .from('roue_avis_entries')
-      .select('id, cadeau_gagne, created_at, utilise')
+      .select('id, cadeau_gagne, created_at, utilise, email_destinataire, clients(nom)')
       .eq('restaurant_id', restaurantId)
       .order('created_at', { ascending: false })
       .limit(30)
   ]);
 
+  if (scansGagnes.error) throw scansGagnes.error;
+  if (entreesAvis.error) throw entreesAvis.error;
+
   const lignes = [
     ...(scansGagnes.data || []).map(scan => ({
       client: scan.clients?.nom || 'Client',
+      email: scan.clients?.email || null,
       date: scan.date_scan,
       gain: scan.cadeau_gagne,
       parcours: 'Passage en caisse',
       utilise: Boolean(scan.code_retrait_utilise_le)
     })),
     ...(entreesAvis.data || []).map(entree => ({
-      client: 'Client anonyme (QR avis)',
+      client: entree.clients?.nom || 'Client (QR avis)',
+      email: entree.email_destinataire || null,
       date: entree.created_at,
       gain: entree.cadeau_gagne,
       parcours: 'QR avis',
@@ -2717,7 +2722,15 @@ async function trouverRestaurantPourRoueAvis(token) {
   return restaurant;
 }
 
+function normaliserEmailRoueAvis(email) {
+  const emailNettoye = String(email || '').trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNettoye) && emailNettoye.length <= 254
+    ? emailNettoye
+    : null;
+}
+
 async function trouverDestinataireRoueAvis(restaurant, codeClient, emailSaisi = '') {
+  const emailFourni = normaliserEmailRoueAvis(emailSaisi);
   const code = String(codeClient || '').trim().toUpperCase();
   if (/^BC[A-F0-9]{10}$/.test(code)) {
     const { data: client, error } = await supabase.from('clients')
@@ -2726,14 +2739,20 @@ async function trouverDestinataireRoueAvis(restaurant, codeClient, emailSaisi = 
       .eq('scan_code', code)
       .maybeSingle();
     if (error) throw error;
-    if (client) return { clientId: client.id, nom: client.nom, email: client.email, identifie: true };
+    if (client) {
+      return {
+        clientId: client.id,
+        nom: client.nom,
+        email: emailFourni || normaliserEmailRoueAvis(client.email),
+        identifie: true
+      };
+    }
   }
 
-  const emailNettoye = String(emailSaisi || '').trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNettoye) || emailNettoye.length > 254) {
+  if (!emailFourni) {
     return { clientId: null, nom: 'Client', email: null, identifie: false };
   }
-  return { clientId: null, nom: 'Client', email: emailNettoye, identifie: false };
+  return { clientId: null, nom: 'Client', email: emailFourni, identifie: false };
 }
 
 function lireCookieBrut(req, nom) {
@@ -2813,7 +2832,7 @@ app.get('/api/roue-avis/:token', async (req, res) => {
       valideDu: entreeRecente?.cadeau_valide_du || null,
       valideAu: entreeRecente?.cadeau_valide_au || null,
       clientIdentifie: destinataire.identifie,
-      emailRequis: !destinataire.identifie
+      emailRequis: true
     });
   } catch (erreur) {
     console.error('Roue avis:', erreur.message);
@@ -2828,10 +2847,14 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
     if (!req.body?.avisConfirme) {
       return res.status(400).json({ erreur: 'Laissez d’abord votre avis Google avant de jouer.' });
     }
+    const emailSoumis = normaliserEmailRoueAvis(req.body?.email);
+    if (!emailSoumis) {
+      return res.status(400).json({ erreur: 'Indiquez une adresse email valide pour enregistrer votre participation.' });
+    }
     const destinataire = await trouverDestinataireRoueAvis(
       restaurant,
       req.body?.clientCode,
-      req.body?.email
+      emailSoumis
     );
     if (!destinataire.email) {
       return res.status(400).json({ erreur: 'Indiquez une adresse email valide pour recevoir votre cadeau.' });
