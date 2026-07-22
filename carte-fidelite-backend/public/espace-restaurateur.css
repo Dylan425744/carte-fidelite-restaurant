@@ -266,12 +266,18 @@
 .icone-picker-grille small{font-size:10px;font-weight:700;color:var(--texte)}
 
 /* Reglages : hero et anneau de progression */
+#vue-reglages.active{position:relative;padding:16px;border:1px solid rgba(113,72,232,.18);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.82),rgba(245,240,255,.72));box-shadow:0 24px 70px rgba(45,28,66,.09)}
+#vue-reglages.active:before{content:"CENTRE DE CONFIGURATION";display:block;margin:0 0 10px 5px;color:#8a78a4;font:800 9px "Manrope";letter-spacing:1.7px}
+.navigation[data-vue="reglages"]{border:1px solid rgba(167,139,250,.16);background:linear-gradient(90deg,rgba(113,72,232,.12),rgba(113,72,232,.03));color:#c9bcde}
+.navigation[data-vue="reglages"]:before{content:"✦";display:grid;place-items:center;flex:0 0 23px;height:23px;border-radius:7px;background:rgba(167,139,250,.16);color:#bda9ff;font-size:10px}
+.navigation[data-vue="reglages"].active{border-color:rgba(167,139,250,.35);background:linear-gradient(90deg,#392b50,#2b2237);color:#fff}
 .reglages-hero{position:relative;overflow:hidden;display:flex;justify-content:space-between;align-items:center;gap:28px;margin-bottom:22px;padding:30px 32px;border-radius:20px;background:linear-gradient(125deg,#1c1329,#332155 65%,#7148e8);color:#fff;box-shadow:var(--ombre)}
 .reglages-hero:after{content:"";position:absolute;right:-60px;top:-90px;width:250px;height:250px;border:1px solid rgba(255,255,255,.14);border-radius:50%;box-shadow:0 0 0 50px rgba(255,255,255,.03)}
 .reglages-hero>div:first-child{position:relative;z-index:1;max-width:560px}
 .reglages-hero .eyebrow{color:#c7b6ff}
 .reglages-hero h2{font:800 27px "Manrope";letter-spacing:-.6px;margin:4px 0 10px}
 .reglages-hero p{margin:0;color:#d9d2e9;font-size:13px;line-height:1.6}
+.reglages-promesse{display:inline-flex;align-items:center;margin-top:15px;padding:7px 11px;border:1px solid rgba(255,255,255,.18);border-radius:99px;background:rgba(255,255,255,.09);color:#f3efff;font-size:9px;font-weight:700;letter-spacing:.2px}
 .reglages-anneau{position:relative;z-index:1;flex:0 0 auto;width:110px;height:110px}
 .reglages-anneau svg{width:100%;height:100%;transform:rotate(-90deg)}
 .reglages-anneau circle{fill:none;stroke-width:8}
@@ -285,6 +291,7 @@
 .grille-reglages{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-bottom:20px}
 .carte-reglage-entete{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:4px}
 .carte-reglage-entete h3{margin:0;font:800 18px "Manrope"}
+.carte-reglage{position:relative;overflow:hidden;transition:border-color .2s,box-shadow .2s,transform .2s}.carte-reglage:before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,#7148e8,#b9a4ff);opacity:.9}.carte-reglage:hover{border-color:#d7cbed;box-shadow:0 16px 38px rgba(45,28,66,.09);transform:translateY(-2px)}.carte-reglage.reglage-incomplet:before{background:linear-gradient(90deg,#d29b38,#f4cf86)}
 .statut-reglage{flex:0 0 auto;padding:6px 10px;border-radius:99px;background:#fff3d5;color:#8d6520;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
 .statut-reglage.complet{background:#e3f6ed;color:#16895f}
 .carte-reglage label{display:block;margin:16px 0 8px;font-size:12px;font-weight:700}
@@ -318,3 +325,4 @@
 @media (prefers-reduced-motion: reduce){.pastille-brillante{animation:none}}
 
 @media(max-width:1120px){.grille-reglages{grid-template-columns:1fr}.grille-raccourcis-reglages{grid-template-columns:1fr}.reglages-hero{flex-direction:column;align-items:flex-start}}
+@media(max-width:620px){#vue-reglages.active{padding:9px;border-radius:20px}.reglages-hero{padding:24px 21px}.reglages-promesse{border-radius:12px;line-height:1.4}.carte-reglage:hover{transform:none}}

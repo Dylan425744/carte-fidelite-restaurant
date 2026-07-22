@@ -482,6 +482,8 @@ function afficherApplication(administrateur) {
 
 function afficherTableau() {
   const stats = donneesTableau.statistiques;
+  const pointsParPassage = Number(donneesTableau.reglages?.points_per_scan || restaurant?.points_per_scan || 10);
+  $('#scannerInstructionPoints').textContent = `Cadrez entièrement le code affiché dans Apple Wallet ou Google Wallet. Chaque visite validée ajoute automatiquement ${pointsParPassage} points.`;
   $('#statClients').textContent = stats.clients;
   $('#statActifs').textContent = `${stats.clients_actifs} actifs`;
   $('#statPoints').textContent = stats.points;
@@ -499,6 +501,10 @@ function afficherTableau() {
   afficherStatistiques();
   remplirApercuRoue();
   afficherHistoriqueRoue();
+  if (!$('#titreNotification').value.trim()) {
+    $('#titreNotification').value = restaurant?.nom || '';
+    actualiserApercuNotification();
+  }
 
   const enCours = donneesTableau.notification_en_cours ||
     donneesTableau.notifications.some(campagne => campagne.statut === 'en_cours');
@@ -1229,6 +1235,7 @@ function appliquerCompletionReglages(completion) {
     const complet = Boolean(completion.sections[cle]);
     badge.textContent = complet ? 'Complété' : 'À compléter';
     badge.classList.toggle('complet', complet);
+    badge.closest('[data-carte-reglage]')?.classList.toggle('reglage-incomplet', !complet);
   });
 
   ['designApple', 'roue', 'marketing'].forEach(cle => {
@@ -1311,6 +1318,15 @@ async function enregistrerSectionReglages(section) {
       body: JSON.stringify(corps)
     });
     donneesTableau.reglages = donnees.reglages;
+    if (donnees.restaurant) {
+      restaurant = { ...restaurant, ...donnees.restaurant };
+      donneesTableau.restaurant = restaurant;
+      $('#commerceNom').textContent = restaurant.nom;
+      $('#commerceAvatar').textContent = initiales(restaurant.nom);
+      $('#messageBienvenue').textContent = `Bonjour ${restaurant.nom} 👋`;
+      remplirDesign();
+      remplirApercuRoue();
+    }
     remplirReglages();
     messageEl.textContent = 'Enregistré.';
     messageEl.classList.add('succes');
@@ -1456,6 +1472,10 @@ function definirValeurAsset(element, valeur) {
 }
 
 function remplirDesign() {
+  const reglages = donneesTableau?.reglages || {};
+  const nomRestaurant = reglages.nom || restaurant.nom || '';
+  const couleurPrincipale = reglages.couleur_principale || restaurant.couleur_principale || '';
+  const logoGeneral = reglages.logo_url || restaurant.logo_url || '';
   const format = restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128';
   const choixFormat = document.querySelector(`[name="walletBarcodeFormat"][value="${format}"]`);
   if (choixFormat) choixFormat.checked = true;
@@ -1469,11 +1489,18 @@ function remplirDesign() {
     appleTerms: 'apple_terms'
   };
   for (const [id, champ] of Object.entries(correspondancesCommunes)) $(`#${id}`).value = restaurant[champ] || '';
+  $('#appleLogoText').value = restaurant.apple_logo_text || nomRestaurant;
+  $('#walletPointsLabel').value = restaurant.apple_points_label || `POINTS SUR ${reglages.seuil_recompense || restaurant.seuil_recompense || 100}`;
+  $('#walletCardLabel').value = restaurant.apple_card_label || 'FIDÉLITÉ';
+  $('#walletRewardText').value = restaurant.apple_reward_text || reglages.description_recompense || restaurant.description_recompense || 'Récompense à débloquer';
+  $('#appleColor').value = restaurant.apple_custom_color || couleurPrincipale;
   $('#appleColorPicker').value = /^#[0-9a-f]{6}$/i.test(restaurant.apple_custom_color || '')
-    ? restaurant.apple_custom_color : couleursWallet[restaurant.apple_color_preset] || '#17171D';
-  $('#googleColor').value = restaurant.google_custom_color || '';
+    ? restaurant.apple_custom_color
+    : (/^#[0-9a-f]{6}$/i.test(couleurPrincipale) ? couleurPrincipale : couleursWallet[restaurant.apple_color_preset] || '#17171D');
+  $('#googleColor').value = restaurant.google_custom_color || couleurPrincipale;
   $('#googleColorPicker').value = /^#[0-9a-f]{6}$/i.test(restaurant.google_custom_color || '')
-    ? restaurant.google_custom_color : '#17171D';
+    ? restaurant.google_custom_color
+    : (/^#[0-9a-f]{6}$/i.test(couleurPrincipale) ? couleurPrincipale : '#17171D');
   $('#appleLogoText').placeholder = restaurant.nom
     ? `Laissez vide pour afficher « ${restaurant.nom} »`
     : 'Laissez vide pour reprendre le nom du restaurant';
@@ -1489,7 +1516,10 @@ function remplirDesign() {
   for (const [cle, champ] of Object.entries(correspondancesAssets)) {
     const [plateforme, id] = cle.split('.');
     const element = elementAsset(plateforme, id);
-    if (element) definirValeurAsset(element, restaurant[champ] || '');
+    const valeurParDefaut = ['apple.logo', 'apple.icone', 'google.logoRond'].includes(cle)
+      ? logoGeneral
+      : '';
+    if (element) definirValeurAsset(element, restaurant[champ] || valeurParDefaut);
   }
 
   $('#zoneProApple').classList.toggle('verrouille', !restaurant.apple_design_autorise);
@@ -2114,12 +2144,25 @@ function choisirSupportGenerateur(supportId) {
   if (!genEtat.themeChoisiManuellement) genEtat.theme = support.theme_par_defaut;
   $('#genTitre').value = support.titre_par_defaut;
   $('#genSousTitre').value = support.sous_titre_par_defaut;
-  $('#genNombreTampons').value = '';
-  $('#genRecompense').value = '';
-  $('#genCitation').value = '';
+  appliquerDefautsGenerateur(true);
   appliquerCouleursTheme(genEtat.theme);
   rafraichirPickersGenerateur();
   demanderApercuGenerateur();
+}
+
+function appliquerDefautsGenerateur(forcer = false) {
+  const reglages = donneesTableau?.reglages || {};
+  const visites = Math.min(10, Math.max(2, Math.ceil(
+    Number(reglages.seuil_recompense || restaurant?.seuil_recompense || 100) /
+    Math.max(1, Number(reglages.points_per_scan || restaurant?.points_per_scan || 10))
+  )));
+  const definir = (id, valeur) => {
+    const champ = $(`#${id}`);
+    if (forcer || !champ.value.trim()) champ.value = valeur || '';
+  };
+  definir('genNombreTampons', String(visites));
+  definir('genRecompense', reglages.description_recompense || restaurant?.description_recompense || 'Une récompense offerte');
+  definir('genCitation', 'Votre fidélité mérite d’être récompensée.');
 }
 
 function appliquerCouleursTheme(themeId) {
@@ -2150,15 +2193,23 @@ async function chargerKitCommunication() {
     $('#genCouleurPrincipale').value = donnees.parametres.communication_primary_color;
     $('#genCouleurSecondaire').value = donnees.parametres.communication_secondary_color;
   } else {
-    appliquerCouleursTheme(genEtat.theme);
+    const principale = donneesTableau?.reglages?.couleur_principale || restaurant?.couleur_principale;
+    const secondaire = donneesTableau?.reglages?.couleur_secondaire || restaurant?.couleur_secondaire;
+    if (/^#[0-9a-f]{6}$/i.test(principale || '') && /^#[0-9a-f]{6}$/i.test(secondaire || '')) {
+      $('#genCouleurPrincipale').value = principale;
+      $('#genCouleurSecondaire').value = secondaire;
+    } else {
+      appliquerCouleursTheme(genEtat.theme);
+    }
   }
-  $('#genLogoUrl').value = donnees.parametres.communication_logo_url || '';
+  $('#genLogoUrl').value = donnees.parametres.communication_logo_url || donneesTableau?.reglages?.logo_url || restaurant?.logo_url || '';
   $('#genToujoursGagnant').checked = donnees.parametres.always_winner;
   const support = donnees.supports.find(s => s.id === genEtat.support);
   if (support) {
     $('#genTitre').value = support.titre_par_defaut;
     $('#genSousTitre').value = support.sous_titre_par_defaut;
   }
+  appliquerDefautsGenerateur();
   rafraichirPickersGenerateur();
   demanderApercuGenerateur();
 }

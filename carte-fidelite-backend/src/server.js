@@ -1154,6 +1154,10 @@ app.put('/api/reglages/:slug', async (req, res) => {
 
     if (error) throw error;
 
+    if (section === 'programme') {
+      await antiFraude.synchroniserAvecProgramme(data.id, data.points_per_scan);
+    }
+
     // L'identite (logo, couleurs) et le programme (texte de recompense) sont
     // utilises comme valeurs par defaut sur les cartes Wallet existantes.
     if (section === 'identite' || section === 'programme') {
@@ -1170,7 +1174,11 @@ app.put('/api/reglages/:slug', async (req, res) => {
     res.json({
       succes: true,
       message: 'Enregistré.',
-      reglages: reglagesService.serialiserReglages(data)
+      reglages: reglagesService.serialiserReglages(data),
+      restaurant: designRestaurant.serialiserRestaurant(
+        data,
+        appleWallet.designProDisponible()
+      )
     });
   } catch (erreur) {
     console.error(erreur);

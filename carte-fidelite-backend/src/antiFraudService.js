@@ -28,28 +28,45 @@ function entierDansIntervalle(valeur, minimum, maximum, libelle) {
   return nombre;
 }
 
-function serialiserReglages(reglages) {
+function serialiserReglages(reglages, pointsParScan = REGLAGES_PAR_DEFAUT.max_points_per_scan) {
+  const minimumParScan = Math.max(1, Number(pointsParScan) || REGLAGES_PAR_DEFAUT.max_points_per_scan);
   return {
     enabled: reglages?.enabled !== false,
     cooldown_minutes: Number(reglages?.cooldown_minutes || REGLAGES_PAR_DEFAUT.cooldown_minutes),
     max_scans_per_day: Number(reglages?.max_scans_per_day || REGLAGES_PAR_DEFAUT.max_scans_per_day),
-    max_points_per_scan: Number(reglages?.max_points_per_scan || REGLAGES_PAR_DEFAUT.max_points_per_scan),
+    max_points_per_scan: Math.max(
+      Number(reglages?.max_points_per_scan || REGLAGES_PAR_DEFAUT.max_points_per_scan),
+      minimumParScan
+    ),
     max_points_per_day: Number(reglages?.max_points_per_day || REGLAGES_PAR_DEFAUT.max_points_per_day)
   };
 }
 
 async function obtenirReglages(restaurantId) {
-  const { data, error } = await supabase
-    .from('fraud_settings')
-    .select('enabled, cooldown_minutes, max_scans_per_day, max_points_per_scan, max_points_per_day')
-    .eq('restaurant_id', restaurantId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return serialiserReglages(data || REGLAGES_PAR_DEFAUT);
+  const [resultatReglages, resultatRestaurant] = await Promise.all([
+    supabase
+      .from('fraud_settings')
+      .select('enabled, cooldown_minutes, max_scans_per_day, max_points_per_scan, max_points_per_day')
+      .eq('restaurant_id', restaurantId)
+      .maybeSingle(),
+    supabase.from('restaurants').select('points_per_scan').eq('id', restaurantId).single()
+  ]);
+  if (resultatReglages.error) throw resultatReglages.error;
+  if (resultatRestaurant.error) throw resultatRestaurant.error;
+  return serialiserReglages(
+    resultatReglages.data || REGLAGES_PAR_DEFAUT,
+    resultatRestaurant.data?.points_per_scan
+  );
 }
 
 async function enregistrerReglages(restaurantId, donnees) {
+  const { data: restaurant, error: erreurRestaurant } = await supabase
+    .from('restaurants')
+    .select('points_per_scan')
+    .eq('id', restaurantId)
+    .single();
+  if (erreurRestaurant) throw erreurRestaurant;
+  const pointsParScan = Math.max(1, Number(restaurant.points_per_scan) || 10);
   const reglages = {
     restaurant_id: restaurantId,
     enabled: donnees.enabled !== false,
@@ -65,12 +82,9 @@ async function enregistrerReglages(restaurantId, donnees) {
       100,
       'La limite de scans quotidiens'
     ),
-    max_points_per_scan: entierDansIntervalle(
-      donnees.max_points_per_scan,
-      1,
-      500,
-      'La limite de points par scan'
-    ),
+    max_points_per_scan: Math.max(pointsParScan, entierDansIntervalle(
+      donnees.max_points_per_scan, 1, 500, 'La limite de points par scan'
+    )),
     max_points_per_day: entierDansIntervalle(
       donnees.max_points_per_day,
       1,
@@ -87,7 +101,28 @@ async function enregistrerReglages(restaurantId, donnees) {
     .single();
 
   if (error) throw error;
-  return serialiserReglages(data);
+  return serialiserReglages(data, pointsParScan);
+}
+
+async function synchroniserAvecProgramme(restaurantId, pointsParScan) {
+  const minimum = entierDansIntervalle(pointsParScan, 1, 100, 'Les points par passage');
+  const { data: existant, error: erreurLecture } = await supabase
+    .from('fraud_settings')
+    .select('max_points_per_scan, max_points_per_day')
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (erreurLecture) throw erreurLecture;
+
+  const miseAJour = {
+    restaurant_id: restaurantId,
+    max_points_per_scan: Math.max(Number(existant?.max_points_per_scan || 0), minimum),
+    max_points_per_day: Math.max(Number(existant?.max_points_per_day || 0), minimum),
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await supabase.from('fraud_settings').upsert(miseAJour, {
+    onConflict: 'restaurant_id'
+  });
+  if (error) throw error;
 }
 
 async function enregistrerScan(restaurantId, clientId, points) {
@@ -199,6 +234,7 @@ module.exports = {
   estErreurPermission,
   enregistrerReglages,
   enregistrerScan,
+  synchroniserAvecProgramme,
   obtenirTableauAntiFraude,
   traiterAlerte
 };

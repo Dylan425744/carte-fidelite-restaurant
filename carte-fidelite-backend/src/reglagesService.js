@@ -103,24 +103,44 @@ function nomReellementConfigure(nom) {
  * global de Reglages et aux points brillants du menu.
  */
 function calculerCompletion(restaurant) {
+  // Une rubrique est consideree comme utilisable des qu'une information utile
+  // y est presente. On ne force pas le restaurateur a remplir chaque champ :
+  // un telephone suffit par exemple a terminer la rubrique Contact.
   const identite = Boolean(
-    restaurant.reglages_identite_confirme &&
-    nomReellementConfigure(restaurant.nom) &&
-    restaurant.logo_url
+    nomReellementConfigure(restaurant.nom) ||
+    restaurant.logo_url ||
+    restaurant.couleur_principale ||
+    restaurant.couleur_secondaire
   );
   const contact = Boolean(
-    restaurant.reglages_contact_confirme &&
-    restaurant.telephone &&
-    restaurant.adresse
+    restaurant.telephone ||
+    restaurant.adresse ||
+    restaurant.email_public ||
+    restaurant.site_web
   );
-  const programme = Boolean(restaurant.reglages_programme_confirme);
-  const avis = Boolean(restaurant.reglages_avis_confirme && restaurant.lien_avis_google);
-  const roue = Array.isArray(restaurant.roue_lots) && restaurant.roue_lots.length >= roueService.NB_LOTS_MIN;
+  const programme = Boolean(
+    Number(restaurant.points_per_scan) > 0 ||
+    Number(restaurant.seuil_recompense) > 0 ||
+    restaurant.description_recompense
+  );
+  const avis = Boolean(restaurant.lien_avis_google);
+  // La roue possede des lots par defaut reellement jouables. Elle est donc
+  // prete meme avant une personnalisation explicite.
+  const roue = roueService.lotsRestaurant(restaurant).length >= roueService.NB_LOTS_MIN;
   const designApple = Boolean(
-    restaurant.apple_logo_url || restaurant.apple_strip_url || restaurant.apple_icon_url
+    restaurant.apple_logo_url || restaurant.apple_strip_url || restaurant.apple_icon_url ||
+    restaurant.apple_logo_text || restaurant.apple_custom_color ||
+    restaurant.logo_url || restaurant.couleur_principale || nomReellementConfigure(restaurant.nom)
   );
-  const designGoogle = Boolean(restaurant.google_program_logo_url);
-  const marketing = Boolean(restaurant.communication_logo_url || restaurant.logo_url);
+  const designGoogle = Boolean(
+    restaurant.google_program_logo_url || restaurant.google_wide_logo_url ||
+    restaurant.google_hero_image_url || restaurant.google_custom_color ||
+    restaurant.logo_url || restaurant.couleur_principale || nomReellementConfigure(restaurant.nom)
+  );
+  const marketing = Boolean(
+    restaurant.public_qr_token || restaurant.qr_png_path || restaurant.flyer_pdf_path ||
+    restaurant.communication_logo_url || restaurant.logo_url
+  );
 
   const sections = { identite, contact, programme, avis, roue, designApple, designGoogle, marketing };
   const total = Object.keys(sections).length;

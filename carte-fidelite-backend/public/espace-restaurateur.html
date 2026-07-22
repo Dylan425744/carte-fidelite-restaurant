@@ -106,6 +106,7 @@
             <span class="eyebrow">Configuration générale</span>
             <h2>Toutes les informations de votre restaurant, au même endroit.</h2>
             <p>Complétez chaque section une seule fois. Ces informations sont ensuite reprises automatiquement sur vos cartes Wallet, vos emails et vos supports imprimés, sans jamais avoir à les ressaisir.</p>
+            <span class="reglages-promesse">Une seule information utile suffit pour valider une rubrique.</span>
           </div>
           <div class="reglages-anneau">
             <svg viewBox="0 0 84 84"><circle class="anneau-fond" cx="42" cy="42" r="36"></circle><circle class="anneau-progression" id="reglagesAnneauProgression" cx="42" cy="42" r="36"></circle></svg>
@@ -238,7 +239,7 @@
         <div class="scanner-grille">
           <article class="panneau scanner-panneau">
             <span class="eyebrow">Passage en caisse</span><h3>Scanner une carte</h3>
-            <p class="texte-secondaire">Cadrez entièrement le code-barres affiché dans Apple Wallet ou Google Wallet. Chaque visite validée ajoute automatiquement 10 points.</p>
+            <p class="texte-secondaire" id="scannerInstructionPoints">Cadrez entièrement le code affiché dans Apple Wallet ou Google Wallet. Les points sont ajoutés automatiquement.</p>
             <div id="lecteurRestaurateur"></div>
             <button class="bouton principal large" id="demarrerScanner">Démarrer la caméra</button>
             <button class="bouton secondaire large" id="relancerScanner">Scanner une autre carte</button>
