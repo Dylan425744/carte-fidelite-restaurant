@@ -112,6 +112,7 @@ const CHAMPS_RESTAURANT = [
   'communication_secondary_color',
   'communication_theme',
   'communication_logo_url',
+  'communication_generator_settings',
   'reward_title',
   'reward_description',
   'always_winner',
@@ -1264,8 +1265,10 @@ app.get('/api/restaurateur/:slug/kit-communication', async (req, res) => {
     res.json({
       succes: true,
       parametres: communicationKit.serialiserBranding(acces.restaurant),
-      supports: communicationKit.listerSupports(),
-      themes: communicationKit.listerThemes()
+      types_support: communicationKit.listerTypes(),
+      formats: communicationKit.listerFormats(),
+      styles: communicationKit.listerStyles(),
+      photos: communicationKit.listerPhotos(acces.restaurant)
     });
   } catch (erreur) {
     console.error('Chargement kit de communication:', erreur.message);

@@ -29,7 +29,7 @@ let abonnement = null;
 let etablissementsBloques = [];
 let supportsMarketing = null;
 let kitCommunication = null;
-let genEtat = { support: null, theme: null };
+let genEtat = { kind: 'wallet', formatId: 'a6-portrait', style: 'premium', photoUrl: '', variant: 0, reglages: {} };
 let genMinuteurApercu = null;
 let walletSpecifications = null;
 let walletPlateformeActive = 'apple';
@@ -2105,11 +2105,6 @@ async function copierLienMarketing() {
   afficherMessage($('#messageMarketing'), 'Lien copié.', 'succes');
 }
 
-function couleurApercuTheme(themeId) {
-  const theme = (kitCommunication?.themes || []).find(t => t.id === themeId);
-  return theme ? `linear-gradient(145deg, ${theme.primaire}, ${theme.secondaire})` : '#17131f';
-}
-
 function afficherPickerGenerateur(conteneurId, items, valeurActuelle, attribut, degrade) {
   $(`#${conteneurId}`).innerHTML = items.map(item => `
     <button type="button" data-${attribut}="${echapper(item.id)}" class="${item.id === valeurActuelle ? 'actif' : ''}">
@@ -2121,31 +2116,59 @@ function afficherPickerGenerateur(conteneurId, items, valeurActuelle, attribut, 
 
 function rafraichirPickersGenerateur() {
   if (!kitCommunication) return;
-  afficherPickerGenerateur('genListeSupports', kitCommunication.supports, genEtat.support, 'support',
-    item => couleurApercuTheme(item.theme_par_defaut));
-  afficherPickerGenerateur('genListeThemes',
-    kitCommunication.themes.map(theme => ({ ...theme, description: theme.sombre ? 'Fond sombre premium' : 'Fond clair ludique' })),
-    genEtat.theme, 'theme', item => `linear-gradient(145deg, ${item.primaire}, ${item.secondaire})`);
-  $('#genLigneGagnant').style.display = genEtat.support === 'review-square' ? '' : 'none';
-  const estAffichePoster = genEtat.support === 'loyalty-poster-a5';
-  $('#genLigneTitreSousTitre').style.display = estAffichePoster ? 'none' : '';
-  $('#genBlocPoster').style.display = estAffichePoster ? '' : 'none';
+  afficherPickerGenerateur('genListeTypes', kitCommunication.types_support, genEtat.kind, 'kind', item =>
+    item.id === 'wallet' ? 'linear-gradient(145deg,#17111f,#7047eb)' : 'linear-gradient(145deg,#ff8a35,#7047eb)');
+  afficherPickerGenerateur('genListeFormats', kitCommunication.formats, genEtat.formatId, 'format', item =>
+    item.id === 'square' ? 'linear-gradient(135deg,#fff 48%,#ddd 49%)' : item.id === 'a4-portrait' ? 'linear-gradient(160deg,#17111f 60%,#7047eb 61%)' : 'linear-gradient(160deg,#fff5e7 60%,#ff8a35 61%)');
+  afficherPickerGenerateur('genListeStyles', kitCommunication.styles, genEtat.style, 'style', item =>
+    `linear-gradient(145deg, ${item.fond}, ${item.primaire} 60%, ${item.secondaire})`);
+  $('#genListePhotos').innerHTML = `<button type="button" class="generateur-photo aucune ${!genEtat.photoUrl ? 'actif' : ''}" data-photo=""><span>Sans photo</span></button>` +
+    kitCommunication.photos.map(photo => `<button type="button" class="generateur-photo ${photo.url === genEtat.photoUrl ? 'actif' : ''}" data-photo="${echapper(photo.url)}"><img src="${echapper(photo.url)}" alt=""><span>${echapper(photo.nom)}</span></button>`).join('');
+  const type = kitCommunication.types_support.find(item => item.id === genEtat.kind);
+  const format = kitCommunication.formats.find(item => item.id === genEtat.formatId);
+  $('#genApercuTitre').textContent = type?.nom || 'Support Bravocard';
+  $('#genApercuFormat').textContent = format?.nom || '';
 }
 
 function genParametresActuels() {
   return {
-    support: genEtat.support,
-    theme: genEtat.theme,
+    kind: genEtat.kind,
+    format_layout: genEtat.formatId,
+    style: genEtat.style,
     primary_color: $('#genCouleurPrincipale').value,
     secondary_color: $('#genCouleurSecondaire').value,
     title: $('#genTitre').value,
     subtitle: $('#genSousTitre').value,
-    always_winner: $('#genToujoursGagnant').checked,
     logo_url: $('#genLogoUrl').value.trim(),
-    nombre_tampons: $('#genNombreTampons').value,
-    recompense: $('#genRecompense').value,
-    citation: $('#genCitation').value
+    photo_url: genEtat.photoUrl,
+    variant: genEtat.variant
   };
+}
+
+function memoriserReglageGenerateur() {
+  genEtat.reglages[genEtat.kind] = {
+    format_layout: genEtat.formatId, style: genEtat.style,
+    primary_color: $('#genCouleurPrincipale').value,
+    secondary_color: $('#genCouleurSecondaire').value,
+    photo_url: genEtat.photoUrl, title: $('#genTitre').value,
+    subtitle: $('#genSousTitre').value, variant: genEtat.variant
+  };
+}
+
+function appliquerReglageGenerateur(kind) {
+  const type = kitCommunication.types_support.find(item => item.id === kind);
+  const reglage = genEtat.reglages[kind] || {};
+  genEtat.kind = kind;
+  genEtat.formatId = reglage.format_layout || 'a6-portrait';
+  genEtat.style = reglage.style || (kind === 'wheel' ? 'fun' : 'premium');
+  genEtat.photoUrl = reglage.photo_url || '';
+  genEtat.variant = Number(reglage.variant) || 0;
+  const style = kitCommunication.styles.find(item => item.id === genEtat.style);
+  $('#genCouleurPrincipale').value = reglage.primary_color || style?.primaire || '#6C3CE9';
+  $('#genCouleurSecondaire').value = reglage.secondary_color || style?.secondaire || '#E8891F';
+  $('#genTitre').value = reglage.title || type?.titreParDefaut || '';
+  $('#genSousTitre').value = reglage.subtitle || type?.sousTitreParDefaut || '';
+  rafraichirPickersGenerateur();
 }
 
 function genUrlAvecParametres(chemin) {
@@ -2163,90 +2186,59 @@ function demanderApercuGenerateur() {
 }
 
 async function actualiserApercuGenerateur() {
-  if (!genEtat.support) return;
+  if (!genEtat.kind) return;
   try {
     const donnees = await api(genUrlAvecParametres('apercu'));
     $('#genApercuCadre').innerHTML = donnees.svg;
+    $('#genApercuCadre').style.aspectRatio = `${donnees.largeur_mm} / ${donnees.hauteur_mm}`;
     $('#genLienNfc').value = donnees.lien_nfc || '';
   } catch (erreur) {
     afficherMessage($('#messageGenerateur'), erreur.message, 'erreur');
   }
 }
 
-function choisirSupportGenerateur(supportId) {
-  const support = kitCommunication.supports.find(s => s.id === supportId);
-  if (!support) return;
-  genEtat.support = supportId;
-  if (!genEtat.themeChoisiManuellement) genEtat.theme = support.theme_par_defaut;
-  $('#genTitre').value = support.titre_par_defaut;
-  $('#genSousTitre').value = support.sous_titre_par_defaut;
-  appliquerDefautsGenerateur(true);
-  appliquerCouleursTheme(genEtat.theme);
+function choisirTypeGenerateur(kind) {
+  if (!kitCommunication.types_support.some(item => item.id === kind) || kind === genEtat.kind) return;
+  memoriserReglageGenerateur();
+  appliquerReglageGenerateur(kind);
+  demanderApercuGenerateur();
+}
+
+function choisirFormatGenerateur(formatId) {
+  if (!kitCommunication.formats.some(item => item.id === formatId)) return;
+  genEtat.formatId = formatId;
   rafraichirPickersGenerateur();
   demanderApercuGenerateur();
 }
 
-function appliquerDefautsGenerateur(forcer = false) {
-  const reglages = donneesTableau?.reglages || {};
-  const visites = Math.min(10, Math.max(2, Math.ceil(
-    Number(reglages.seuil_recompense || restaurant?.seuil_recompense || 100) /
-    Math.max(1, Number(reglages.points_per_scan || restaurant?.points_per_scan || 10))
-  )));
-  const definir = (id, valeur) => {
-    const champ = $(`#${id}`);
-    if (forcer || !champ.value.trim()) champ.value = valeur || '';
-  };
-  definir('genNombreTampons', String(visites));
-  definir('genRecompense', reglages.description_recompense || restaurant?.description_recompense || 'Une récompense offerte');
-  definir('genCitation', 'Votre fidélité mérite d’être récompensée.');
-}
-
-function appliquerCouleursTheme(themeId) {
-  const theme = kitCommunication.themes.find(t => t.id === themeId);
-  if (!theme) return;
-  $('#genCouleurPrincipale').value = theme.primaire;
-  $('#genCouleurSecondaire').value = theme.secondaire;
-}
-
-function choisirThemeGenerateur(themeId) {
-  genEtat.theme = themeId;
-  genEtat.themeChoisiManuellement = true;
-  appliquerCouleursTheme(themeId);
+function choisirStyleGenerateur(styleId) {
+  const style = kitCommunication.styles.find(item => item.id === styleId);
+  if (!style) return;
+  genEtat.style = styleId;
+  $('#genCouleurPrincipale').value = style.primaire;
+  $('#genCouleurSecondaire').value = style.secondaire;
   rafraichirPickersGenerateur();
   demanderApercuGenerateur();
+}
+
+function choisirPhotoGenerateur(url) {
+  genEtat.photoUrl = url || '';
+  rafraichirPickersGenerateur();
+  demanderApercuGenerateur();
+}
+
+function genererVarianteSupport() {
+  genEtat.variant = (genEtat.variant + 1) % 10;
+  demanderApercuGenerateur();
+  afficherMessage($('#messageGenerateur'), `Variante ${genEtat.variant + 1} générée.`, 'succes');
 }
 
 async function chargerKitCommunication() {
   const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/kit-communication`);
   kitCommunication = donnees;
-  genEtat.support = donnees.supports[0]?.id || null;
-  genEtat.theme = donnees.parametres.communication_theme;
-  genEtat.themeChoisiManuellement = false;
-  // Un <input type="color"> ne peut pas rester "vide" : lui assigner '' le fait
-  // retomber sur #000000 côté navigateur. Il faut donc tester la valeur d'origine
-  // (venant de l'API) avant affectation, pas la valeur du champ après coup.
-  if (donnees.parametres.communication_primary_color && donnees.parametres.communication_secondary_color) {
-    $('#genCouleurPrincipale').value = donnees.parametres.communication_primary_color;
-    $('#genCouleurSecondaire').value = donnees.parametres.communication_secondary_color;
-  } else {
-    const principale = donneesTableau?.reglages?.couleur_principale || restaurant?.couleur_principale;
-    const secondaire = donneesTableau?.reglages?.couleur_secondaire || restaurant?.couleur_secondaire;
-    if (/^#[0-9a-f]{6}$/i.test(principale || '') && /^#[0-9a-f]{6}$/i.test(secondaire || '')) {
-      $('#genCouleurPrincipale').value = principale;
-      $('#genCouleurSecondaire').value = secondaire;
-    } else {
-      appliquerCouleursTheme(genEtat.theme);
-    }
-  }
+  genEtat.reglages = JSON.parse(JSON.stringify(donnees.parametres.generator_settings || {}));
   $('#genLogoUrl').value = donnees.parametres.communication_logo_url || donneesTableau?.reglages?.logo_url || restaurant?.logo_url || '';
-  $('#genToujoursGagnant').checked = donnees.parametres.always_winner;
-  const support = donnees.supports.find(s => s.id === genEtat.support);
-  if (support) {
-    $('#genTitre').value = support.titre_par_defaut;
-    $('#genSousTitre').value = support.sous_titre_par_defaut;
-  }
-  appliquerDefautsGenerateur();
-  rafraichirPickersGenerateur();
+  appliquerReglageGenerateur('wallet');
   demanderApercuGenerateur();
 }
 
@@ -2255,16 +2247,18 @@ async function enregistrerPersonnalisationGenerateur() {
   bouton.disabled = true;
   afficherMessage($('#messageGenerateur'), 'Enregistrement...');
   try {
+    memoriserReglageGenerateur();
     const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/kit-communication`, {
       method: 'PUT',
       body: JSON.stringify({
-        communication_theme: genEtat.theme,
+        communication_theme: genEtat.style,
         communication_primary_color: $('#genCouleurPrincipale').value,
         communication_secondary_color: $('#genCouleurSecondaire').value,
         communication_logo_url: $('#genLogoUrl').value.trim(),
-        always_winner: $('#genToujoursGagnant').checked
+        generator_settings: genEtat.reglages
       })
     });
+    genEtat.reglages = donnees.parametres.generator_settings;
     afficherMessage($('#messageGenerateur'), donnees.message, 'succes');
   } catch (erreur) {
     afficherMessage($('#messageGenerateur'), erreur.message, 'erreur');
@@ -2286,7 +2280,7 @@ async function copierLienNfc() {
 }
 
 async function telechargerExportGenerateur(format) {
-  if (!genEtat.support) return;
+  if (!genEtat.kind) return;
   afficherMessage($('#messageExport'), 'Préparation du fichier...');
   try {
     const reponse = await fetch(`${genUrlAvecParametres('export')}&format=${format}`, { headers: entetes() });
@@ -2300,7 +2294,7 @@ async function telechargerExportGenerateur(format) {
     const objectUrl = URL.createObjectURL(blob);
     const lienTemporaire = document.createElement('a');
     lienTemporaire.href = objectUrl;
-    lienTemporaire.download = correspondance ? correspondance[1] : `bravocard-${genEtat.support}.${format}`;
+    lienTemporaire.download = correspondance ? correspondance[1] : `bravocard-${genEtat.kind}-${genEtat.formatId}.${format}`;
     document.body.appendChild(lienTemporaire);
     lienTemporaire.click();
     lienTemporaire.remove();
@@ -2546,22 +2540,30 @@ $('#enregistrerDesign').addEventListener('click', enregistrerDesign);
 $('#regenererSupports').addEventListener('click', regenererSupportsMarketing);
 $('#enregistrerLienAvis').addEventListener('click', enregistrerLienAvis);
 $('#copierLienMarketing').addEventListener('click', copierLienMarketing);
-$('#genListeSupports').addEventListener('click', evenement => {
-  const bouton = evenement.target.closest('[data-support]');
-  if (bouton) choisirSupportGenerateur(bouton.dataset.support);
+$('#genListeTypes').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-kind]');
+  if (bouton) choisirTypeGenerateur(bouton.dataset.kind);
 });
-$('#genListeThemes').addEventListener('click', evenement => {
-  const bouton = evenement.target.closest('[data-theme]');
-  if (bouton) choisirThemeGenerateur(bouton.dataset.theme);
+$('#genListeFormats').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-format]');
+  if (bouton) choisirFormatGenerateur(bouton.dataset.format);
 });
-['genCouleurPrincipale', 'genCouleurSecondaire', 'genTitre', 'genSousTitre', 'genToujoursGagnant', 'genLogoUrl', 'genNombreTampons', 'genRecompense', 'genCitation'].forEach(id => {
+$('#genListeStyles').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-style]');
+  if (bouton) choisirStyleGenerateur(bouton.dataset.style);
+});
+$('#genListePhotos').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-photo]');
+  if (bouton) choisirPhotoGenerateur(bouton.dataset.photo);
+});
+['genCouleurPrincipale', 'genCouleurSecondaire', 'genTitre', 'genSousTitre', 'genLogoUrl'].forEach(id => {
   $(`#${id}`).addEventListener('input', demanderApercuGenerateur);
 });
+$('#genVariante').addEventListener('click', genererVarianteSupport);
 $('#genEnregistrer').addEventListener('click', enregistrerPersonnalisationGenerateur);
 $('#genCopierNfc').addEventListener('click', copierLienNfc);
 $('#genExportPdf').addEventListener('click', () => telechargerExportGenerateur('pdf'));
 $('#genExportPng').addEventListener('click', () => telechargerExportGenerateur('png'));
-$('#genExportSvg').addEventListener('click', () => telechargerExportGenerateur('svg'));
 $('#enregistrerParrainage').addEventListener('click', enregistrerParrainage);
 $('#enregistrerAntiFraude').addEventListener('click', enregistrerAntiFraude);
 $('#periodeStatistiques').addEventListener('change', chargerStatistiques);

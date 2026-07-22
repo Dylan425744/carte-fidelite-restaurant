@@ -522,45 +522,43 @@
 
         <div class="generateur-supports">
           <div class="generateur-entete">
-            <span class="eyebrow">Nouveau</span>
-            <h3>Générateur de supports imprimables</h3>
-            <p class="texte-secondaire">Créez des stickers NFC/QR premium aux couleurs de votre restaurant, avec aperçu en direct et export prêt à imprimer.</p>
+            <span class="eyebrow">Studio créatif Bravocard</span>
+            <h3>Vos supports, prêts à attirer l’œil</h3>
+            <p class="texte-secondaire">Composez un support fidèle à votre identité. L’aperçu, le PNG haute définition et le PDF imprimable utilisent exactement le même rendu.</p>
           </div>
           <div class="grille-generateur">
             <article class="panneau generateur-reglages">
-              <label class="titre-modeles">Support</label>
-              <div class="modeles-wallet" id="genListeSupports"></div>
+              <div class="generateur-etape"><span>1</span><div><strong>Choisissez le parcours</strong><small>Chaque support conserve son propre vrai QR code.</small></div></div>
+              <div class="modeles-wallet generateur-types" id="genListeTypes"></div>
 
-              <label class="titre-modeles">Thème</label>
-              <div class="modeles-wallet" id="genListeThemes"></div>
+              <label class="titre-modeles">Format d’impression</label>
+              <div class="modeles-wallet generateur-formats" id="genListeFormats"></div>
+
+              <div class="generateur-etape"><span>2</span><div><strong>Donnez-lui votre style</strong><small>Six directions artistiques, personnalisables ensuite.</small></div></div>
+              <div class="modeles-wallet generateur-styles" id="genListeStyles"></div>
 
               <div class="deux-colonnes couleur-exacte">
                 <div><label for="genCouleurPrincipale">Couleur principale</label><input id="genCouleurPrincipale" type="color"></div>
                 <div><label for="genCouleurSecondaire">Couleur secondaire</label><input id="genCouleurSecondaire" type="color"></div>
               </div>
 
-              <div class="deux-colonnes" id="genLigneTitreSousTitre">
+              <div class="generateur-etape"><span>3</span><div><strong>Adaptez le message</strong><small>Les valeurs proposées restent entièrement modifiables.</small></div></div>
+              <div class="deux-colonnes">
                 <div><label for="genTitre">Texte principal</label><input id="genTitre" type="text" maxlength="60"></div>
-                <div><label for="genSousTitre">Sous-titre</label><input id="genSousTitre" type="text" maxlength="60"></div>
+                <div><label for="genSousTitre">Sous-titre</label><input id="genSousTitre" type="text" maxlength="100"></div>
               </div>
-
-              <div id="genBlocPoster">
-                <div class="deux-colonnes">
-                  <div><label for="genNombreTampons">Nombre de tampons</label><input id="genNombreTampons" type="number" min="2" max="10" placeholder="Auto"></div>
-                  <div><label for="genRecompense">Récompense affichée</label><input id="genRecompense" type="text" maxlength="60" placeholder="Ex : Un menu offert"></div>
-                </div>
-                <label for="genCitation">Citation en bas d'affiche</label>
-                <input id="genCitation" type="text" maxlength="90" placeholder="Ex : La fidélité, ça se mérite. Et ça se récompense.">
-                <p class="texte-secondaire">Laissez un champ vide pour reprendre automatiquement votre réglage de fidélité (nombre de tampons, récompense) ou notre citation par défaut.</p>
-              </div>
-
-              <label class="ligne-interrupteur" id="genLigneGagnant"><span>Activer « 100 % gagnant »</span><label class="interrupteur"><input id="genToujoursGagnant" type="checkbox"><span></span></label></label>
 
               <label for="genLogoUrl">Logo personnalisé (URL PNG, facultatif)</label>
               <input id="genLogoUrl" type="url" placeholder="https://…">
               <p class="texte-secondaire">Laissez vide pour reprendre automatiquement le logo déjà utilisé dans votre carte Wallet.</p>
 
-              <button class="bouton principal" id="genEnregistrer" type="button">Enregistrer ma personnalisation</button>
+              <label class="titre-modeles">Photo de fond</label>
+              <div class="generateur-photos" id="genListePhotos"></div>
+
+              <div class="generateur-actions-principales">
+                <button class="bouton secondaire" id="genVariante" type="button">Générer une autre variante</button>
+                <button class="bouton principal" id="genEnregistrer" type="button">Enregistrer ce modèle</button>
+              </div>
               <span class="message" id="messageGenerateur"></span>
 
               <div class="generateur-nfc">
@@ -572,14 +570,13 @@
             </article>
 
             <article class="panneau generateur-apercu">
-              <span class="eyebrow">Aperçu en direct</span>
-              <h3>Fidèle au fichier téléchargé</h3>
+              <div class="generateur-apercu-titre"><div><span class="eyebrow">Aperçu en direct</span><h3 id="genApercuTitre">Support Wallet</h3></div><span class="badge-doux" id="genApercuFormat">A6</span></div>
               <div class="generateur-apercu-cadre"><div id="genApercuCadre"></div></div>
               <div class="generateur-exports">
-                <button class="bouton principal" id="genExportPdf" type="button">Télécharger le PDF</button>
+                <button class="bouton principal" id="genExportPdf" type="button">PDF prêt à imprimer</button>
                 <button class="bouton secondaire" id="genExportPng" type="button">PNG haute définition</button>
-                <button class="bouton secondaire" id="genExportSvg" type="button">SVG</button>
               </div>
+              <p class="generateur-note-impression">300 dpi · dimensions réelles · QR code vectoriel avec zone de silence protégée</p>
               <span class="message" id="messageExport"></span>
             </article>
           </div>

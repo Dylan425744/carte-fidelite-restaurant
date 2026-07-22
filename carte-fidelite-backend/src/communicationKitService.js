@@ -1,422 +1,291 @@
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
 const qr = require('./qrCodeService');
+const catalogue = require('./marketingTemplateCatalog');
 
 const COULEUR_HEX = /^#[0-9A-Fa-f]{6}$/;
-
-const THEMES = {
-  'premium-violet': {
-    id: 'premium-violet',
-    nom: 'Premium violet',
-    sombre: true,
-    fond: '#15111F',
-    accentFond: '#2A1E45',
-    primaire: '#6C3CE9',
-    secondaire: '#E8891F',
-    texte: '#FFFFFF',
-    texteAttenue: '#C9BFE8'
-  },
-  'ludique-cadeau': {
-    id: 'ludique-cadeau',
-    nom: 'Ludique cadeau',
-    sombre: false,
-    fond: '#FBF6EF',
-    accentFond: '#F7E6D2',
-    primaire: '#6C3CE9',
-    secondaire: '#E8891F',
-    texte: '#241B33',
-    texteAttenue: '#726A80'
-  }
-};
-
-const SUPPORTS = {
-  'loyalty-square': {
-    id: 'loyalty-square',
-    nom: 'Sticker fidélité',
-    description: 'Sticker NFC/QR carré · 100 × 100 mm',
-    largeurMm: 100,
-    hauteurMm: 100,
-    themeParDefaut: 'premium-violet',
-    lien: 'loyalty',
-    titreParDefaut: 'Votre carte de fidélité',
-    sousTitreParDefaut: 'Apple Wallet & Google Wallet'
-  },
-  'review-square': {
-    id: 'review-square',
-    nom: 'Sticker avis Google',
-    description: 'Sticker NFC/QR carré · 100 × 100 mm',
-    largeurMm: 100,
-    hauteurMm: 100,
-    themeParDefaut: 'ludique-cadeau',
-    lien: 'review',
-    titreParDefaut: 'Un avis = une chance de gagner',
-    sousTitreParDefaut: 'Laissez un avis Google'
-  },
-  'loyalty-poster-a5': {
-    id: 'loyalty-poster-a5',
-    nom: 'Affiche fidélité (carte à tampons)',
-    description: 'Affiche A5 comptoir · 148 × 210 mm',
-    largeurMm: 148,
-    hauteurMm: 210,
-    themeParDefaut: 'premium-violet',
-    lien: 'loyalty',
-    titreParDefaut: '',
-    sousTitreParDefaut: ''
-  }
-};
+const RACINE_PUBLIQUE = path.join(__dirname, '..', 'public');
+// Source visuelle unique : remplacer ce fichier suffit pour actualiser tous les
+// modèles, sans toucher aux gabarits ni aux QR codes réels.
+const ROUE_OFFICIELLE = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wheel-official.svg');
 
 function echapperXml(valeur) {
-  return String(valeur == null ? '' : valeur)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+  return String(valeur == null ? '' : valeur).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-function nettoyerCouleur(valeur, valeurParDefaut) {
+function nettoyerCouleur(valeur, defaut) {
   const texte = String(valeur || '').trim();
-  return COULEUR_HEX.test(texte) ? texte : valeurParDefaut;
+  return COULEUR_HEX.test(texte) ? texte.toUpperCase() : defaut;
 }
 
-function ajusterTexte(texte, longueurMax, valeurParDefaut) {
-  const valeur = String(texte ?? '').trim() || valeurParDefaut;
-  if (valeur.length <= longueurMax) return valeur;
-  return `${valeur.slice(0, longueurMax - 1).trim()}…`;
+function texteLimite(valeur, defaut, longueur = 90) {
+  const texte = String(valeur ?? '').trim() || defaut;
+  return texte.length > longueur ? `${texte.slice(0, longueur - 1).trim()}…` : texte;
 }
 
-// Il n'existe pas de mesure de police reelle cote serveur (pas de DOM/Canvas) :
-// cette estimation (largeur ~= longueur x taille x ratio) suffit a eviter qu'un
-// texte personnalise trop long ne deborde du support imprime.
-function tailleAjustee(texte, largeurDisponibleMm, tailleBase, tailleMin, ratioCaractere = 0.58) {
-  const longueur = Math.max(1, String(texte || '').length);
-  const largeurEstimee = longueur * tailleBase * ratioCaractere;
-  if (largeurEstimee <= largeurDisponibleMm) return tailleBase;
-  return Math.max(tailleMin, largeurDisponibleMm / (longueur * ratioCaractere));
+function tailleTexte(texte, largeur, base, minimum, ratio = 0.55) {
+  return Math.max(minimum, Math.min(base, largeur / (Math.max(1, String(texte).length) * ratio)));
 }
 
-function initialesNom(nom) {
-  const initiales = String(nom || 'Bravocard')
-    .split(/\s+/).filter(Boolean).slice(0, 2)
-    .map(mot => mot[0]).join('').toUpperCase();
-  return initiales || 'B';
+function initiales(nom) {
+  return String(nom || 'Bravocard').split(/\s+/).filter(Boolean).slice(0, 2).map(mot => mot[0]).join('').toUpperCase() || 'B';
 }
 
-async function logoEnDataUri(url) {
-  if (!url || !/^https:\/\//i.test(url)) return null;
+function donneesImagesRestaurant(restaurant) {
+  return [
+    restaurant.communication_logo_url, restaurant.logo_url, restaurant.apple_logo_url,
+    restaurant.google_program_logo_url, restaurant.google_wide_logo_url,
+    restaurant.google_hero_image_url, restaurant.apple_strip_url
+  ].filter(Boolean).map(String);
+}
+
+function listerPhotos(restaurant) {
+  const personnalisees = [
+    [restaurant.google_hero_image_url, 'Photo Google Wallet'],
+    [restaurant.apple_strip_url, 'Bannière Apple Wallet'],
+    [restaurant.google_wide_logo_url, 'Bannière du restaurant']
+  ].filter(([url]) => Boolean(url)).map(([url, nom], index) => ({ id: `restaurant-${index + 1}`, nom, url, source: 'Restaurant' }));
+  const vus = new Set();
+  return [...personnalisees, ...catalogue.PHOTOS_DEFAUT].filter(photo => !vus.has(photo.url) && vus.add(photo.url));
+}
+
+function urlPrivee(url) {
   try {
-    const reponse = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    const hote = new URL(url).hostname.toLowerCase();
+    return hote === 'localhost' || hote === '::1' || hote.endsWith('.local') ||
+      /^127\./.test(hote) || /^10\./.test(hote) || /^192\.168\./.test(hote) || /^169\.254\./.test(hote) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hote);
+  } catch { return true; }
+}
+
+async function imageEnDataUri(url, { autorisees = [] } = {}) {
+  const valeur = String(url || '').trim();
+  if (!valeur) return null;
+  if (valeur.startsWith('/wallet-banners/')) {
+    const nom = path.basename(valeur);
+    const fichier = path.join(RACINE_PUBLIQUE, 'wallet-banners', nom);
+    if (!fs.existsSync(fichier)) return null;
+    const png = await sharp(fs.readFileSync(fichier)).png({ compressionLevel: 9 }).toBuffer();
+    return `data:image/png;base64,${png.toString('base64')}`;
+  }
+  if (!/^https:\/\//i.test(valeur) || urlPrivee(valeur) || (autorisees.length && !autorisees.includes(valeur))) return null;
+  try {
+    const reponse = await fetch(valeur, { signal: AbortSignal.timeout(5000), redirect: 'follow' });
     if (!reponse.ok) return null;
-    const type = reponse.headers.get('content-type') || 'image/png';
-    if (!/^image\/(png|jpeg|webp)/i.test(type)) return null;
+    const type = String(reponse.headers.get('content-type') || '').split(';')[0].toLowerCase();
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(type)) return null;
     const tampon = Buffer.from(await reponse.arrayBuffer());
-    if (tampon.length > 2 * 1024 * 1024) return null;
-    return `data:${type};base64,${tampon.toString('base64')}`;
-  } catch {
-    return null;
+    if (!tampon.length || tampon.length > 4 * 1024 * 1024) return null;
+    const png = type === 'image/png' ? tampon : await sharp(tampon).png({ compressionLevel: 9 }).toBuffer();
+    return `data:image/png;base64,${png.toString('base64')}`;
+  } catch { return null; }
+}
+
+function resoudreParametres(parametres = {}) {
+  const ancien = catalogue.ANCIENS_SUPPORTS[parametres.support] || {};
+  const kind = catalogue.TYPES_SUPPORT[parametres.kind] ? parametres.kind : (ancien.kind || 'wallet');
+  const formatId = catalogue.FORMATS[parametres.format_layout] ? parametres.format_layout : (ancien.format_layout || 'a6-portrait');
+  const aliasStyle = { 'premium-violet': 'premium', 'ludique-cadeau': 'fun' }[parametres.style || parametres.theme];
+  const styleId = catalogue.STYLES[parametres.style] ? parametres.style : (aliasStyle || 'premium');
+  return { kind, formatId, styleId };
+}
+
+function lienPourType(type, restaurant, marketing) {
+  return type.lien === 'review' ? marketing.lienAvisRestaurant(restaurant) : marketing.lienPublicRestaurant(restaurant);
+}
+
+function roueFixe(x, y, taille) {
+  const source = fs.readFileSync(ROUE_OFFICIELLE, 'utf8');
+  const interieur = source.replace(/^.*?<svg[^>]*>/s, '').replace(/<\/svg>\s*$/s, '');
+  return `<svg x="${x}" y="${y}" width="${taille}" height="${taille}" viewBox="0 0 400 400" aria-label="Roue cadeau officielle">${interieur}</svg>`;
+}
+
+function badgeRestaurant(x, y, rayon, nom, logo, style, suffixe) {
+  if (logo) return `<defs><clipPath id="logo-${suffixe}"><circle cx="${x}" cy="${y}" r="${rayon}"/></clipPath></defs>
+    <circle cx="${x}" cy="${y}" r="${rayon + .7}" fill="#FFFFFF"/><image href="${logo}" x="${x - rayon}" y="${y - rayon}" width="${rayon * 2}" height="${rayon * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#logo-${suffixe})"/>`;
+  return `<circle cx="${x}" cy="${y}" r="${rayon}" fill="${style.primaire}"/><text x="${x}" y="${y + rayon * .34}" fill="#fff" font-family="Helvetica, Arial, sans-serif" font-size="${rayon * .88}" font-weight="800" text-anchor="middle">${echapperXml(initiales(nom))}</text>`;
+}
+
+function decorStyle(styleId, style, largeur, hauteur, variante) {
+  const inverse = variante % 2 === 1;
+  if (styleId === 'minimal') return `<line x1="${inverse ? largeur * .08 : 0}" y1="${hauteur * .11}" x2="${inverse ? largeur * .92 : largeur}" y2="${hauteur * .11}" stroke="${style.primaire}" stroke-width="1"/><circle cx="${inverse ? largeur * .9 : largeur * .1}" cy="${hauteur * .91}" r="${Math.min(largeur, hauteur) * .025}" fill="${style.primaire}"/>`;
+  if (styleId === 'street-food') return `<path d="M0 ${hauteur * (inverse ? .66 : .82)}L${largeur} ${hauteur * (inverse ? .82 : .64)}V${hauteur}H0Z" fill="${style.secondaire}" opacity=".18"/><text x="${inverse ? largeur * .16 : largeur * .96}" y="${hauteur * .96}" font-size="${Math.min(largeur, hauteur) * .11}" fill="${style.primaire}" opacity=".18" text-anchor="end">///</text>`;
+  if (styleId === 'elegant') return `<circle cx="${largeur * (inverse ? .08 : .92)}" cy="${hauteur * .06}" r="${Math.min(largeur, hauteur) * .22}" fill="none" stroke="${style.primaire}" stroke-width=".5" opacity=".4"/><line x1="${largeur * .08}" y1="${hauteur * (inverse ? .88 : .91)}" x2="${largeur * .92}" y2="${hauteur * (inverse ? .88 : .91)}" stroke="${style.primaire}" stroke-width=".5"/>`;
+  if (styleId === 'modern') return `<rect x="${inverse ? 0 : largeur * .76}" y="0" width="${largeur * .24}" height="${hauteur * .18}" fill="${style.secondaire}" opacity=".2"/><circle cx="${largeur * (inverse ? .92 : .08)}" cy="${hauteur * .91}" r="${Math.min(largeur, hauteur) * .06}" fill="${style.primaire}" opacity=".18"/>`;
+  const decalage = variante % 2 ? .88 : .94;
+  return `<circle cx="${largeur * decalage}" cy="${hauteur * .05}" r="${Math.min(largeur, hauteur) * .28}" fill="${style.surface}" opacity=".8"/><circle cx="${largeur * .04}" cy="${hauteur * .96}" r="${Math.min(largeur, hauteur) * .18}" fill="${style.secondaire}" opacity=".12"/>`;
+}
+
+function fondSupport(ctx) {
+  const { largeur: w, hauteur: h, style, styleId, photo, variante, suffixe } = ctx;
+  const hauteurPhoto = ctx.formatId === 'square' ? h * .33 : h * .34;
+  return `<rect width="${w}" height="${h}" fill="${style.fond}"/>${decorStyle(styleId, style, w, h, variante)}
+    ${photo ? `<defs><clipPath id="photo-${suffixe}"><rect width="${w}" height="${hauteurPhoto}"/></clipPath><linearGradient id="voile-${suffixe}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".08"/><stop offset="1" stop-color="${style.fond}" stop-opacity=".92"/></linearGradient></defs><image href="${photo}" width="${w}" height="${hauteurPhoto}" preserveAspectRatio="xMidYMid slice" clip-path="url(#photo-${suffixe})"/><rect width="${w}" height="${hauteurPhoto}" fill="url(#voile-${suffixe})"/>` : ''}`;
+}
+
+function marque(ctx, compacte = false) {
+  const { largeur: w, marge: m, nomRestaurant, logo, photo, style, suffixe } = ctx;
+  const r = compacte ? 5.2 : Math.min(8, w * .052);
+  const couleurEntete = photo ? '#FFFFFF' : style.texte;
+  return `${badgeRestaurant(m + r, m + r, r, nomRestaurant, logo, style, suffixe)}
+    <text x="${m + r * 2 + 4}" y="${m + r + 1.7}" fill="${couleurEntete}" font-family="${style.police}" font-size="${compacte ? 4 : Math.min(6.2, w * .03)}" font-weight="800">${echapperXml(nomRestaurant)}</text>
+    <text x="${w - m}" y="${m + r + 1}" fill="${photo ? '#FFFFFF' : style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${compacte ? 2.2 : 3.2}" font-weight="700" letter-spacing=".45" text-anchor="end">BRAVOCARD</text>`;
+}
+
+function blocQr(ctx, x, y, taille, libelle) {
+  const { style, qrGenere } = ctx;
+  const bord = Math.max(2.5, taille * .09);
+  return `<rect x="${x - bord}" y="${y - bord}" width="${taille + bord * 2}" height="${taille + bord * 2}" rx="${bord}" fill="#FFFFFF"/>
+    ${qr.qrIntegrable(qrGenere, x, y, taille)}
+    <text x="${x + taille / 2}" y="${y + taille + bord + 4}" fill="${style.texte}" font-family="Helvetica, Arial, sans-serif" font-size="${Math.max(2.4, taille * .08)}" font-weight="800" text-anchor="middle">${echapperXml(libelle)}</text>`;
+}
+
+function rendreCarre(ctx) {
+  const { largeur: w, hauteur: h, marge: m, style, type, titre, sousTitre } = ctx;
+  const titleSize = tailleTexte(titre, w - 2 * m, 6.7, 4.1);
+  if (type.id === 'wallet') {
+    return `${fondSupport(ctx)}${marque(ctx, true)}
+      <text x="${w / 2}" y="31" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
+      <text x="${w / 2}" y="38" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="2.8" text-anchor="middle">${echapperXml(sousTitre)}</text>
+      ${blocQr(ctx, 33, 46, 34, 'Scannez pour ajouter votre carte')}
+      <rect x="18" y="91" width="64" height="5" rx="2.5" fill="${style.primaire}"/><text x="50" y="94.5" fill="#fff" font-family="Helvetica, Arial, sans-serif" font-size="2.25" font-weight="800" text-anchor="middle">APPLE WALLET · GOOGLE WALLET</text>`;
   }
+  return `${fondSupport(ctx)}${marque(ctx, true)}
+    <text x="${w / 2}" y="29" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
+    ${roueFixe(12, 35, 38)}${blocQr(ctx, 61, 40, 26, 'Scannez pour jouer')}
+    <text x="${w / 2}" y="85" fill="${style.texte}" font-family="Helvetica, Arial, sans-serif" font-size="3.2" font-weight="800" text-anchor="middle">${echapperXml(sousTitre)}</text>
+    <text x="${w / 2}" y="93" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="2.4" text-anchor="middle">Un avis · Une chance · Une surprise</text>`;
 }
 
-// Badge en haut a gauche : logo du restaurant si disponible, sinon ses initiales
-// sur un rond de couleur (meme principe que les avatars du tableau de bord).
-function badgeRestaurant(x, y, rayon, nom, logoDataUri, couleurFond, couleurTexte) {
-  if (logoDataUri) {
-    return `<clipPath id="clipLogo"><circle cx="${x}" cy="${y}" r="${rayon}"/></clipPath>
-      <circle cx="${x}" cy="${y}" r="${rayon}" fill="#FFFFFF"/>
-      <image href="${logoDataUri}" x="${x - rayon}" y="${y - rayon}" width="${rayon * 2}" height="${rayon * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#clipLogo)"/>`;
+function rendrePortrait(ctx) {
+  const { largeur: w, hauteur: h, marge: m, style, type, titre, sousTitre, formatId } = ctx;
+  const echelle = formatId === 'a4-portrait' ? 1.7 : 1;
+  const heroFin = h * .34;
+  const titleSize = tailleTexte(titre, w - 2 * m, 8.2 * echelle, 5.2 * echelle);
+  if (type.id === 'wallet') {
+    const qrTaille = formatId === 'a4-portrait' ? 62 : 38;
+    const qrX = (w - qrTaille) / 2;
+    const qrY = h - qrTaille - m - 16 * echelle;
+    return `${fondSupport(ctx)}${marque(ctx)}
+      <text x="${w / 2}" y="${heroFin + 15 * echelle}" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
+      <text x="${w / 2}" y="${heroFin + 25 * echelle}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${3.5 * echelle}" text-anchor="middle">${echapperXml(sousTitre)}</text>
+      ${formatId === 'a4-portrait' ? `<g transform="translate(${m} ${heroFin + 34 * echelle})"><circle cx="4" cy="3" r="3" fill="${style.primaire}"/><text x="11" y="4.2" fill="${style.texte}" font-family="Helvetica, Arial, sans-serif" font-size="${3.1 * echelle}" font-weight="700">10 points à chaque visite</text></g><g transform="translate(${m} ${heroFin + 45 * echelle})"><circle cx="4" cy="3" r="3" fill="${style.secondaire}"/><text x="11" y="4.2" fill="${style.texte}" font-family="Helvetica, Arial, sans-serif" font-size="${3.1 * echelle}" font-weight="700">Votre récompense toujours dans le téléphone</text></g>` : ''}
+      ${blocQr(ctx, qrX, qrY, qrTaille, 'Scannez pour ajouter votre carte')}
+      <text x="${w / 2}" y="${h - m}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${2.5 * echelle}" text-anchor="middle">Aucune application à télécharger</text>`;
   }
-  return `<circle cx="${x}" cy="${y}" r="${rayon}" fill="${couleurFond}"/>
-    <text x="${x}" y="${y + rayon * 0.34}" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${rayon * 0.95}" fill="${couleurTexte}" text-anchor="middle">${echapperXml(initialesNom(nom))}</text>`;
+  const grand = formatId === 'a4-portrait';
+  const roueTaille = grand ? 103 : 47;
+  const roueX = grand ? 20 : 8;
+  const roueY = grand ? 137 : 77;
+  const qrTaille = grand ? 55 : 31;
+  const qrX = grand ? 142 : 65;
+  const qrY = grand ? 157 : 84;
+  const sousTitreY = grand ? 252 : 132;
+  return `${fondSupport(ctx)}${marque(ctx)}
+    <text x="${w / 2}" y="${heroFin + 13 * echelle}" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
+    ${roueFixe(roueX, roueY, roueTaille)}
+    ${blocQr(ctx, qrX, qrY, qrTaille, 'Scannez pour tenter votre chance')}
+    <text x="${w / 2}" y="${sousTitreY}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${3.2 * echelle}" text-anchor="middle">${echapperXml(sousTitre)}</text>
+    <text x="${w / 2}" y="${h - m}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${2.4 * echelle}" text-anchor="middle">Avis Google → validation → roue cadeau</text>`;
 }
 
-// Trois arcs concentriques radiant depuis un point (symbole "sans contact"
-// universel), construits mathematiquement pour rester parfaitement centres
-// entre eux (angles identiques a rayons croissants), plutot que des arcs
-// approximatifs qui se chevauchent de façon illisible.
-function pictogrammeNfc(x, y, taille, couleur) {
-  const echelle = taille / 15;
-  const angleDebut = (20 * Math.PI) / 180;
-  const angleFin = (70 * Math.PI) / 180;
-  const arcs = [5, 9.5, 14].map(rayon => {
-    const x1 = rayon * Math.cos(angleDebut);
-    const y1 = -rayon * Math.sin(angleDebut);
-    const x2 = rayon * Math.cos(angleFin);
-    const y2 = -rayon * Math.sin(angleFin);
-    return `<path d="M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${rayon} ${rayon} 0 0 0 ${x2.toFixed(2)} ${y2.toFixed(2)}"/>`;
-  }).join('');
-  return `<g transform="translate(${x} ${y}) scale(${echelle})" fill="none" stroke="${couleur}" stroke-width="1.8" stroke-linecap="round">
-    <circle cx="0" cy="0" r="1.6" fill="${couleur}" stroke="none"/>
-    ${arcs}
-  </g>`;
-}
-
-function miniRoue(x, y, rayon) {
-  const couleurs = ['#6C3CE9', '#E8891F', '#2DB985', '#317FD6', '#E9687C', '#8A58E9'];
-  const point = angleDeg => {
-    const rad = ((angleDeg - 90) * Math.PI) / 180;
-    return [x + rayon * Math.cos(rad), y + rayon * Math.sin(rad)];
-  };
-  const segments = couleurs.map((couleur, index) => {
-    const angleDepart = (index * 360) / couleurs.length;
-    const angleFin = ((index + 1) * 360) / couleurs.length;
-    const [x1, y1] = point(angleDepart);
-    const [x2, y2] = point(angleFin);
-    return `<path d="M ${x} ${y} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${rayon} ${rayon} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z" fill="${couleur}"/>`;
-  }).join('');
-  return `<g>${segments}
-    <circle cx="${x}" cy="${y}" r="${rayon}" fill="none" stroke="#FFFFFF" stroke-width="1.4"/>
-    <circle cx="${x}" cy="${y}" r="${rayon * 0.24}" fill="#FFFFFF"/>
-    <path d="M ${x - rayon * 0.14} ${y - rayon - 2.6} L ${x + rayon * 0.14} ${y - rayon - 2.6} L ${x} ${y - rayon + 1.4} Z" fill="#FFFFFF"/>
-  </g>`;
-}
-
-function badgeCentPourcent(x, y, rayon, couleur) {
-  return `<g>
-    <circle cx="${x}" cy="${y}" r="${rayon}" fill="${couleur}"/>
-    <circle cx="${x}" cy="${y}" r="${rayon - 1.2}" fill="none" stroke="#FFFFFF" stroke-width="0.8" stroke-dasharray="2 1.6"/>
-    <text x="${x}" y="${y - rayon * 0.16}" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${rayon * 0.56}" fill="#FFFFFF" text-anchor="middle">100%</text>
-    <text x="${x}" y="${y + rayon * 0.42}" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${rayon * 0.22}" letter-spacing="0.15" fill="#FFFFFF" text-anchor="middle">GAGNANT</text>
-  </g>`;
-}
-
-function construireLoyaltySquare(contexte) {
-  const { theme, nomRestaurant, logoDataUri, titre, sousTitre, qrCarte } = contexte;
-  const titreTaille = tailleAjustee(titre, 84, 6.6, 4.2);
-  return `
-    <rect width="100" height="100" fill="${theme.fond}"/>
-    <circle cx="100" cy="0" r="34" fill="${theme.accentFond}" opacity="0.9"/>
-    <circle cx="0" cy="100" r="26" fill="${theme.accentFond}" opacity="0.6"/>
-    ${badgeRestaurant(13, 13, 7, nomRestaurant, logoDataUri, theme.primaire, '#FFFFFF')}
-    <text x="94" y="15" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="2.6" letter-spacing="0.3" fill="${theme.texteAttenue}" text-anchor="end">BRAVOCARD</text>
-    <text x="50" y="30" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${titreTaille}" fill="${theme.texte}" text-anchor="middle">${echapperXml(titre)}</text>
-    <text x="50" y="38.5" font-family="Helvetica, Arial, sans-serif" font-weight="400" font-size="3.3" fill="${theme.texteAttenue}" text-anchor="middle">${echapperXml(sousTitre)}</text>
-    <rect x="30" y="44" width="40" height="40" rx="5" fill="#FFFFFF"/>
-    ${qr.qrIntegrable(qrCarte, 36, 50, 28)}
-    ${pictogrammeNfc(27, 90, 5, theme.secondaire)}
-    <text x="38" y="91" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="3.1" fill="${theme.texte}">Touchez ou scannez</text>
-    <text x="50" y="94.6" font-family="Helvetica, Arial, sans-serif" font-weight="400" font-size="2.35" fill="${theme.texteAttenue}" text-anchor="middle">Aucune application à télécharger</text>
-  `;
-}
-
-function construireReviewSquare(contexte) {
-  const { theme, nomRestaurant, logoDataUri, titre, toujoursGagnant, qrAvis } = contexte;
-  // Le badge "100% gagnant" est ancre au bord de la roue (pas du titre) pour ne
-  // jamais chevaucher un nom de restaurant ou un titre personnalise plus long.
-  const titreTaille = tailleAjustee(titre, 80, 5.6, 3.8);
-  return `
-    <rect width="100" height="100" fill="${theme.fond}"/>
-    <circle cx="0" cy="0" r="30" fill="${theme.accentFond}" opacity="0.8"/>
-    ${badgeRestaurant(13, 13, 7, nomRestaurant, logoDataUri, theme.primaire, '#FFFFFF')}
-    <text x="94" y="15" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="2.6" letter-spacing="0.3" fill="${theme.primaire}" text-anchor="end">BRAVOCARD</text>
-    <text x="50" y="27" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${titreTaille}" fill="${theme.texte}" text-anchor="middle">${echapperXml(titre)}</text>
-    ${miniRoue(48, 46, 10)}
-    ${toujoursGagnant ? badgeCentPourcent(70, 39, 7.5, theme.secondaire) : ''}
-    <text x="50" y="61.5" font-family="Helvetica, Arial, sans-serif" font-weight="400" font-size="3" fill="${theme.texteAttenue}" text-anchor="middle">Avis Google → Roue → Cadeau</text>
-    <rect x="37" y="65" width="26" height="26" rx="4" fill="#FFFFFF" stroke="${theme.accentFond}" stroke-width="0.6"/>
-    ${qr.qrIntegrable(qrAvis, 41, 69, 18)}
-    ${pictogrammeNfc(29, 91.5, 4.6, theme.secondaire)}
-    <text x="37" y="93.6" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="2.9" fill="${theme.texte}">Touchez ou scannez</text>
-  `;
-}
-
-// Rangee de jetons de progression (type carte a tampons). Le dernier jeton
-// porte le pictogramme cadeau pour marquer la recompense a debloquer.
-function rangeeTampons(x, y, largeurDisponible, nombre, couleur) {
-  const rayon = Math.min(4.2, (largeurDisponible / nombre) * 0.36);
-  const pas = nombre > 1 ? largeurDisponible / (nombre - 1) : 0;
-  let jetons = '';
-  for (let i = 0; i < nombre; i += 1) {
-    const cx = nombre > 1 ? x + i * pas : x + largeurDisponible / 2;
-    const dernier = i === nombre - 1;
-    jetons += dernier
-      ? `<circle cx="${cx}" cy="${y}" r="${rayon}" fill="${couleur}"/><text x="${cx}" y="${y + rayon * 0.4}" font-size="${rayon * 1.2}" text-anchor="middle">🎁</text>`
-      : `<circle cx="${cx}" cy="${y}" r="${rayon}" fill="none" stroke="${couleur}" stroke-width="0.6"/>`;
-  }
-  return `<g>${jetons}</g>`;
-}
-
-function construireLoyaltyPosterA5(contexte) {
-  const { theme, nomRestaurant, logoDataUri, nombreTampons, recompense, citation, qrCarte } = contexte;
-  const largeurPage = 148;
-  const hauteurPage = 210;
-  const margeSecurite = 8;
-  const largeurUtile = largeurPage - margeSecurite * 2;
-  const recompenseTaille = tailleAjustee(recompense, largeurUtile, 6.4, 4.2, 0.52);
-  const citationTaille = tailleAjustee(citation, largeurUtile - 30, 3.2, 2.4);
-
-  return `
-    <rect width="${largeurPage}" height="${hauteurPage}" fill="${theme.fond}"/>
-    <rect width="${largeurPage}" height="18" fill="${theme.primaire}"/>
-    <text x="${largeurPage / 2}" y="11.5" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="4.4" letter-spacing="0.6" fill="#FFFFFF" text-anchor="middle">PROGRAMME DE FIDÉLITÉ OFFICIEL</text>
-
-    ${badgeRestaurant(largeurPage / 2, 40, 15, nomRestaurant, logoDataUri, theme.primaire, '#FFFFFF')}
-
-    <text x="${largeurPage / 2}" y="68" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="8" fill="${theme.texte}" text-anchor="middle">${nombreTampons} visites cumulées</text>
-    <text x="${largeurPage / 2}" y="78" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${recompenseTaille}" fill="${theme.primaire}" text-anchor="middle">= ${echapperXml(recompense)}</text>
-
-    <text x="${margeSecurite}" y="94" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="2.6" letter-spacing="0.4" fill="${theme.texteAttenue}">VOTRE PROGRESSION</text>
-    ${rangeeTampons(margeSecurite + 6, 105, largeurUtile - 12, Math.min(nombreTampons, 10), theme.primaire)}
-
-    <rect x="${largeurPage / 2 - 32}" y="115" width="64" height="12" rx="6" fill="${theme.secondaire}"/>
-    <text x="${largeurPage / 2}" y="123" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="3.6" fill="#FFFFFF" text-anchor="middle">🎁 ${echapperXml(recompense)}</text>
-
-    <line x1="${margeSecurite}" y1="136" x2="${largeurPage - margeSecurite}" y2="136" stroke="${theme.accentFond}" stroke-width="0.6"/>
-
-    <rect x="${margeSecurite}" y="144" width="40" height="40" rx="4" fill="#FFFFFF"/>
-    ${qr.qrIntegrable(qrCarte, margeSecurite + 4, 148, 32)}
-    <text x="${margeSecurite + 46}" y="153" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="4.4" fill="${theme.texte}">Scannez pour rejoindre</text>
-    ${pictogrammeNfc(margeSecurite + 46, 164, 4, theme.secondaire)}
-    <text x="${margeSecurite + 55}" y="166" font-family="Helvetica, Arial, sans-serif" font-size="3" fill="${theme.texteAttenue}">Ouvrez l'appareil photo</text>
-    ${pictogrammeNfc(margeSecurite + 46, 176, 4, theme.secondaire)}
-    <text x="${margeSecurite + 55}" y="178" font-family="Helvetica, Arial, sans-serif" font-size="3" fill="${theme.texteAttenue}">Ajoutez à votre wallet</text>
-
-    <rect x="${margeSecurite}" y="188" width="${largeurUtile}" height="10" rx="3" fill="${theme.accentFond}"/>
-    <text x="${margeSecurite + 4}" y="194.5" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="2.6" fill="${theme.texteAttenue}">LIEN DIRECT</text>
-    <text x="${largeurPage - margeSecurite - 4}" y="194.5" font-family="Helvetica, Arial, sans-serif" font-size="2.6" fill="${theme.texte}" text-anchor="end">${echapperXml(contexte.lienAffiche)}</text>
-
-    <text x="${largeurPage / 2}" y="204" font-family="Helvetica, Arial, sans-serif" font-style="italic" font-size="${citationTaille}" fill="${theme.texteAttenue}" text-anchor="middle">${echapperXml(citation)}</text>
-  `;
-}
-
-const CONSTRUCTEURS = {
-  'loyalty-square': construireLoyaltySquare,
-  'review-square': construireReviewSquare,
-  'loyalty-poster-a5': construireLoyaltyPosterA5
-};
-
-function resoudreTheme(restaurant, support, parametres) {
-  const themeId = THEMES[parametres.theme] ? parametres.theme
-    : (THEMES[restaurant.communication_theme] ? restaurant.communication_theme : support.themeParDefaut);
-  const base = THEMES[themeId];
-  return {
-    ...base,
-    primaire: nettoyerCouleur(parametres.primary_color, nettoyerCouleur(restaurant.communication_primary_color, nettoyerCouleur(restaurant.couleur_principale, base.primaire))),
-    secondaire: nettoyerCouleur(parametres.secondary_color, nettoyerCouleur(restaurant.communication_secondary_color, nettoyerCouleur(restaurant.couleur_secondaire, base.secondaire)))
-  };
-}
-
-function lienPourSupport(support, restaurant, marketing) {
-  return support.lien === 'review'
-    ? marketing.lienAvisRestaurant(restaurant)
-    : marketing.lienPublicRestaurant(restaurant);
-}
-
-// Construit le contenu SVG (sans l'enveloppe racine) d'un support, a partir des
-// donnees du restaurant et des parametres de personnalisation (query params du
-// frontend). Utilisee a la fois par l'apercu en direct et par l'export final :
-// c'est la meme fonction, donc l'apercu est garanti identique au fichier telecharge.
 async function construireSupport(restaurant, parametresRecus, marketing) {
-  const support = SUPPORTS[parametresRecus.support];
-  if (!support) throw new Error('Support de communication inconnu.');
-
-  const theme = resoudreTheme(restaurant, support, parametresRecus);
-  const lien = lienPourSupport(support, restaurant, marketing);
-  const qrGenere = await qr.genererQr(lien);
-  const logoUrl = String(
-    parametresRecus.logo_url || restaurant.communication_logo_url || restaurant.logo_url || restaurant.apple_logo_url || ''
-  ).trim();
-  const logoDataUri = await logoEnDataUri(logoUrl);
-
-  const tamponsParDefaut = Math.min(10, Math.max(2, Math.round(
-    Number(restaurant.seuil_recompense || 100) / Number(restaurant.points_per_scan || 10)
-  )));
-
-  const contexte = {
-    theme,
-    nomRestaurant: restaurant.nom,
-    logoDataUri,
-    titre: ajusterTexte(parametresRecus.title, 60, support.titreParDefaut),
-    sousTitre: ajusterTexte(parametresRecus.subtitle, 60, support.sousTitreParDefaut),
-    toujoursGagnant: parametresRecus.always_winner === undefined
-      ? Boolean(restaurant.always_winner)
-      : parametresRecus.always_winner === 'true' || parametresRecus.always_winner === true,
-    nombreTampons: Math.min(10, Math.max(2, Number(parametresRecus.nombre_tampons) || tamponsParDefaut)),
-    recompense: ajusterTexte(
-      parametresRecus.recompense,
-      60,
-      restaurant.reward_title || restaurant.description_recompense || restaurant.apple_reward_text || 'Une récompense offerte'
-    ),
-    citation: ajusterTexte(parametresRecus.citation, 90, 'La fidélité, ça se mérite. Et ça se récompense.'),
-    lienAffiche: 'bravocard.fr',
-    qrCarte: qrGenere,
-    qrAvis: qrGenere
+  const { kind, formatId, styleId } = resoudreParametres(parametresRecus);
+  const type = catalogue.TYPES_SUPPORT[kind];
+  const format = catalogue.FORMATS[formatId];
+  const baseStyle = catalogue.STYLES[styleId];
+  const style = {
+    ...baseStyle,
+    primaire: nettoyerCouleur(parametresRecus.primary_color, nettoyerCouleur(restaurant.communication_primary_color, baseStyle.primaire)),
+    secondaire: nettoyerCouleur(parametresRecus.secondary_color, nettoyerCouleur(restaurant.communication_secondary_color, baseStyle.secondaire))
   };
-
-  const contenu = CONSTRUCTEURS[support.id](contexte);
-  return { contenu, support, theme, lien };
+  const lien = lienPourType(type, restaurant, marketing);
+  const qrGenere = await qr.genererQr(lien, { marge: 4, correction: 'H' });
+  const imagesRestaurant = donneesImagesRestaurant(restaurant);
+  const logoUrl = String(parametresRecus.logo_url || restaurant.communication_logo_url || restaurant.logo_url || restaurant.apple_logo_url || restaurant.google_program_logo_url || '').trim();
+  const photoUrl = String(parametresRecus.photo_url || '').trim();
+  const photosAutorisees = listerPhotos(restaurant).map(photo => photo.url);
+  const [logo, photo] = await Promise.all([
+    imageEnDataUri(logoUrl, { autorisees: imagesRestaurant }),
+    imageEnDataUri(photoUrl, { autorisees: photosAutorisees })
+  ]);
+  const variante = Math.max(0, Math.min(9, Number.parseInt(parametresRecus.variant, 10) || 0));
+  const ctx = {
+    largeur: format.largeurMm, hauteur: format.hauteurMm,
+    marge: formatId === 'a4-portrait' ? 14 : 7,
+    type, formatId, styleId, style, variante,
+    suffixe: `${kind}-${formatId}-${styleId}-${variante}`.replace(/[^a-z0-9-]/g, ''),
+    nomRestaurant: texteLimite(restaurant.nom, 'Votre restaurant', 45), logo, photo,
+    titre: texteLimite(parametresRecus.title, type.titreParDefaut, 72),
+    sousTitre: texteLimite(parametresRecus.subtitle, type.sousTitreParDefaut, 100),
+    qrGenere
+  };
+  const contenu = formatId === 'square' ? rendreCarre(ctx) : rendrePortrait(ctx);
+  return { contenu, support: { id: `${kind}-${formatId}`, largeurMm: format.largeurMm, hauteurMm: format.hauteurMm }, style, lien };
 }
 
-function listerThemes() {
-  return Object.values(THEMES).map(theme => ({ id: theme.id, nom: theme.nom, sombre: theme.sombre, primaire: theme.primaire, secondaire: theme.secondaire }));
+function normaliserReglage(reglage, kind) {
+  const type = catalogue.TYPES_SUPPORT[kind];
+  const formatId = catalogue.FORMATS[reglage?.format_layout] ? reglage.format_layout : 'a6-portrait';
+  const style = catalogue.STYLES[reglage?.style] ? reglage.style : (kind === 'wheel' ? 'fun' : 'premium');
+  return {
+    format_layout: formatId, style,
+    primary_color: nettoyerCouleur(reglage?.primary_color, catalogue.STYLES[style].primaire),
+    secondary_color: nettoyerCouleur(reglage?.secondary_color, catalogue.STYLES[style].secondaire),
+    photo_url: String(reglage?.photo_url || '').slice(0, 500),
+    title: texteLimite(reglage?.title, type.titreParDefaut, 72),
+    subtitle: texteLimite(reglage?.subtitle, type.sousTitreParDefaut, 100),
+    variant: Math.max(0, Math.min(9, Number.parseInt(reglage?.variant, 10) || 0))
+  };
 }
 
-function listerSupports() {
-  return Object.values(SUPPORTS).map(support => ({
-    id: support.id,
-    nom: support.nom,
-    description: support.description,
-    largeur_mm: support.largeurMm,
-    hauteur_mm: support.hauteurMm,
-    theme_par_defaut: support.themeParDefaut,
-    titre_par_defaut: support.titreParDefaut,
-    sous_titre_par_defaut: support.sousTitreParDefaut
-  }));
+function reglagesParDefaut(restaurant) {
+  const existants = restaurant.communication_generator_settings && typeof restaurant.communication_generator_settings === 'object'
+    ? restaurant.communication_generator_settings : {};
+  return { wallet: normaliserReglage(existants.wallet, 'wallet'), wheel: normaliserReglage(existants.wheel, 'wheel') };
 }
 
 function serialiserBranding(restaurant) {
+  const ancienStyle = { 'premium-violet': 'premium', 'ludique-cadeau': 'fun' }[restaurant.communication_theme] || 'premium';
   return {
-    communication_theme: THEMES[restaurant.communication_theme] ? restaurant.communication_theme : 'premium-violet',
+    communication_theme: ancienStyle,
     communication_primary_color: nettoyerCouleur(restaurant.communication_primary_color, ''),
     communication_secondary_color: nettoyerCouleur(restaurant.communication_secondary_color, ''),
     communication_logo_url: restaurant.communication_logo_url || '',
-    reward_title: restaurant.reward_title || '',
-    reward_description: restaurant.reward_description || '',
-    always_winner: Boolean(restaurant.always_winner),
-    lien_avis_google: restaurant.lien_avis_google || ''
+    generator_settings: reglagesParDefaut(restaurant)
   };
 }
 
 function validerUrlHttpsOuVide(valeur, nomChamp) {
   const texte = String(valeur || '').trim();
   if (!texte) return null;
-  if (!/^https:\/\//i.test(texte) || texte.length > 500) {
-    throw new Error(`${nomChamp} doit être une adresse https valide.`);
-  }
+  if (!/^https:\/\//i.test(texte) || texte.length > 500 || urlPrivee(texte)) throw new Error(`${nomChamp} doit être une adresse HTTPS publique valide.`);
   return texte;
 }
 
-function validerCouleurStricte(valeur, nomChamp) {
-  const texte = String(valeur || '').trim().toUpperCase();
-  if (!texte) return null;
-  if (!COULEUR_HEX.test(texte)) {
-    throw new Error(`${nomChamp} doit être au format #6C3CE9.`);
-  }
-  return texte;
-}
-
-// Valide les reglages de personnalisation avant enregistrement en base (contrairement
-// a resoudreTheme/nettoyerCouleur utilises pour l'apercu, ici une valeur invalide
-// doit bloquer l'enregistrement avec un message clair plutot que d'etre ignoree.
 function validerMiseAJourBranding(donnees) {
-  const theme = String(donnees.communication_theme || '').trim();
-  if (theme && !THEMES[theme]) {
-    throw new Error('Le thème choisi est invalide.');
-  }
+  const style = catalogue.STYLES[donnees.communication_theme] ? donnees.communication_theme : 'premium';
+  const settings = donnees.generator_settings && typeof donnees.generator_settings === 'object' ? donnees.generator_settings : {};
   return {
-    communication_theme: theme || 'premium-violet',
-    communication_primary_color: validerCouleurStricte(donnees.communication_primary_color, 'La couleur principale'),
-    communication_secondary_color: validerCouleurStricte(donnees.communication_secondary_color, 'La couleur secondaire'),
+    communication_theme: style === 'fun' ? 'ludique-cadeau' : 'premium-violet',
+    communication_primary_color: nettoyerCouleur(donnees.communication_primary_color, catalogue.STYLES[style].primaire),
+    communication_secondary_color: nettoyerCouleur(donnees.communication_secondary_color, catalogue.STYLES[style].secondaire),
     communication_logo_url: validerUrlHttpsOuVide(donnees.communication_logo_url, 'Le logo'),
-    reward_title: donnees.reward_title ? String(donnees.reward_title).trim().slice(0, 60) : null,
-    reward_description: donnees.reward_description ? String(donnees.reward_description).trim().slice(0, 160) : null,
-    always_winner: Boolean(donnees.always_winner)
+    communication_generator_settings: {
+      wallet: normaliserReglage(settings.wallet, 'wallet'),
+      wheel: normaliserReglage(settings.wheel, 'wheel')
+    }
   };
 }
 
 module.exports = {
-  THEMES,
-  SUPPORTS,
   construireSupport,
-  listerThemes,
-  listerSupports,
+  listerTypes: catalogue.listerTypes,
+  listerFormats: catalogue.listerFormats,
+  listerStyles: catalogue.listerStyles,
+  listerPhotos,
   serialiserBranding,
   validerMiseAJourBranding
 };
