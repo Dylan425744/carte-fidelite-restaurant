@@ -2126,6 +2126,14 @@ function rafraichirPickersGenerateur() {
     kitCommunication.photos.map(photo => `<button type="button" class="generateur-photo ${photo.url === genEtat.photoUrl ? 'actif' : ''}" data-photo="${echapper(photo.url)}"><img src="${echapper(photo.url)}" alt=""><span>${echapper(photo.nom)}</span></button>`).join('');
   const type = kitCommunication.types_support.find(item => item.id === genEtat.kind);
   const format = kitCommunication.formats.find(item => item.id === genEtat.formatId);
+  const wallet = genEtat.kind === 'wallet';
+  $('#genListeStyles').style.display = wallet ? 'none' : '';
+  $('#genBlocPhotos').style.display = wallet ? 'none' : '';
+  $('#genVariante').style.display = wallet ? 'none' : '';
+  $('#genEtapeStyleTitre').textContent = wallet ? 'Choisissez vos deux couleurs' : 'Donnez-lui votre style';
+  $('#genEtapeStyleAide').textContent = wallet
+    ? 'Bravocard calcule automatiquement les dégradés, contrastes et ombres.'
+    : 'Six directions artistiques, personnalisables ensuite.';
   $('#genBlocAccent').style.display = genEtat.kind === 'wheel' ? '' : 'none';
   $('#genRoueDefaut').style.display = genEtat.kind === 'wheel' ? '' : 'none';
   $('#genApercuTitre').textContent = type?.nom || 'Support Bravocard';
@@ -2143,7 +2151,7 @@ function genParametresActuels() {
     title: $('#genTitre').value,
     subtitle: $('#genSousTitre').value,
     logo_url: $('#genLogoUrl').value.trim(),
-    photo_url: genEtat.photoUrl,
+    photo_url: genEtat.kind === 'wallet' ? '' : genEtat.photoUrl,
     variant: genEtat.variant
   };
 }
@@ -2165,7 +2173,7 @@ function appliquerReglageGenerateur(kind) {
   genEtat.kind = kind;
   genEtat.formatId = reglage.format_layout || 'a6-portrait';
   genEtat.style = reglage.style || (kind === 'wheel' ? 'fun' : 'premium');
-  genEtat.photoUrl = reglage.photo_url || '';
+  genEtat.photoUrl = kind === 'wallet' ? '' : (reglage.photo_url || '');
   genEtat.variant = Number(reglage.variant) || 0;
   const style = kitCommunication.styles.find(item => item.id === genEtat.style);
   $('#genCouleurPrincipale').value = reglage.primary_color || style?.primaire || '#6C3CE9';

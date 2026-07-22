@@ -4,8 +4,8 @@ const TYPES_SUPPORT = {
     nom: 'Ajout de la carte Wallet',
     description: 'Le QR code ouvre la carte de fidélité de ce restaurant.',
     lien: 'loyalty',
-    titreParDefaut: 'Votre fidélité mérite mieux',
-    sousTitreParDefaut: 'Scannez et ajoutez votre carte en quelques secondes.'
+    titreParDefaut: 'Ajoutez votre carte de fidélité',
+    sousTitreParDefaut: 'Directement dans Apple Wallet ou Google Wallet'
   },
   wheel: {
     id: 'wheel',

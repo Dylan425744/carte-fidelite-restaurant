@@ -9,6 +9,7 @@ const RACINE_PUBLIQUE = path.join(__dirname, '..', 'public');
 // Source visuelle unique : remplacer ce fichier suffit pour actualiser tous les
 // modèles, sans toucher aux gabarits ni aux QR codes réels.
 const ROUE_OFFICIELLE = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wheel-official.svg');
+const WALLET_OFFICIEL = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wallet-enrollment-official.svg');
 
 function echapperXml(valeur) {
   return String(valeur == null ? '' : valeur).replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -47,6 +48,20 @@ function texteContraste(couleur) {
   return luminance(couleur) > .43 ? '#24102F' : '#FFFFFF';
 }
 
+function paletteWallet(style) {
+  const primaire = nettoyerCouleur(style.primaire, '#7C4DFF');
+  const secondaire = nettoyerCouleur(style.secondaire, '#D8B56A');
+  const fond = melangerCouleurs(primaire, '#08060D', .76);
+  return {
+    primaire,
+    secondaire,
+    profond: melangerCouleurs(primaire, '#000000', .64),
+    fond,
+    fondSecondaire: melangerCouleurs(secondaire, '#08060D', .78),
+    texte: texteContraste(fond)
+  };
+}
+
 function texteLimite(valeur, defaut, longueur = 90) {
   const texte = String(valeur ?? '').trim() || defaut;
   return texte.length > longueur ? `${texte.slice(0, longueur - 1).trim()}…` : texte;
@@ -54,6 +69,18 @@ function texteLimite(valeur, defaut, longueur = 90) {
 
 function tailleTexte(texte, largeur, base, minimum, ratio = 0.55) {
   return Math.max(minimum, Math.min(base, largeur / (Math.max(1, String(texte).length) * ratio)));
+}
+
+function decouperLignes(texte, longueurMax = 24, maximum = 2) {
+  const mots = String(texte || '').trim().split(/\s+/).filter(Boolean);
+  if (!mots.length) return [];
+  const lignes = [];
+  for (const mot of mots) {
+    const derniere = lignes[lignes.length - 1];
+    if (!derniere || (derniere.length + mot.length + 1 > longueurMax && lignes.length < maximum)) lignes.push(mot);
+    else lignes[lignes.length - 1] = `${derniere} ${mot}`;
+  }
+  return lignes.slice(0, maximum);
 }
 
 function initiales(nom) {
@@ -155,6 +182,70 @@ function roueFixe(x, y, taille, style) {
   return `<svg x="${x}" y="${y}" width="${taille}" height="${taille}" viewBox="0 0 1200 1200" overflow="visible" aria-label="Roue cadeau officielle">${interieur}</svg>`;
 }
 
+function walletFixe(x, y, largeur, hauteur, style, viewBox = '0 0 1000 1400') {
+  let source = fs.readFileSync(WALLET_OFFICIEL, 'utf8');
+  const palette = paletteWallet(style);
+  const couleursStops = {
+    'wallet-primary-stop': palette.primaire,
+    'wallet-primary-deep-stop': palette.profond,
+    'wallet-secondary-stop': palette.secondaire
+  };
+  for (const [classe, couleur] of Object.entries(couleursStops)) {
+    source = appliquerAttributPalette(source, 'stop', classe, 'stop-color', couleur);
+  }
+  source = appliquerAttributPalette(source, 'circle', 'wallet-secondary-fill', 'fill', palette.secondaire);
+  source = appliquerAttributPalette(source, 'text', 'wallet-secondary-fill', 'fill', palette.secondaire);
+  source = appliquerAttributPalette(source, 'g', 'wallet-text-fill', 'fill', palette.texte);
+  source = appliquerAttributPalette(source, 'text', 'wallet-text-fill', 'fill', palette.texte);
+  source = appliquerAttributPalette(source, 'circle', 'wallet-primary-stroke', 'stroke', palette.primaire);
+  source = appliquerAttributPalette(source, 'path', 'wallet-primary-stroke', 'stroke', palette.primaire);
+  for (const balise of ['g', 'line']) {
+    source = appliquerAttributPalette(source, balise, 'wallet-secondary-stroke', 'stroke', palette.secondaire);
+  }
+  const interieur = source.replace(/^.*?<svg[^>]*>/s, '').replace(/<\/svg>\s*$/s, '');
+  return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-label="Illustration officielle d'ajout Wallet">${interieur}</svg>`;
+}
+
+function walletDynamique(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1400') {
+  const { nomRestaurant, logo, style, qrGenere, titre, sousTitre, suffixe } = ctx;
+  const palette = paletteWallet(style);
+  const couleurEntete = palette.texte;
+  const lignesTitre = decouperLignes(String(titre).toUpperCase(), 25, 2);
+  const tailleTitre = Math.max(32, Math.min(70, 720 / (Math.max(10, ...lignesTitre.map(ligne => ligne.length)) * .55)));
+  const lignesSousTitre = decouperLignes(String(sousTitre).toUpperCase(), 50, 2);
+  const tailleNom = Math.max(20, Math.min(43, 560 / (Math.max(8, nomRestaurant.length) * .56)));
+  const tailleNomCarte = Math.max(11, Math.min(21, 225 / (Math.max(8, nomRestaurant.length) * .55)));
+  const idLogo = `wallet-logo-${suffixe}`;
+  const badge = logo
+    ? `<defs><clipPath id="${idLogo}"><circle cx="300" cy="78" r="39"/></clipPath></defs><circle cx="300" cy="78" r="43" fill="#FFFFFF"/><image href="${logo}" x="261" y="39" width="78" height="78" preserveAspectRatio="xMidYMid slice" clip-path="url(#${idLogo})"/>`
+    : `<circle cx="300" cy="78" r="42" fill="${palette.primaire}"/><circle cx="300" cy="78" r="36" fill="none" stroke="${palette.secondaire}" stroke-width="2"/><text x="300" y="92" fill="${texteContraste(palette.primaire)}" font-family="Georgia, serif" font-size="43" font-weight="700" text-anchor="middle">${echapperXml(initiales(nomRestaurant).slice(0, 1))}</text>`;
+  return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-label="Contenu personnalisé du restaurant">
+    ${badge}
+    <text x="360" y="84" fill="${couleurEntete}" font-family="Georgia, Times New Roman, serif" font-size="${tailleNom}" font-weight="700">${echapperXml(nomRestaurant)}</text>
+    <text x="362" y="116" fill="${palette.secondaire}" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="800" letter-spacing="5">CARTE DE FIDÉLITÉ</text>
+    ${lignesTitre.map((ligne, index) => `<text x="500" y="${190 + index * 72}" fill="${couleurEntete}" font-family="Georgia, Times New Roman, serif" font-size="${tailleTitre}" font-weight="700" letter-spacing="2" text-anchor="middle">${echapperXml(ligne)}</text>`).join('')}
+    ${lignesSousTitre.map((ligne, index) => `<text x="500" y="${307 + index * 28}" fill="${palette.secondaire}" font-family="Helvetica, Arial, sans-serif" font-size="21" font-weight="800" letter-spacing="3" text-anchor="middle">${echapperXml(ligne)}</text>`).join('')}
+    <g transform="rotate(-4 360 760)">
+      <text x="208" y="515" fill="#FFFFFF" font-family="Georgia, Times New Roman, serif" font-size="${tailleNomCarte}" font-weight="700">${echapperXml(nomRestaurant)}</text>
+      <text x="448" y="613" fill="${texteContraste(palette.secondaire)}" font-family="Georgia, serif" font-size="20" font-weight="700" text-anchor="middle">${echapperXml(initiales(nomRestaurant).slice(0, 1))}</text>
+    </g>
+    <g id="restaurant-real-wallet-qr" transform="rotate(7 710 820)">${qr.qrIntegrable(qrGenere, 577, 644, 230)}</g>
+  </svg>`;
+}
+
+function fondWallet(ctx) {
+  const palette = paletteWallet(ctx.style);
+  const id = `fond-wallet-${ctx.suffixe}`;
+  return `<defs>
+    <linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${palette.fondSecondaire}"/><stop offset=".46" stop-color="${palette.fond}"/><stop offset="1" stop-color="#07060A"/></linearGradient>
+    <radialGradient id="${id}-lueur" cx="80%" cy="18%" r="70%"><stop offset="0" stop-color="${palette.primaire}" stop-opacity=".28"/><stop offset="1" stop-color="${palette.primaire}" stop-opacity="0"/></radialGradient>
+  </defs><rect width="${ctx.largeur}" height="${ctx.hauteur}" fill="url(#${id})"/><rect width="${ctx.largeur}" height="${ctx.hauteur}" fill="url(#${id}-lueur)"/>`;
+}
+
+function walletOfficiel(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1400') {
+  return `${walletFixe(x, y, largeur, hauteur, ctx.style, viewBox)}${walletDynamique(ctx, x, y, largeur, hauteur, viewBox)}`;
+}
+
 function badgeRestaurant(x, y, rayon, nom, logo, style, suffixe) {
   if (logo) return `<defs><clipPath id="logo-${suffixe}"><circle cx="${x}" cy="${y}" r="${rayon}"/></clipPath></defs>
     <circle cx="${x}" cy="${y}" r="${rayon + .7}" fill="#FFFFFF"/><image href="${logo}" x="${x - rayon}" y="${y - rayon}" width="${rayon * 2}" height="${rayon * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#logo-${suffixe})"/>`;
@@ -226,11 +317,7 @@ function rendreCarre(ctx) {
   const { largeur: w, hauteur: h, marge: m, style, type, titre, sousTitre } = ctx;
   const titleSize = tailleTexte(titre, w - 2 * m, 6.7, 4.1);
   if (type.id === 'wallet') {
-    return `${fondSupport(ctx)}${marque(ctx, true)}
-      <text x="${w / 2}" y="31" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
-      <text x="${w / 2}" y="38" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="2.8" text-anchor="middle">${echapperXml(sousTitre)}</text>
-      ${blocQr(ctx, 33, 46, 34, 'Scannez pour ajouter votre carte')}
-      <rect x="18" y="91" width="64" height="5" rx="2.5" fill="${style.primaire}"/><text x="50" y="94.5" fill="#fff" font-family="Helvetica, Arial, sans-serif" font-size="2.25" font-weight="800" text-anchor="middle">APPLE WALLET · GOOGLE WALLET</text>`;
+    return `${fondWallet(ctx)}${walletOfficiel(ctx, 0, 0, w, h, '0 0 1000 1000')}`;
   }
   return `${fondSupport(ctx)}${marque(ctx, true)}
     <text x="${w / 2}" y="27" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
@@ -244,15 +331,7 @@ function rendrePortrait(ctx) {
   const heroFin = h * .34;
   const titleSize = tailleTexte(titre, w - 2 * m, 8.2 * echelle, 5.2 * echelle);
   if (type.id === 'wallet') {
-    const qrTaille = formatId === 'a4-portrait' ? 62 : 38;
-    const qrX = (w - qrTaille) / 2;
-    const qrY = h - qrTaille - m - 16 * echelle;
-    return `${fondSupport(ctx)}${marque(ctx)}
-      <text x="${w / 2}" y="${heroFin + 15 * echelle}" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
-      <text x="${w / 2}" y="${heroFin + 25 * echelle}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${3.5 * echelle}" text-anchor="middle">${echapperXml(sousTitre)}</text>
-      ${formatId === 'a4-portrait' ? `<g transform="translate(${m} ${heroFin + 34 * echelle})"><circle cx="4" cy="3" r="3" fill="${style.primaire}"/><text x="11" y="4.2" fill="${style.texte}" font-family="Helvetica, Arial, sans-serif" font-size="${3.1 * echelle}" font-weight="700">10 points à chaque visite</text></g><g transform="translate(${m} ${heroFin + 45 * echelle})"><circle cx="4" cy="3" r="3" fill="${style.secondaire}"/><text x="11" y="4.2" fill="${style.texte}" font-family="Helvetica, Arial, sans-serif" font-size="${3.1 * echelle}" font-weight="700">Votre récompense toujours dans le téléphone</text></g>` : ''}
-      ${blocQr(ctx, qrX, qrY, qrTaille, 'Scannez pour ajouter votre carte')}
-      <text x="${w / 2}" y="${h - m}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${2.5 * echelle}" text-anchor="middle">Aucune application à télécharger</text>`;
+    return `${fondWallet(ctx)}${walletOfficiel(ctx, 0, 0, w, h)}`;
   }
   const grand = formatId === 'a4-portrait';
   const roueTaille = grand ? 125 : 70;
