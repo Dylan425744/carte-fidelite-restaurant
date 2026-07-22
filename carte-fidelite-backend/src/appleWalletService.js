@@ -124,8 +124,10 @@ function ajouterDesignPro(champs, restaurant = null) {
     return champs;
   }
 
-  // La couleur précise est réservée au compte WalletWallet Pro.
-  champs.color = restaurant?.apple_custom_color || '#1B1030';
+  // La couleur précise est réservée au compte WalletWallet Pro. A defaut
+  // d'une couleur propre a la carte Apple, on reprend la couleur generale
+  // du restaurant (Reglages).
+  champs.color = restaurant?.apple_custom_color || restaurant?.couleur_principale || '#1B1030';
 
   const valeurDesign = (champ, variableEnvironnement) => {
     if (restaurant && Object.prototype.hasOwnProperty.call(restaurant, champ)) {
@@ -133,7 +135,10 @@ function ajouterDesignPro(champs, restaurant = null) {
     }
     return obtenirVariableEnvironnement(variableEnvironnement);
   };
-  const logoBravocard = valeurDesign('apple_logo_url', 'BRAVOCARD_LOGO_URL');
+  // A defaut d'un logo specifique a la carte Apple, on reprend le logo
+  // general du restaurant (Reglages).
+  const logoBravocard = valeurDesign('apple_logo_url', 'BRAVOCARD_LOGO_URL') ||
+    String(restaurant?.logo_url || '').trim();
   const banniereBravocard = valeurDesign('apple_strip_url', 'BRAVOCARD_STRIP_URL');
   const iconeBravocard = valeurDesign('apple_icon_url', 'BRAVOCARD_ICON_URL');
 
@@ -206,10 +211,11 @@ function construireChampsCarte(client, restaurant = null) {
   const logoText = valeurConfiguree('apple_logo_text') || nomRestaurant;
   const pointsLabel = valeurConfiguree('apple_points_label', 'POINTS SUR 100');
   const carteLabel = valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
-  // Champ facultatif : si le restaurateur ne saisit rien, la carte ne doit
-  // rien afficher du tout a cet endroit (comme dans l'apercu du tableau de
-  // bord), plutot que de retomber sur une valeur par defaut.
-  const texteRecompense = valeurConfiguree('apple_reward_text');
+  // Sans texte specifique a la carte Apple, on reprend la recompense
+  // generale du programme de fidelite (Reglages). Si rien n'est configure
+  // nulle part, la carte n'affiche rien a cet endroit plutot qu'un texte
+  // generique fige.
+  const texteRecompense = valeurConfiguree('apple_reward_text') || String(restaurant?.description_recompense || '').trim();
   const conditions = valeurConfiguree(
     'apple_terms',
     'Conditions du programme disponibles auprès du restaurant.'

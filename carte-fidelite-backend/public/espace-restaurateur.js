@@ -136,7 +136,7 @@ function ouvrirVue(nom) {
   cible.classList.add('active');
   navigation?.classList.add('active');
   $('#titreVue').textContent = {
-    accueil: 'Vue d’ensemble', statistiques: 'Statistiques détaillées',
+    accueil: 'Vue d’ensemble', reglages: 'Réglages', statistiques: 'Statistiques détaillées',
     scanner: 'Scanner une carte', clients: 'Mes clients',
     parrainage: 'Parrainage', 'anti-fraude': 'Anti-fraude',
     notifications: 'Notifications', roue: 'Roue cadeaux', design: 'Design Wallet',
@@ -493,6 +493,7 @@ function afficherTableau() {
   afficherDerniereCampagne();
   remplirClientsTest();
   remplirListeClientsNotification();
+  remplirReglages();
   afficherParrainage();
   afficherAntiFraude();
   afficherStatistiques();
@@ -1209,6 +1210,118 @@ function remplirListeClientsNotification() {
   actualiserResumeSelectionClients();
 }
 
+let reglageLogoActuel = '';
+const CIRCONFERENCE_ANNEAU_REGLAGES = 226;
+
+function actualiserApercuLogoReglage() {
+  const cadre = $('#reglageLogoApercu');
+  cadre.innerHTML = reglageLogoActuel
+    ? `<img src="${echapper(reglageLogoActuel)}" alt="">`
+    : '<span>Aucun logo</span>';
+  $('#reglageLogoSupprimer').hidden = !reglageLogoActuel;
+}
+
+function appliquerCompletionReglages(completion) {
+  if (!completion) return;
+  ['identite', 'contact', 'programme', 'avis'].forEach(cle => {
+    const badge = document.querySelector(`[data-statut-reglage="${cle}"]`);
+    if (!badge) return;
+    const complet = Boolean(completion.sections[cle]);
+    badge.textContent = complet ? 'Complété' : 'À compléter';
+    badge.classList.toggle('complet', complet);
+  });
+
+  ['designApple', 'roue', 'marketing'].forEach(cle => {
+    const span = document.querySelector(`[data-statut-raccourci="${cle}"]`);
+    if (!span) return;
+    const complet = Boolean(completion.sections[cle]);
+    span.textContent = complet ? 'Configuré' : 'À compléter';
+    span.classList.toggle('complet', complet);
+  });
+
+  const pourcentage = Number(completion.pourcentage || 0);
+  $('#reglagesAnneauProgression').style.strokeDashoffset =
+    String(CIRCONFERENCE_ANNEAU_REGLAGES * (1 - pourcentage / 100));
+  $('#reglagesPourcentage').textContent = `${pourcentage}%`;
+
+  const pastilles = {
+    reglages: !completion.complet,
+    design: !(completion.sections.designApple && completion.sections.designGoogle),
+    roue: !completion.sections.roue,
+    marketing: !completion.sections.marketing
+  };
+  Object.entries(pastilles).forEach(([cle, visible]) => {
+    const pastille = document.querySelector(`[data-pastille="${cle}"]`);
+    if (pastille) pastille.hidden = !visible;
+  });
+}
+
+function remplirReglages() {
+  const r = donneesTableau.reglages;
+  if (!r) return;
+  $('#reglageNom').value = r.nom || '';
+  $('#reglageCouleurPrincipale').value = r.couleur_principale || '#1B1030';
+  $('#reglageCouleurSecondaire').value = r.couleur_secondaire || '#7148E8';
+  reglageLogoActuel = r.logo_url || '';
+  actualiserApercuLogoReglage();
+  $('#reglageTelephone').value = r.telephone || '';
+  $('#reglageAdresse').value = r.adresse || '';
+  $('#reglageEmailPublic').value = r.email_public || '';
+  $('#reglageSiteWeb').value = r.site_web || '';
+  $('#reglagePointsParScan').value = r.points_per_scan || 10;
+  $('#reglageSeuilRecompense').value = r.seuil_recompense || 100;
+  $('#reglageDescriptionRecompense').value = r.description_recompense || '';
+  $('#reglageLienAvis').value = r.lien_avis_google || '';
+  appliquerCompletionReglages(r.completion);
+}
+
+const CHAMPS_SECTION_REGLAGES = {
+  identite: () => ({
+    nom: $('#reglageNom').value.trim(),
+    logo_url: reglageLogoActuel,
+    couleur_principale: $('#reglageCouleurPrincipale').value,
+    couleur_secondaire: $('#reglageCouleurSecondaire').value
+  }),
+  contact: () => ({
+    telephone: $('#reglageTelephone').value.trim(),
+    adresse: $('#reglageAdresse').value.trim(),
+    email_public: $('#reglageEmailPublic').value.trim(),
+    site_web: $('#reglageSiteWeb').value.trim()
+  }),
+  programme: () => ({
+    points_per_scan: $('#reglagePointsParScan').value,
+    seuil_recompense: $('#reglageSeuilRecompense').value,
+    description_recompense: $('#reglageDescriptionRecompense').value.trim()
+  }),
+  avis: () => ({
+    lien_avis_google: $('#reglageLienAvis').value.trim()
+  })
+};
+
+async function enregistrerSectionReglages(section) {
+  const bouton = document.querySelector(`[data-enregistrer-reglage="${section}"]`);
+  const messageEl = document.querySelector(`[data-message-reglage="${section}"]`);
+  bouton.disabled = true;
+  messageEl.textContent = '';
+  messageEl.className = 'message';
+  try {
+    const corps = { section, ...CHAMPS_SECTION_REGLAGES[section]() };
+    const donnees = await api(`/api/reglages/${encodeURIComponent(slug)}`, {
+      method: 'PUT',
+      body: JSON.stringify(corps)
+    });
+    donneesTableau.reglages = donnees.reglages;
+    remplirReglages();
+    messageEl.textContent = 'Enregistré.';
+    messageEl.classList.add('succes');
+  } catch (erreur) {
+    messageEl.textContent = erreur.message;
+    messageEl.classList.add('erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
 function attendre(duree) {
   return new Promise(resolve => setTimeout(resolve, duree));
 }
@@ -1633,7 +1746,63 @@ function fermerRecadrage() {
     walletRecadrage.cropper = null;
   }
   walletRecadrage.assetElement = null;
+  walletRecadrage.pourReglages = false;
   $('#recadrageFond').classList.remove('visible');
+}
+
+function ouvrirRecadrageGeneral(dataUrl) {
+  walletRecadrage.assetElement = null;
+  walletRecadrage.plateforme = 'general';
+  walletRecadrage.id = 'logo';
+  walletRecadrage.source = dataUrl;
+  walletRecadrage.pourReglages = true;
+  $('#recadrageTitre').textContent = 'Ajuster : Logo du restaurant';
+  $('#recadrageAide').textContent = 'Utilisé par défaut partout où aucune image spécifique n’est définie.';
+  $('#recadrageFond').classList.add('visible');
+  const image = $('#recadrageImage');
+  if (walletRecadrage.cropper) {
+    walletRecadrage.cropper.destroy();
+    walletRecadrage.cropper = null;
+  }
+  image.onload = () => {
+    walletRecadrage.cropper = new Cropper(image, {
+      aspectRatio: 1,
+      viewMode: 1,
+      autoCropArea: 1,
+      background: true,
+      responsive: true
+    });
+  };
+  image.crossOrigin = 'anonymous';
+  image.src = dataUrl;
+}
+
+async function validerRecadrageGeneral() {
+  const bouton = $('#validerRecadrage');
+  bouton.disabled = true;
+  const messageEl = document.querySelector('[data-message-reglage="identite"]');
+  try {
+    const canvas = walletRecadrage.cropper.getCroppedCanvas({ width: 512, height: 512 });
+    const dataUrl = canvas.toDataURL('image/png');
+    const donnees = await api(`/api/design/${encodeURIComponent(slug)}/image`, {
+      method: 'POST',
+      body: JSON.stringify({ plateforme: 'general', type: 'logo', image_data: dataUrl })
+    });
+    reglageLogoActuel = donnees.url;
+    actualiserApercuLogoReglage();
+    fermerRecadrage();
+    if (messageEl) {
+      messageEl.textContent = 'Logo importé. Cliquez sur Enregistrer pour le publier.';
+      messageEl.className = 'message succes';
+    }
+  } catch (erreur) {
+    if (messageEl) {
+      messageEl.textContent = erreur.message;
+      messageEl.className = 'message erreur';
+    }
+  } finally {
+    bouton.disabled = false;
+  }
 }
 
 function appliquerModeAjustement(mode) {
@@ -1650,6 +1819,7 @@ function appliquerModeAjustement(mode) {
 }
 
 async function validerRecadrage() {
+  if (walletRecadrage.pourReglages) return validerRecadrageGeneral();
   const assetElement = walletRecadrage.assetElement;
   const plateforme = walletRecadrage.plateforme;
   const id = walletRecadrage.id;
@@ -2232,6 +2402,29 @@ $('#clientsToutSelectionner').addEventListener('change', evenement => {
   actualiserResumeSelectionClients();
 });
 $('#actualiserCampagnes').addEventListener('click', () => actualiserTableau());
+document.querySelectorAll('[data-enregistrer-reglage]').forEach(bouton =>
+  bouton.addEventListener('click', () => enregistrerSectionReglages(bouton.dataset.enregistrerReglage))
+);
+$('#reglageLogoImporter').addEventListener('click', () => $('#reglageLogoFichier').click());
+$('#reglageLogoFichier').addEventListener('change', evenement => {
+  const fichier = evenement.target.files[0];
+  if (!fichier) return;
+  const messageEl = document.querySelector('[data-message-reglage="identite"]');
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(fichier.type)) {
+    messageEl.textContent = 'Choisissez une image PNG, JPEG ou WebP.';
+    messageEl.className = 'message erreur';
+    evenement.target.value = '';
+    return;
+  }
+  const lecteur = new FileReader();
+  lecteur.onload = () => ouvrirRecadrageGeneral(lecteur.result);
+  lecteur.readAsDataURL(fichier);
+  evenement.target.value = '';
+});
+$('#reglageLogoSupprimer').addEventListener('click', () => {
+  reglageLogoActuel = '';
+  actualiserApercuLogoReglage();
+});
 $('#copierLienCarte').addEventListener('click', copierLienCreationCarte);
 $('#lancerApercuRoue').addEventListener('click', lancerApercuRoue);
 $('#ajouterLot').addEventListener('click', ajouterLigneLot);

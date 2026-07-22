@@ -288,8 +288,8 @@ function resoudreTheme(restaurant, support, parametres) {
   const base = THEMES[themeId];
   return {
     ...base,
-    primaire: nettoyerCouleur(parametres.primary_color, nettoyerCouleur(restaurant.communication_primary_color, base.primaire)),
-    secondaire: nettoyerCouleur(parametres.secondary_color, nettoyerCouleur(restaurant.communication_secondary_color, base.secondaire))
+    primaire: nettoyerCouleur(parametres.primary_color, nettoyerCouleur(restaurant.communication_primary_color, nettoyerCouleur(restaurant.couleur_principale, base.primaire))),
+    secondaire: nettoyerCouleur(parametres.secondary_color, nettoyerCouleur(restaurant.communication_secondary_color, nettoyerCouleur(restaurant.couleur_secondaire, base.secondaire)))
   };
 }
 
@@ -310,7 +310,9 @@ async function construireSupport(restaurant, parametresRecus, marketing) {
   const theme = resoudreTheme(restaurant, support, parametresRecus);
   const lien = lienPourSupport(support, restaurant, marketing);
   const qrGenere = await qr.genererQr(lien);
-  const logoUrl = String(parametresRecus.logo_url || restaurant.communication_logo_url || restaurant.apple_logo_url || '').trim();
+  const logoUrl = String(
+    parametresRecus.logo_url || restaurant.communication_logo_url || restaurant.logo_url || restaurant.apple_logo_url || ''
+  ).trim();
   const logoDataUri = await logoEnDataUri(logoUrl);
 
   const tamponsParDefaut = Math.min(10, Math.max(2, Math.round(

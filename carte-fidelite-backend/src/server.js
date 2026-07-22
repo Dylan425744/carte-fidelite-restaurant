@@ -21,6 +21,7 @@ const communicationKit = require('./communicationKitService');
 const svgExport = require('./svgExportService');
 const roueService = require('./roueService');
 const walletAssetSpecifications = require('./walletAssetSpecifications');
+const reglagesService = require('./reglagesService');
 
 const app = express();
 app.use(cors());
@@ -107,7 +108,18 @@ const CHAMPS_RESTAURANT = [
   'always_winner',
   'roue_lots',
   'roue_couleur_principale',
-  'roue_couleur_secondaire'
+  'roue_couleur_secondaire',
+  'telephone',
+  'adresse',
+  'email_public',
+  'site_web',
+  'logo_url',
+  'couleur_principale',
+  'couleur_secondaire',
+  'reglages_identite_confirme',
+  'reglages_contact_confirme',
+  'reglages_programme_confirme',
+  'reglages_avis_confirme'
 ].join(', ');
 
 function pageProgrammeIndisponible(titre, texte) {
@@ -1102,6 +1114,70 @@ app.put('/api/design/:slug', async (req, res) => {
   }
 });
 
+app.get('/api/reglages/:slug', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'design_manage');
+    if (!acces) return;
+    res.json({ succes: true, reglages: reglagesService.serialiserReglages(acces.restaurant) });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+const CONSTRUCTEURS_SECTION_REGLAGES = {
+  identite: reglagesService.construireMiseAJourIdentite,
+  contact: reglagesService.construireMiseAJourContact,
+  programme: reglagesService.construireMiseAJourProgramme,
+  avis: reglagesService.construireMiseAJourAvis
+};
+
+app.put('/api/reglages/:slug', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'design_manage');
+    if (!acces) return;
+
+    const section = String(req.body.section || '');
+    const constructeur = CONSTRUCTEURS_SECTION_REGLAGES[section];
+    if (!constructeur) {
+      return res.status(400).json({ erreur: 'Section de réglages inconnue.' });
+    }
+
+    const miseAJour = constructeur(req.body);
+
+    const { data, error } = await supabase
+      .from('restaurants')
+      .update(miseAJour)
+      .eq('id', acces.restaurant.id)
+      .select(CHAMPS_RESTAURANT)
+      .single();
+
+    if (error) throw error;
+
+    // L'identite (logo, couleurs) et le programme (texte de recompense) sont
+    // utilises comme valeurs par defaut sur les cartes Wallet existantes.
+    if (section === 'identite' || section === 'programme') {
+      setImmediate(() => {
+        actualiserCartesAppleEnArrierePlan(data);
+        actualiserClasseGoogleEnArrierePlan(data);
+        actualiserCartesGoogleEnArrierePlan(data);
+        marketing.assurerSupportsMarketing(data, { force: true }).catch(erreur =>
+          console.error(`Supports marketing (${data.slug}):`, erreur.message)
+        );
+      });
+    }
+
+    res.json({
+      succes: true,
+      message: 'Enregistré.',
+      reglages: reglagesService.serialiserReglages(data)
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
 app.get('/api/restaurateur/:slug/marketing', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res, 'marketing_view');
@@ -1335,10 +1411,11 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
       statistiques_detaillees: statistiquesDetaillees,
       roue: {
         lots: roueService.lotsRestaurant(acces.restaurant),
-        couleur_principale: acces.restaurant.roue_couleur_principale || '',
-        couleur_secondaire: acces.restaurant.roue_couleur_secondaire || '',
+        couleur_principale: acces.restaurant.roue_couleur_principale || acces.restaurant.couleur_principale || '',
+        couleur_secondaire: acces.restaurant.roue_couleur_secondaire || acces.restaurant.couleur_secondaire || '',
         historique: historiqueRoue
       },
+      reglages: reglagesService.serialiserReglages(acces.restaurant),
       notification_en_cours: Boolean(acces.restaurant.notification_sending)
     });
   } catch (erreur) {
@@ -2611,8 +2688,8 @@ app.get('/api/roue/:scanId', async (req, res) => {
       valideDu: scan.cadeau_valide_du || null,
       valideAu: scan.cadeau_valide_au || null,
       lots: lots.map(l => ({ label: l.label, icone: l.icone, probabilite: Number(l.probabilite || 0) })),
-      couleurPrincipale: scan.clients?.restaurants?.roue_couleur_principale || null,
-      couleurSecondaire: scan.clients?.restaurants?.roue_couleur_secondaire || null
+      couleurPrincipale: scan.clients?.restaurants?.roue_couleur_principale || scan.clients?.restaurants?.couleur_principale || null,
+      couleurSecondaire: scan.clients?.restaurants?.roue_couleur_secondaire || scan.clients?.restaurants?.couleur_secondaire || null
     });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
@@ -2825,8 +2902,8 @@ app.get('/api/roue-avis/:token', async (req, res) => {
         icone: l.icone,
         probabilite: Number(l.probabilite || 0)
       })),
-      couleurPrincipale: restaurant.roue_couleur_principale || null,
-      couleurSecondaire: restaurant.roue_couleur_secondaire || null,
+      couleurPrincipale: restaurant.roue_couleur_principale || restaurant.couleur_principale || null,
+      couleurSecondaire: restaurant.roue_couleur_secondaire || restaurant.couleur_secondaire || null,
       peutJouer: !entreeRecente,
       cadeauDejaGagne: entreeRecente?.cadeau_gagne || null,
       valideDu: entreeRecente?.cadeau_valide_du || null,

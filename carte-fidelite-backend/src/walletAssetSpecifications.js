@@ -115,6 +115,24 @@ const SPECIFICATIONS = {
       zoneSecurite: null,
       description: 'Bannière principale affichée en pleine largeur de la carte.'
     }
+  },
+  general: {
+    logo: {
+      id: 'general_logo',
+      champDb: 'logo_url',
+      plateforme: 'general',
+      nom: 'Logo du restaurant',
+      requis: false,
+      largeurRecommandee: 512,
+      hauteurRecommandee: 512,
+      ratio: 1,
+      largeurMin: 256,
+      hauteurMin: 256,
+      formats: ['png'],
+      poidsMaxOctets: POIDS_MAX_OCTETS_GOOGLE,
+      zoneSecurite: null,
+      description: 'Utilisé par défaut partout où aucune image spécifique n’est définie (Wallet, emails, flyers).'
+    }
   }
 };
 

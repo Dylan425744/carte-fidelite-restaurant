@@ -185,5 +185,6 @@ module.exports = {
   nettoyerTexte,
   normaliserSlug,
   serialiserRestaurant,
+  validerImage,
   verifierCodeAcces
 };

@@ -67,15 +67,16 @@
       <label class="select-etablissement" id="zoneEtablissement"><span>Établissement</span><select id="selectEtablissement"></select></label>
       <nav>
         <button class="navigation active" data-vue="accueil">Vue d’ensemble</button>
+        <button class="navigation" data-vue="reglages">Réglages<span class="pastille-brillante" data-pastille="reglages" hidden></span></button>
         <button class="navigation" data-vue="statistiques">Statistiques</button>
         <button class="navigation" data-vue="scanner">Scanner</button>
         <button class="navigation" data-vue="clients">Mes clients</button>
         <button class="navigation" data-vue="parrainage">Parrainage</button>
         <button class="navigation" data-vue="anti-fraude">Anti-fraude</button>
         <button class="navigation" data-vue="notifications">Notifications</button>
-        <button class="navigation" data-vue="roue">Roue cadeaux</button>
-        <button class="navigation" data-vue="design">Design Wallet</button>
-        <button class="navigation" data-vue="marketing">QR &amp; flyer</button>
+        <button class="navigation" data-vue="roue">Roue cadeaux<span class="pastille-brillante" data-pastille="roue" hidden></span></button>
+        <button class="navigation" data-vue="design">Design Wallet<span class="pastille-brillante" data-pastille="design" hidden></span></button>
+        <button class="navigation" data-vue="marketing">QR &amp; flyer<span class="pastille-brillante" data-pastille="marketing" hidden></span></button>
         <button class="navigation" data-vue="equipe">Mon équipe</button>
         <button class="navigation" data-vue="compte">Mon compte</button>
       </nav>
@@ -97,6 +98,104 @@
           <article class="panneau"><div class="panneau-titre"><div><span class="eyebrow">Activité récente</span><h3>Derniers clients</h3></div><button class="lien-bouton" data-ouvrir-vue="clients">Voir tout</button></div><div id="derniersClients" class="liste-simple"></div></article>
           <article class="panneau campagne-apercu"><div class="panneau-titre"><div><span class="eyebrow">Communication</span><h3>Dernière campagne</h3></div><button class="lien-bouton" data-ouvrir-vue="notifications">Historique</button></div><div id="derniereCampagne"></div></article>
         </div>
+      </section>
+
+      <section class="vue" id="vue-reglages">
+        <div class="reglages-hero">
+          <div>
+            <span class="eyebrow">Configuration générale</span>
+            <h2>Toutes les informations de votre restaurant, au même endroit.</h2>
+            <p>Complétez chaque section une seule fois. Ces informations sont ensuite reprises automatiquement sur vos cartes Wallet, vos emails et vos supports imprimés, sans jamais avoir à les ressaisir.</p>
+          </div>
+          <div class="reglages-anneau">
+            <svg viewBox="0 0 84 84"><circle class="anneau-fond" cx="42" cy="42" r="36"></circle><circle class="anneau-progression" id="reglagesAnneauProgression" cx="42" cy="42" r="36"></circle></svg>
+            <div class="reglages-anneau-texte"><strong id="reglagesPourcentage">0%</strong><span>complété</span></div>
+          </div>
+        </div>
+
+        <div class="grille-reglages">
+          <article class="panneau carte-reglage" data-carte-reglage="identite">
+            <div class="carte-reglage-entete">
+              <div><span class="eyebrow">Identité</span><h3>Nom, logo et couleurs</h3></div>
+              <span class="statut-reglage" data-statut-reglage="identite">À compléter</span>
+            </div>
+            <p class="texte-secondaire">Utilisés sur vos cartes Wallet, vos emails et vos supports imprimés.</p>
+            <label for="reglageNom">Nom du restaurant</label>
+            <input id="reglageNom" type="text" maxlength="80" placeholder="Le nom de votre établissement">
+            <label>Logo</label>
+            <div class="reglage-logo">
+              <div class="reglage-logo-apercu" id="reglageLogoApercu"><span>Aucun logo</span></div>
+              <div class="reglage-logo-actions">
+                <input type="file" id="reglageLogoFichier" accept="image/png,image/jpeg,image/webp" hidden>
+                <button type="button" class="bouton secondaire" id="reglageLogoImporter">Importer un logo</button>
+                <button type="button" class="bouton discret-clair" id="reglageLogoSupprimer" hidden>Supprimer</button>
+                <small class="texte-secondaire">PNG, JPEG ou WebP. Recadrage carré automatique.</small>
+              </div>
+            </div>
+            <div class="deux-colonnes">
+              <label class="champ-couleur"><span>Couleur principale</span><input type="color" id="reglageCouleurPrincipale" value="#1B1030"></label>
+              <label class="champ-couleur"><span>Couleur secondaire</span><input type="color" id="reglageCouleurSecondaire" value="#7148E8"></label>
+            </div>
+            <button class="bouton principal" data-enregistrer-reglage="identite">Enregistrer</button>
+            <p class="message" data-message-reglage="identite"></p>
+          </article>
+
+          <article class="panneau carte-reglage" data-carte-reglage="contact">
+            <div class="carte-reglage-entete">
+              <div><span class="eyebrow">Contact</span><h3>Coordonnées du restaurant</h3></div>
+              <span class="statut-reglage" data-statut-reglage="contact">À compléter</span>
+            </div>
+            <p class="texte-secondaire">Affichées sur vos supports et disponibles pour vos communications.</p>
+            <div class="deux-colonnes">
+              <div><label for="reglageTelephone">Téléphone</label><input id="reglageTelephone" type="tel" maxlength="30" placeholder="01 23 45 67 89"></div>
+              <div><label for="reglageEmailPublic">Email public</label><input id="reglageEmailPublic" type="email" maxlength="120" placeholder="contact@monrestaurant.fr"></div>
+            </div>
+            <label for="reglageAdresse">Adresse</label>
+            <input id="reglageAdresse" type="text" maxlength="200" placeholder="12 rue de la Paix, 75002 Paris">
+            <label for="reglageSiteWeb">Site internet</label>
+            <input id="reglageSiteWeb" type="url" maxlength="200" placeholder="https://monrestaurant.fr">
+            <button class="bouton principal" data-enregistrer-reglage="contact">Enregistrer</button>
+            <p class="message" data-message-reglage="contact"></p>
+          </article>
+
+          <article class="panneau carte-reglage" data-carte-reglage="programme">
+            <div class="carte-reglage-entete">
+              <div><span class="eyebrow">Programme</span><h3>Fonctionnement de la fidélité</h3></div>
+              <span class="statut-reglage" data-statut-reglage="programme">À compléter</span>
+            </div>
+            <p class="texte-secondaire">Détermine combien de points sont gagnés, et à partir de quand la récompense est débloquée.</p>
+            <div class="deux-colonnes">
+              <div><label for="reglagePointsParScan">Points par passage</label><input id="reglagePointsParScan" type="number" min="1" max="100" value="10"></div>
+              <div><label for="reglageSeuilRecompense">Points pour la récompense</label><input id="reglageSeuilRecompense" type="number" min="1" max="100000" value="100"></div>
+            </div>
+            <label for="reglageDescriptionRecompense">Récompense offerte</label>
+            <input id="reglageDescriptionRecompense" type="text" maxlength="90" placeholder="Un menu offert">
+            <button class="bouton principal" data-enregistrer-reglage="programme">Enregistrer</button>
+            <p class="message" data-message-reglage="programme"></p>
+          </article>
+
+          <article class="panneau carte-reglage" data-carte-reglage="avis">
+            <div class="carte-reglage-entete">
+              <div><span class="eyebrow">Avis clients</span><h3>Votre fiche Google</h3></div>
+              <span class="statut-reglage" data-statut-reglage="avis">À compléter</span>
+            </div>
+            <p class="texte-secondaire">Utilisé pour inviter vos clients à laisser un avis après leur passage.</p>
+            <label for="reglageLienAvis">Lien public de votre fiche Google</label>
+            <input id="reglageLienAvis" type="url" maxlength="300" placeholder="https://g.page/r/…/review">
+            <button class="bouton principal" data-enregistrer-reglage="avis">Enregistrer</button>
+            <p class="message" data-message-reglage="avis"></p>
+          </article>
+        </div>
+
+        <article class="panneau">
+          <div class="panneau-titre"><div><span class="eyebrow">Pour aller plus loin</span><h3>Réglages avancés par fonctionnalité</h3></div></div>
+          <p class="texte-secondaire">Ces pages restent le bon endroit pour affiner chaque fonctionnalité en détail.</p>
+          <div class="grille-raccourcis-reglages">
+            <button type="button" class="raccourci-reglage" data-ouvrir-vue="design"><span class="raccourci-reglage-icone">◆</span><div><strong>Design Wallet</strong><span data-statut-raccourci="designApple">À compléter</span></div></button>
+            <button type="button" class="raccourci-reglage" data-ouvrir-vue="roue"><span class="raccourci-reglage-icone">✦</span><div><strong>Roue cadeaux</strong><span data-statut-raccourci="roue">À compléter</span></div></button>
+            <button type="button" class="raccourci-reglage" data-ouvrir-vue="marketing"><span class="raccourci-reglage-icone">▥</span><div><strong>QR &amp; flyer</strong><span data-statut-raccourci="marketing">À compléter</span></div></button>
+          </div>
+        </article>
       </section>
 
       <section class="vue" id="vue-statistiques">

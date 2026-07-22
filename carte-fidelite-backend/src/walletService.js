@@ -58,6 +58,10 @@ function imageGoogle(url, description) {
 function couleurRestaurant(restaurant) {
   const personnalisee = String(restaurant.google_custom_color || '').toUpperCase();
   if (/^#[0-9A-F]{6}$/.test(personnalisee)) return personnalisee;
+  // A defaut d'une couleur propre a Google Wallet, on reprend la couleur
+  // generale du restaurant (Reglages).
+  const generale = String(restaurant.couleur_principale || '').toUpperCase();
+  if (/^#[0-9A-F]{6}$/.test(generale)) return generale;
   return COULEURS_PRESET.dark;
 }
 
@@ -74,10 +78,12 @@ function construireClasseFidelite(restaurant) {
       : String(restaurant[champ]).trim();
   const carteLabel = valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
 
-  // Images propres a Google Wallet : jamais celles d'Apple. Seul le logo rond
-  // retombe sur le logo Bravocard par defaut (Google l'exige), la banniere et
-  // le logo large restent facultatifs et vides si non configures.
+  // Images propres a Google Wallet : jamais celles d'Apple. Le logo rond
+  // retombe sur le logo general du restaurant (Reglages) puis, en dernier
+  // recours, sur le logo Bravocard par defaut (Google l'exige). La banniere
+  // et le logo large restent facultatifs et vides si non configures.
   const logo = imageGoogle(restaurant.google_program_logo_url, `Logo ${nom}`) ||
+    imageGoogle(restaurant.logo_url, `Logo ${nom}`) ||
     imageGoogle(logoParDefaut(), 'Logo Bravocard');
   const logoLarge = imageGoogle(restaurant.google_wide_logo_url, `Logo large ${nom}`);
   const banniere = imageGoogle(restaurant.google_hero_image_url, `Bannière ${nom}`);
