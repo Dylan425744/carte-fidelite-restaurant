@@ -543,6 +543,7 @@ function rendreIconeLot(emoji) {
 }
 
 function lotsRoue() {
+  if (roueLotsEdition.length) return roueLotsEdition;
   return donneesTableau?.roue?.lots?.length
     ? donneesTableau.roue.lots
     : lotsRoueParDefaut;
@@ -553,23 +554,51 @@ function lotsRoue() {
 const COULEURS_ROUE_REELLE = ['#6C3CE9', '#12B886', '#5A2FD0', '#0E9469', '#7C4FF0', '#0A7A56'];
 const RAYON_TEXTE_ROUE = 112;
 
-function dessinerRoueReelle(conteneur, lots, couleurPrincipale, couleurSecondaire) {
-  const nb = lots.length;
-  const angle = 360 / nb;
-  const palette = (couleurPrincipale && couleurSecondaire) ? [couleurPrincipale, couleurSecondaire] : COULEURS_ROUE_REELLE;
-  const degrades = lots.map((lot, i) => {
-    const debut = i * angle;
-    return `${palette[i % palette.length]} ${debut}deg ${debut + angle}deg`;
+function geometrieLotsRoue(lots) {
+  const poids = lots.map(lot => Math.max(0, Number(lot.probabilite) || 0));
+  const total = poids.reduce((somme, valeur) => somme + valeur, 0);
+  const diviseur = total > 0 ? total : lots.length || 1;
+  let cumul = 0;
+  return lots.map((lot, index) => {
+    const probabilite = total > 0 ? poids[index] : 1;
+    const debut = cumul / diviseur * 360;
+    cumul += probabilite;
+    const fin = cumul / diviseur * 360;
+    return { index, probabilite, debut, fin, centre: debut + (fin - debut) / 2, amplitude: fin - debut };
   });
+}
+
+function tirerIndexLotPondere(lots) {
+  const eligibles = lots
+    .map((lot, index) => ({ index, probabilite: Math.max(0, Number(lot.probabilite) || 0) }))
+    .filter(entree => entree.probabilite > 0);
+  const total = eligibles.reduce((somme, entree) => somme + entree.probabilite, 0);
+  let tirage = Math.random() * total;
+  for (const entree of eligibles) {
+    tirage -= entree.probabilite;
+    if (tirage < 0) return entree.index;
+  }
+  return eligibles[eligibles.length - 1]?.index || 0;
+}
+
+function dessinerRoueReelle(conteneur, lots, couleurPrincipale, couleurSecondaire) {
+  const palette = (couleurPrincipale && couleurSecondaire) ? [couleurPrincipale, couleurSecondaire] : COULEURS_ROUE_REELLE;
+  const geometrie = geometrieLotsRoue(lots);
+  const degrades = geometrie
+    .filter(segment => segment.probabilite > 0)
+    .map(segment => `${palette[segment.index % palette.length]} ${segment.debut}deg ${segment.fin}deg`);
   conteneur.style.background = `conic-gradient(${degrades.join(',')})`;
   conteneur.querySelectorAll('.segment-pivot').forEach(noeud => noeud.remove());
-  lots.forEach((lot, i) => {
-    const centreAngle = i * angle + angle / 2;
+  geometrie.filter(segment => segment.probabilite > 0).forEach(segment => {
+    const lot = lots[segment.index];
+    const centreAngle = segment.centre;
     const pivot = document.createElement('div');
     pivot.className = 'segment-pivot';
     pivot.style.transform = `rotate(${centreAngle}deg)`;
     const contenu = document.createElement('div');
     contenu.className = 'segment-contenu';
+    if (segment.amplitude < 14) contenu.classList.add('segment-contenu-compact');
+    if (segment.amplitude < 7) contenu.classList.add('segment-contenu-minuscule');
     contenu.style.transform = `translateY(-${RAYON_TEXTE_ROUE}px) rotate(${-centreAngle}deg)`;
     contenu.innerHTML = `<div class="icone-lot">${rendreIconeLot(lot.icone)}</div><div class="texte-lot">${echapper(lot.label)}</div>`;
     pivot.appendChild(contenu);
@@ -586,11 +615,13 @@ function actualiserCouleursApercuRoue() {
 function remplirApercuRoue() {
   const roue = $('#roueApercu');
   if (!roue) return;
-  const lots = lotsRoue();
+  const lots = donneesTableau?.roue?.lots?.length
+    ? donneesTableau.roue.lots
+    : lotsRoueParDefaut;
   roueLotsEdition = lots.map(lot => ({
     icone: lot.icone,
     label: lot.label,
-    probabilite: Number(lot.probabilite) || 10,
+    probabilite: Number.isFinite(Number(lot.probabilite)) ? Number(lot.probabilite) : 10,
     type: ['gain', 'perdu', 'rejouer'].includes(lot.type) ? lot.type : 'gain'
   }));
   afficherLotsEdition();
@@ -624,7 +655,7 @@ function afficherLotsEdition() {
     <div class="ligne-lot-edition" data-index="${index}">
       <button type="button" class="lot-icone-bouton" data-choisir-icone="${index}" aria-label="Choisir un pictogramme" ${peutModifier ? '' : 'disabled'}>${apercuIconeLot(lot.icone)}</button>
       <input type="text" class="lot-label" maxlength="40" value="${echapper(lot.label)}" aria-label="Nom du lot" ${peutModifier ? '' : 'disabled'}>
-      <div class="lot-probabilite-zone"><input type="number" class="lot-probabilite" min="1" max="100" value="${Number(lot.probabilite) || 10}" aria-label="Probabilité" ${peutModifier ? '' : 'disabled'}><span>%</span></div>
+      <div class="lot-probabilite-zone"><input type="number" class="lot-probabilite" min="0" max="100" value="${Number.isFinite(Number(lot.probabilite)) ? Number(lot.probabilite) : 10}" aria-label="Probabilité" ${peutModifier ? '' : 'disabled'}><span>%</span></div>
       <select class="lot-type" aria-label="Type de lot" ${peutModifier ? '' : 'disabled'}>
         <option value="gain"${lot.type === 'perdu' || lot.type === 'rejouer' ? '' : ' selected'}>Gain</option>
         <option value="perdu"${lot.type === 'perdu' ? ' selected' : ''}>Perdu</option>
@@ -633,6 +664,7 @@ function afficherLotsEdition() {
       ${peutModifier ? `<button type="button" class="lot-supprimer" data-supprimer-lot="${index}" title="Supprimer ce lot">✕</button>` : ''}
     </div>`).join('');
   actualiserTotalProbabilites();
+  actualiserCouleursApercuRoue();
 }
 
 function apercuIconeLot(emoji) {
@@ -662,14 +694,14 @@ function actualiserTotalProbabilites(champModifie) {
     const autres = champs
       .filter(champ => champ !== champModifie)
       .reduce((somme, champ) => somme + (Number(champ.value) || 0), 0);
-    const maxAutorise = Math.max(1, 100 - autres);
+    const maxAutorise = Math.max(0, 100 - autres);
     if (Number(champModifie.value) > maxAutorise) champModifie.value = maxAutorise;
   }
   const valeurs = champs.map(champ => Number(champ.value) || 0);
   const total = valeurs.reduce((somme, valeur) => somme + valeur, 0);
   champs.forEach((champ, index) => {
     const autres = total - valeurs[index];
-    champ.max = String(Math.max(1, 100 - autres));
+    champ.max = String(Math.max(0, 100 - autres));
   });
   const zone = $('#totalProbabilites');
   $('#totalProbabilitesValeur').textContent = `${total} %`;
@@ -703,7 +735,7 @@ function choisirIconeLot(emoji) {
 
 function ajouterLigneLot() {
   roueLotsEdition = lireLotsDepuisFormulaire();
-  roueLotsEdition.push({ icone: '🎁', label: 'Nouveau lot', probabilite: 1, type: 'gain' });
+  roueLotsEdition.push({ icone: '🎁', label: 'Nouveau lot', probabilite: 0, type: 'gain' });
   afficherLotsEdition();
 }
 
@@ -766,11 +798,12 @@ function lancerApercuRoue() {
   const bouton = $('#lancerApercuRoue');
   const resultat = $('#resultatApercuRoue');
   const roue = $('#roueApercu');
+  roueLotsEdition = lireLotsDepuisFormulaire();
   const lots = lotsRoue();
   if (!roue || !lots.length || bouton.disabled) return;
-  const index = Math.floor(Math.random() * lots.length);
-  const angle = 360 / lots.length;
-  const cible = (360 - (index * angle + angle / 2) + 360) % 360;
+  const index = tirerIndexLotPondere(lots);
+  const centreSegment = geometrieLotsRoue(lots)[index].centre;
+  const cible = (360 - centreSegment + 360) % 360;
   const positionActuelle = ((rotationApercuRoue % 360) + 360) % 360;
   const mouvementVersCible = (cible - positionActuelle + 360) % 360;
   rotationApercuRoue += 360 * 5 + mouvementVersCible;
@@ -2217,6 +2250,10 @@ $('#listeLotsEdition').addEventListener('click', evenement => {
 });
 $('#listeLotsEdition').addEventListener('input', evenement => {
   if (evenement.target.classList.contains('lot-probabilite')) actualiserTotalProbabilites(evenement.target);
+  if (evenement.target.matches('.lot-probabilite, .lot-label, .lot-type')) {
+    roueLotsEdition = lireLotsDepuisFormulaire();
+    actualiserCouleursApercuRoue();
+  }
 });
 $('#iconePickerGrille').addEventListener('click', evenement => {
   const bouton = evenement.target.closest('[data-choisir-emoji]');

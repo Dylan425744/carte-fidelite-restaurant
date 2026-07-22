@@ -43,8 +43,8 @@ function validerLots(lotsRecus) {
     if (!icone || [...icone].length > 4) {
       throw new Error(`Le lot ${index + 1} doit avoir un pictogramme (emoji).`);
     }
-    if (!Number.isFinite(probabilite) || probabilite <= 0 || probabilite > 100) {
-      throw new Error(`Le lot ${index + 1} doit avoir une probabilité entre 1 et 100.`);
+    if (!Number.isFinite(probabilite) || probabilite < 0 || probabilite > 100) {
+      throw new Error(`Le lot ${index + 1} doit avoir une probabilité entre 0 et 100.`);
     }
     return { label, icone, probabilite, type };
   });
@@ -65,19 +65,23 @@ function validerCouleur(valeur) {
 // Tirage pondere generique : fonctionne pour n'importe quel jeu de lots
 // (par defaut ou personnalise par le restaurant), plus de constante globale.
 function tirerUnLot(lots) {
-  const total = lots.reduce((somme, lot) => somme + Number(lot.probabilite || 0), 0);
+  const lotsEligibles = lots
+    .map((lot, index) => ({ lot, index, probabilite: Number(lot.probabilite || 0) }))
+    .filter(entree => Number.isFinite(entree.probabilite) && entree.probabilite > 0);
+  const total = lotsEligibles.reduce((somme, entree) => somme + entree.probabilite, 0);
+  if (total <= 0) throw new Error('La roue doit contenir au moins un lot avec une probabilité positive.');
   let tirage = Math.random() * total;
-  for (let index = 0; index < lots.length; index += 1) {
-    tirage -= Number(lots[index].probabilite || 0);
+  for (const entree of lotsEligibles) {
+    tirage -= entree.probabilite;
     if (tirage < 0) {
-      const lot = lots[index];
-      return { index, label: lot.label, icone: lot.icone, type: TYPES_LOT.includes(lot.type) ? lot.type : 'gain' };
+      const lot = entree.lot;
+      return { index: entree.index, label: lot.label, icone: lot.icone, type: TYPES_LOT.includes(lot.type) ? lot.type : 'gain' };
     }
   }
-  const dernierIndex = lots.length - 1;
-  const dernierLot = lots[dernierIndex];
+  const derniereEntree = lotsEligibles[lotsEligibles.length - 1];
+  const dernierLot = derniereEntree.lot;
   return {
-    index: dernierIndex,
+    index: derniereEntree.index,
     label: dernierLot.label,
     icone: dernierLot.icone,
     type: TYPES_LOT.includes(dernierLot.type) ? dernierLot.type : 'gain'

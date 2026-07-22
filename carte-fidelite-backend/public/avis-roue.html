@@ -70,6 +70,8 @@
   .segment-contenu { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 84px; left: -42px; }
   .segment-contenu .icone-lot { font-size: 23px; line-height: 1; }
   .segment-contenu .texte-lot { font-size: 10px; letter-spacing: -.1px; font-weight: 700; font-family: 'Manrope', sans-serif; color: #FFF9F3; line-height: 1.15; text-shadow: 0 1px 3px rgba(0,0,0,.35); }
+  .segment-contenu-compact .texte-lot { display: none; }
+  .segment-contenu-minuscule .icone-lot { display: none; }
   .centre-roue {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
     width: 62px; height: 62px; border-radius: 50%; border: 5px solid #fff7d4;
@@ -222,24 +224,38 @@ function paletteRoue(couleurPrincipale, couleurSecondaire) {
   return (couleurPrincipale && couleurSecondaire) ? [couleurPrincipale, couleurSecondaire] : COULEURS;
 }
 
-function dessinerRoue(listeLots, couleurPrincipale, couleurSecondaire) {
-  const nb = listeLots.length;
-  const angle = 360 / nb;
-  const palette = paletteRoue(couleurPrincipale, couleurSecondaire);
-  let degrades = [];
-  listeLots.forEach((lot, i) => {
-    const debut = i * angle;
-    degrades.push(`${palette[i % palette.length]} ${debut}deg ${debut + angle}deg`);
+function geometrieLotsRoue(listeLots) {
+  const poids = listeLots.map(lot => Math.max(0, Number(lot.probabilite) || 0));
+  const total = poids.reduce((somme, valeur) => somme + valeur, 0);
+  const diviseur = total > 0 ? total : listeLots.length || 1;
+  let cumul = 0;
+  return listeLots.map((lot, index) => {
+    const probabilite = total > 0 ? poids[index] : 1;
+    const debut = cumul / diviseur * 360;
+    cumul += probabilite;
+    const fin = cumul / diviseur * 360;
+    return { index, probabilite, debut, fin, centre: debut + (fin - debut) / 2, amplitude: fin - debut };
   });
+}
+
+function dessinerRoue(listeLots, couleurPrincipale, couleurSecondaire) {
+  const palette = paletteRoue(couleurPrincipale, couleurSecondaire);
+  const geometrie = geometrieLotsRoue(listeLots);
+  const degrades = geometrie
+    .filter(segment => segment.probabilite > 0)
+    .map(segment => `${palette[segment.index % palette.length]} ${segment.debut}deg ${segment.fin}deg`);
   roue.style.background = `conic-gradient(${degrades.join(',')})`;
 
-  listeLots.forEach((lot, i) => {
-    const centreAngle = i * angle + angle / 2;
+  geometrie.filter(segment => segment.probabilite > 0).forEach(segment => {
+    const lot = listeLots[segment.index];
+    const centreAngle = segment.centre;
     const pivot = document.createElement('div');
     pivot.className = 'segment-pivot';
     pivot.style.transform = `rotate(${centreAngle}deg)`;
     const contenu = document.createElement('div');
     contenu.className = 'segment-contenu';
+    if (segment.amplitude < 14) contenu.classList.add('segment-contenu-compact');
+    if (segment.amplitude < 7) contenu.classList.add('segment-contenu-minuscule');
     contenu.style.transform = `translateY(-${RAYON_TEXTE}px) rotate(${-centreAngle}deg)`;
     contenu.innerHTML = `<div class="icone-lot">${rendreIconeLot(lot.icone)}</div><div class="texte-lot">${echapper(lot.label)}</div>`;
     pivot.appendChild(contenu);
@@ -305,7 +321,7 @@ async function initialiser() {
         afficherValidite(donnees.valideDu, donnees.valideAu);
         resultatFinal.classList.add('visible');
       }
-      messageInfo.textContent = "Vous avez déjà joué depuis cet appareil aujourd'hui. Revenez demain !";
+      messageInfo.textContent = "Vous avez déjà joué aujourd’hui. La roue se débloquera automatiquement demain.";
     }
   } catch (erreur) {
     messageInfo.textContent = "Une erreur est survenue.";
@@ -354,9 +370,7 @@ boutonJouer.addEventListener('click', async () => {
       boutonJouer.disabled = false;
       return;
     }
-    const nb = lots.length;
-    const angleSegment = 360 / nb;
-    const centreSegment = donnees.indexLot * angleSegment + angleSegment / 2;
+    const centreSegment = geometrieLotsRoue(lots)[donnees.indexLot].centre;
     // Rotation cumulee depuis la position actuelle, pour qu'un rejeu tourne a
     // nouveau plusieurs tours au lieu d'un petit saut vers la valeur absolue.
     const cible = (360 - centreSegment) % 360;

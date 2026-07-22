@@ -2605,7 +2605,7 @@ app.get('/api/roue/:scanId', async (req, res) => {
       cadeauDejaGagne: scan.cadeau_gagne || null,
       valideDu: scan.cadeau_valide_du || null,
       valideAu: scan.cadeau_valide_au || null,
-      lots: lots.map(l => ({ label: l.label, icone: l.icone })),
+      lots: lots.map(l => ({ label: l.label, icone: l.icone, probabilite: Number(l.probabilite || 0) })),
       couleurPrincipale: scan.clients?.restaurants?.roue_couleur_principale || null,
       couleurSecondaire: scan.clients?.restaurants?.roue_couleur_secondaire || null
     });
@@ -2690,6 +2690,21 @@ app.post('/api/roue/:scanId/jouer', async (req, res) => {
 });
 
 const COOKIE_ROUE_AVIS = 'bravocard_roue_avis';
+const FORMAT_JOUR_ROUE_PARIS = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Europe/Paris',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
+function cleJourRoueParis(date = new Date()) {
+  const parties = Object.fromEntries(
+    FORMAT_JOUR_ROUE_PARIS.formatToParts(new Date(date))
+      .filter(partie => partie.type !== 'literal')
+      .map(partie => [partie.type, partie.value])
+  );
+  return `${parties.year}-${parties.month}-${parties.day}`;
+}
 
 async function trouverRestaurantPourRoueAvis(token) {
   const { data: restaurant, error } = await supabase.from('restaurants')
@@ -2744,8 +2759,32 @@ function idCookieRoueAvis(req, res) {
   return id;
 }
 
-// Debut du parcours "QR avis" : un tour par navigateur toutes les 24h, sans lien
-// avec un passage en caisse (contrairement a /api/roue/:scanId).
+async function trouverEntreeRoueAvisDuJour(restaurantId, { cookieId, clientId, email }) {
+  const identifiants = [
+    ['cookie_id', cookieId],
+    ['client_id', clientId],
+    ['email_destinataire', email]
+  ].filter(([, valeur]) => Boolean(valeur));
+
+  const resultats = await Promise.all(identifiants.map(async ([colonne, valeur]) => {
+    const resultat = await supabase
+      .from('roue_avis_entries')
+      .select('id, cadeau_gagne, cadeau_valide_du, cadeau_valide_au, created_at')
+      .eq('restaurant_id', restaurantId)
+      .eq(colonne, valeur)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (resultat.error) throw resultat.error;
+    return resultat.data;
+  }));
+
+  const aujourdHui = cleJourRoueParis();
+  return resultats.find(entree => entree && cleJourRoueParis(entree.created_at) === aujourdHui) || null;
+}
+
+// Debut du parcours "QR avis" : un seul tour par jour civil en France.
+// Le verrou saute automatiquement a minuit, heure de Paris, et non 24h apres.
 app.get('/api/roue-avis/:token', async (req, res) => {
   try {
     const restaurant = await trouverRestaurantPourRoueAvis(req.params.token);
@@ -2753,21 +2792,20 @@ app.get('/api/roue-avis/:token', async (req, res) => {
     const destinataire = await trouverDestinataireRoueAvis(restaurant, req.query.client);
     const cookieId = idCookieRoueAvis(req, res);
 
-    const depuis = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: entreeRecente } = await supabase
-      .from('roue_avis_entries')
-      .select('cadeau_gagne, cadeau_valide_du, cadeau_valide_au')
-      .eq('restaurant_id', restaurant.id)
-      .eq('cookie_id', cookieId)
-      .gte('created_at', depuis)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const entreeRecente = await trouverEntreeRoueAvisDuJour(restaurant.id, {
+      cookieId,
+      clientId: destinataire.clientId,
+      email: destinataire.email
+    });
 
     res.json({
       restaurantNom: restaurant.nom,
       lienAvisGoogle: restaurant.lien_avis_google,
-      lots: roueService.lotsRestaurant(restaurant).map(l => ({ label: l.label, icone: l.icone })),
+      lots: roueService.lotsRestaurant(restaurant).map(l => ({
+        label: l.label,
+        icone: l.icone,
+        probabilite: Number(l.probabilite || 0)
+      })),
       couleurPrincipale: restaurant.roue_couleur_principale || null,
       couleurSecondaire: restaurant.roue_couleur_secondaire || null,
       peutJouer: !entreeRecente,
@@ -2800,15 +2838,11 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
     }
     const cookieId = idCookieRoueAvis(req, res);
 
-    const depuis = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: entreeRecente } = await supabase
-      .from('roue_avis_entries')
-      .select('id')
-      .eq('restaurant_id', restaurant.id)
-      .eq('cookie_id', cookieId)
-      .gte('created_at', depuis)
-      .limit(1)
-      .maybeSingle();
+    const entreeRecente = await trouverEntreeRoueAvisDuJour(restaurant.id, {
+      cookieId,
+      clientId: destinataire.clientId,
+      email: destinataire.email
+    });
     if (entreeRecente) {
       return res.status(400).json({ erreur: 'Vous avez déjà joué aujourd’hui. Revenez demain !' });
     }
@@ -2837,6 +2871,9 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
       cadeau_valide_au: validite ? validite.dateFin.toISOString() : null,
       code_retrait: codeRetrait
     });
+    if (error?.code === '23505') {
+      return res.status(409).json({ erreur: 'Vous avez déjà joué aujourd’hui. La roue se débloquera demain.' });
+    }
     if (error) throw error;
 
     if (!perdu) {

@@ -57,6 +57,8 @@
     font-size: 10px; font-weight: 700; font-family: 'Manrope', sans-serif;
     color: #FFF9F3; line-height: 1.15; text-shadow: 0 1px 3px rgba(0,0,0,0.35);
   }
+  .segment-contenu-compact .texte-lot { display: none; }
+  .segment-contenu-minuscule .icone-lot { display: none; }
   .centre-roue {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
     width: 46px; height: 46px; border-radius: 50%; background: #FFC93C;
@@ -214,22 +216,34 @@ function paletteRoue(couleurPrincipale, couleurSecondaire) {
   return (couleurPrincipale && couleurSecondaire) ? [couleurPrincipale, couleurSecondaire] : COULEURS;
 }
 
+function geometrieLotsRoue(listeLots) {
+  const poids = listeLots.map(lot => Math.max(0, Number(lot.probabilite) || 0));
+  const total = poids.reduce((somme, valeur) => somme + valeur, 0);
+  const diviseur = total > 0 ? total : listeLots.length || 1;
+  let cumul = 0;
+  return listeLots.map((lot, index) => {
+    const probabilite = total > 0 ? poids[index] : 1;
+    const debut = cumul / diviseur * 360;
+    cumul += probabilite;
+    const fin = cumul / diviseur * 360;
+    return { index, probabilite, debut, fin, centre: debut + (fin - debut) / 2, amplitude: fin - debut };
+  });
+}
+
 function dessinerRoue(listeLots, couleurPrincipale, couleurSecondaire) {
-  const nb = listeLots.length;
-  const angle = 360 / nb;
   const palette = paletteRoue(couleurPrincipale, couleurSecondaire);
 
-  // Le fond colore, un secteur par lot
-  let degrades = [];
-  listeLots.forEach((lot, i) => {
-    const debut = i * angle;
-    degrades.push(`${palette[i % palette.length]} ${debut}deg ${debut + angle}deg`);
-  });
+  // Le fond colore respecte exactement le poids de chaque lot.
+  const geometrie = geometrieLotsRoue(listeLots);
+  const degrades = geometrie
+    .filter(segment => segment.probabilite > 0)
+    .map(segment => `${palette[segment.index % palette.length]} ${segment.debut}deg ${segment.fin}deg`);
   roue.style.background = `conic-gradient(${degrades.join(',')})`;
 
   // Le texte de chaque secteur, place puis oriente pour rester lisible
-  listeLots.forEach((lot, i) => {
-    const centreAngle = i * angle + angle / 2;
+  geometrie.filter(segment => segment.probabilite > 0).forEach(segment => {
+    const lot = listeLots[segment.index];
+    const centreAngle = segment.centre;
 
     const pivot = document.createElement('div');
     pivot.className = 'segment-pivot';
@@ -238,6 +252,8 @@ function dessinerRoue(listeLots, couleurPrincipale, couleurSecondaire) {
 
     const contenu = document.createElement('div');
     contenu.className = 'segment-contenu';
+    if (segment.amplitude < 14) contenu.classList.add('segment-contenu-compact');
+    if (segment.amplitude < 7) contenu.classList.add('segment-contenu-minuscule');
     // On pousse le contenu vers l'exterieur du cercle, puis on annule la rotation du pivot
     // pour que le texte reste bien droit, quelle que soit sa position sur la roue
     contenu.style.transform = `translateY(-${RAYON_TEXTE}px) rotate(${-centreAngle}deg)`;
@@ -332,9 +348,7 @@ boutonJouer.addEventListener('click', async () => {
       return;
     }
 
-    const nb = lots.length;
-    const angleSegment = 360 / nb;
-    const centreSegment = donnees.indexLot * angleSegment + angleSegment / 2;
+    const centreSegment = geometrieLotsRoue(lots)[donnees.indexLot].centre;
     // Rotation cumulee depuis la position actuelle, pour qu'un rejeu tourne a
     // nouveau plusieurs tours au lieu d'un petit saut vers la valeur absolue.
     const cible = (360 - centreSegment) % 360;
