@@ -56,9 +56,9 @@ function imageGoogle(url, description) {
 }
 
 function couleurRestaurant(restaurant) {
-  const personnalisee = String(restaurant.apple_custom_color || '').toUpperCase();
+  const personnalisee = String(restaurant.google_custom_color || '').toUpperCase();
   if (/^#[0-9A-F]{6}$/.test(personnalisee)) return personnalisee;
-  return COULEURS_PRESET[restaurant.apple_color_preset] || COULEURS_PRESET.dark;
+  return COULEURS_PRESET.dark;
 }
 
 function logoParDefaut() {

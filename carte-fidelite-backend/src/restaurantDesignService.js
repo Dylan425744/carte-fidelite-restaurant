@@ -110,6 +110,11 @@ function construireMiseAJourDesign(donnees) {
   }
 
   miseAJour.apple_custom_color = couleur || null;
+  const couleurGoogle = String(donnees.google_custom_color || '').trim().toUpperCase();
+  if (couleurGoogle && !/^#[0-9A-F]{6}$/.test(couleurGoogle)) {
+    throw new Error('La couleur Google Wallet doit être au format #1B1030.');
+  }
+  miseAJour.google_custom_color = couleurGoogle || null;
   miseAJour.apple_logo_url = validerImage(donnees.apple_logo_url, 'Le logo Apple');
   miseAJour.apple_strip_url = validerImage(donnees.apple_strip_url, 'La bande décorative Apple');
   miseAJour.apple_icon_url = validerImage(donnees.apple_icon_url, 'L’icône Apple');
@@ -152,6 +157,7 @@ function serialiserRestaurant(restaurant, proDisponible) {
     wallet_barcode_format: restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128',
     apple_card_label: valeurOuDefaut(restaurant.apple_card_label, 'FIDÉLITÉ'),
     apple_custom_color: restaurant.apple_custom_color || '',
+    google_custom_color: restaurant.google_custom_color || '',
     apple_logo_url: restaurant.apple_logo_url || '',
     apple_strip_url: restaurant.apple_strip_url || '',
     apple_icon_url: restaurant.apple_icon_url || '',

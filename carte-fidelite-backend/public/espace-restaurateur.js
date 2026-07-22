@@ -1325,13 +1325,16 @@ function remplirDesign() {
     walletPointsLabel: 'apple_points_label',
     walletCardLabel: 'apple_card_label',
     walletRewardText: 'apple_reward_text',
-    customColor: 'apple_custom_color',
+    appleColor: 'apple_custom_color',
     appleLogoText: 'apple_logo_text',
     appleTerms: 'apple_terms'
   };
   for (const [id, champ] of Object.entries(correspondancesCommunes)) $(`#${id}`).value = restaurant[champ] || '';
-  $('#customColorPicker').value = /^#[0-9a-f]{6}$/i.test(restaurant.apple_custom_color || '')
+  $('#appleColorPicker').value = /^#[0-9a-f]{6}$/i.test(restaurant.apple_custom_color || '')
     ? restaurant.apple_custom_color : couleursWallet[restaurant.apple_color_preset] || '#17171D';
+  $('#googleColor').value = restaurant.google_custom_color || '';
+  $('#googleColorPicker').value = /^#[0-9a-f]{6}$/i.test(restaurant.google_custom_color || '')
+    ? restaurant.google_custom_color : '#17171D';
   $('#appleLogoText').placeholder = restaurant.nom
     ? `Laissez vide pour afficher « ${restaurant.nom} »`
     : 'Laissez vide pour reprendre le nom du restaurant';
@@ -1360,7 +1363,7 @@ function remplirDesign() {
 }
 
 function actualiserApercuWallet() {
-  const exacte = $('#customColor').value;
+  const exacte = $('#appleColor').value;
   $('#wallet').style.background = /^#[0-9a-f]{6}$/i.test(exacte)
     ? exacte : couleursWallet.dark;
   const logoTexte = $('#appleLogoText').value.trim() || restaurant?.nom || 'Bravocard';
@@ -1388,7 +1391,7 @@ function actualiserApercuWallet() {
 }
 
 function actualiserApercuGoogleWallet() {
-  const exacte = $('#customColor').value;
+  const exacte = $('#googleColor').value;
   $('#walletGoogle').style.background = /^#[0-9a-f]{6}$/i.test(exacte)
     ? exacte : couleursWallet.dark;
   const pointsTexte = $('#walletPointsLabel').value.trim();
@@ -1715,7 +1718,8 @@ async function enregistrerDesign() {
   const corps = {
     wallet_barcode_format: document.querySelector('[name="walletBarcodeFormat"]:checked')?.value || 'CODE_128',
     apple_color_preset: 'dark',
-    apple_custom_color: $('#customColor').value,
+    apple_custom_color: $('#appleColor').value,
+    google_custom_color: $('#googleColor').value,
     apple_points_label: $('#walletPointsLabel').value,
     apple_card_label: $('#walletCardLabel').value,
     apple_reward_text: $('#walletRewardText').value,
@@ -2269,14 +2273,19 @@ function actualiserLesDeuxApercusWallet() {
 document.querySelectorAll('.editeur-design input, .editeur-design textarea').forEach(input =>
   input.addEventListener('input', actualiserLesDeuxApercusWallet)
 );
-$('#customColorPicker').addEventListener('input', evenement => {
-  $('#customColor').value = evenement.target.value.toUpperCase();
-  actualiserLesDeuxApercusWallet();
-});
-$('#customColor').addEventListener('input', evenement => {
-  const couleur = evenement.target.value.trim();
-  if (/^#[0-9a-f]{6}$/i.test(couleur)) $('#customColorPicker').value = couleur;
-});
+function relierCouleurWallet(idPicker, idTexte, actualiser) {
+  $(`#${idPicker}`).addEventListener('input', evenement => {
+    $(`#${idTexte}`).value = evenement.target.value.toUpperCase();
+    actualiser();
+  });
+  $(`#${idTexte}`).addEventListener('input', evenement => {
+    const couleur = evenement.target.value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(couleur)) $(`#${idPicker}`).value = couleur;
+    actualiser();
+  });
+}
+relierCouleurWallet('appleColorPicker', 'appleColor', actualiserApercuWallet);
+relierCouleurWallet('googleColorPicker', 'googleColor', actualiserApercuGoogleWallet);
 document.querySelectorAll('.asset-wallet').forEach(element => {
   element.querySelector('.asset-file').addEventListener('change', evenement => gererSelectionFichierAsset(evenement, element));
   element.querySelector('.asset-galerie').addEventListener('click', () => ouvrirGaleriePicker(element));

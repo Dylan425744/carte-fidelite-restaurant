@@ -98,6 +98,7 @@
   .resultat-final .code-retrait strong { font-family: 'Manrope', sans-serif; font-size: 26px; letter-spacing: 4px; }
 
   .message-info { margin-top: 18px; color: #B8ABD0; font-size: 13.5px; max-width: 300px; }
+  .identification-cadeau label,.identification-cadeau small{display:block}.identification-cadeau label{margin:0 0 10px;font-weight:800;line-height:1.35}.identification-cadeau input{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid rgba(255,255,255,.2);border-radius:11px;background:rgba(255,255,255,.08);color:#fff;font:600 14px Arial,sans-serif;outline:none}.identification-cadeau input:focus{border-color:#9d7cf4;box-shadow:0 0 0 3px rgba(157,124,244,.14)}.identification-cadeau small{margin-top:8px;color:#b8abd0;font-size:11px;line-height:1.45}
 
   /* Icones professionnelles remplacant les emojis : recolorees a l'identique
      du texte (#FFF9F3) via un masque, le centre garde ses couleurs d'origine. */
@@ -121,6 +122,13 @@
   <span class="numero">1</span>
   <p>Laissez un avis Google à l'établissement — ça prend 30 secondes et ça compte vraiment pour eux.</p>
   <button class="bouton bouton-avis" id="boutonAvis">Laisser un avis Google</button>
+</div>
+
+<div class="etape identification-cadeau" id="identificationCadeau" hidden>
+  <span class="numero">2</span>
+  <label for="emailCadeau">Où devons-nous envoyer votre cadeau si vous gagnez&nbsp;?</label>
+  <input id="emailCadeau" type="email" maxlength="254" autocomplete="email" placeholder="votre@email.fr">
+  <small>Votre code cadeau et sa date de validité seront envoyés immédiatement par email.</small>
 </div>
 
 <div class="zone-roue" id="zoneRoue">
@@ -149,6 +157,7 @@
 const COULEURS = ['#6C3CE9', '#12B886', '#5A2FD0', '#0E9469', '#7C4FF0', '#0A7A56'];
 const params = new URLSearchParams(window.location.search);
 const token = params.get('token');
+const clientCode = params.get('client') || '';
 const roue = document.getElementById('roue');
 const zoneRoue = document.getElementById('zoneRoue');
 const boutonAvis = document.getElementById('boutonAvis');
@@ -161,6 +170,8 @@ const validite = document.getElementById('validite');
 const zoneCode = document.getElementById('zoneCode');
 const codeRetrait = document.getElementById('codeRetrait');
 const messageInfo = document.getElementById('messageInfo');
+const identificationCadeau = document.getElementById('identificationCadeau');
+const emailCadeau = document.getElementById('emailCadeau');
 
 const DELAI_MINIMUM_MS = 45000; // le temps avant de debloquer la roue, volontairement fixe et invisible pour le client
 let lots = [];
@@ -263,7 +274,8 @@ async function initialiser() {
     return;
   }
   try {
-    const reponse = await fetch(`/api/roue-avis/${encodeURIComponent(token)}`);
+    const parametreClient = clientCode ? `?client=${encodeURIComponent(clientCode)}` : '';
+    const reponse = await fetch(`/api/roue-avis/${encodeURIComponent(token)}${parametreClient}`);
     const donnees = await reponse.json();
     if (!reponse.ok) {
       messageInfo.textContent = donnees.erreur || "Ce lien n'est plus disponible.";
@@ -275,6 +287,7 @@ async function initialiser() {
     lots = donnees.lots;
     dessinerRoue(lots, donnees.couleurPrincipale, donnees.couleurSecondaire);
     appliquerCouleursPersonnalisees(donnees);
+    identificationCadeau.hidden = !donnees.emailRequis;
     boutonAvis.onclick = () => {
       window.open(donnees.lienAvisGoogle, '_blank', 'noopener');
       confirmerAvis();
@@ -318,13 +331,22 @@ function confirmerAvis() {
 let rotationActuelle = 0;
 
 boutonJouer.addEventListener('click', async () => {
+  if (!identificationCadeau.hidden && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCadeau.value.trim())) {
+    messageInfo.textContent = 'Indiquez une adresse email valide pour recevoir votre cadeau.';
+    emailCadeau.focus();
+    return;
+  }
   boutonJouer.disabled = true;
   messageInfo.textContent = '';
   try {
     const reponse = await fetch(`/api/roue-avis/${encodeURIComponent(token)}/jouer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ avisConfirme: true })
+      body: JSON.stringify({
+        avisConfirme: true,
+        clientCode,
+        email: identificationCadeau.hidden ? '' : emailCadeau.value.trim()
+      })
     });
     const donnees = await reponse.json();
     if (!reponse.ok) {
@@ -360,6 +382,7 @@ boutonJouer.addEventListener('click', async () => {
         afficherValidite(donnees.valideDu, donnees.valideAu);
         codeRetrait.textContent = donnees.codeRetrait;
         zoneCode.style.display = 'block';
+        messageInfo.textContent = 'Votre code cadeau vient également de vous être envoyé par email.';
       }
       resultatFinal.classList.add('visible');
       if (!perdu) lancerConfettis();

@@ -64,9 +64,7 @@ async function envoyerEmail(destinataire, sujet, texte, html = null) {
   // L'adresse technique utilisée pour authentifier Brevo ne doit jamais être
   // exposée aux clients. Tous les messages Bravocard utilisent exclusivement
   // l'adresse publique de la marque.
-  const emailPublic = String(
-    process.env.BRAVOCARD_PUBLIC_EMAIL || 'contact@bravocard.fr'
-  ).trim().toLowerCase();
+  const emailPublic = 'contact@bravocard.fr';
   const corps = {
     sender: {
       name: process.env.BREVO_SENDER_NAME || 'Bravocard',

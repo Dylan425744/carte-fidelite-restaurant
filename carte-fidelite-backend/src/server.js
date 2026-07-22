@@ -56,6 +56,7 @@ const CHAMPS_RESTAURANT = [
   'apple_card_label',
   'wallet_barcode_format',
   'apple_custom_color',
+  'google_custom_color',
   'apple_logo_url',
   'apple_strip_url',
   'apple_icon_url',
@@ -142,7 +143,11 @@ app.get('/avis/:token', async (req, res) => {
     if (!restaurant || restaurant.deleted_at) return res.status(410).send(pageProgrammeIndisponible('Ce QR code n’est plus actif', 'Le restaurant associé a été retiré.'));
     if (!restaurant.actif || !auth.accesFacturationRestaurant(restaurant)) return res.status(503).send(pageProgrammeIndisponible('Programme fidélité en pause', 'Cet établissement met actuellement à jour son programme de fidélité. Merci de votre patience, nous serons de retour très prochainement.'));
     if (!/^https:\/\//i.test(restaurant.lien_avis_google || '')) return res.status(404).send(pageProgrammeIndisponible('Lien d’avis à configurer', 'Le restaurant doit encore renseigner son lien Google dans son espace Bravocard.'));
-    return res.redirect(302, `/avis-roue.html?token=${encodeURIComponent(req.params.token)}`);
+    const codeClient = /^BC[A-F0-9]{10}$/i.test(String(req.query.client || '').trim())
+      ? String(req.query.client).trim().toUpperCase()
+      : '';
+    const parametreClient = codeClient ? `&client=${encodeURIComponent(codeClient)}` : '';
+    return res.redirect(302, `/avis-roue.html?token=${encodeURIComponent(req.params.token)}${parametreClient}`);
   } catch (erreur) {
     console.error('Résolution QR avis:', erreur.message);
     return res.status(500).send(pageProgrammeIndisponible('Lien temporairement indisponible', 'Veuillez réessayer dans quelques instants.'));
@@ -329,7 +334,10 @@ function obtenirUrlBase(req) {
   const configuree = String(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '')
     .trim()
     .replace(/\/$/, '');
-  return configuree || `${req.protocol}://${req.get('host')}`;
+  // Ne jamais construire un lien de reinitialisation depuis l'en-tete Host,
+  // qui est controle par le demandeur. Le domaine public reste la seule base
+  // de secours si Render n'a pas encore recu APP_URL.
+  return configuree || 'https://bravocard.fr';
 }
 
 function verifierLimitePublique(stockage, req, maximum, dureeMinutes) {
@@ -2694,6 +2702,25 @@ async function trouverRestaurantPourRoueAvis(token) {
   return restaurant;
 }
 
+async function trouverDestinataireRoueAvis(restaurant, codeClient, emailSaisi = '') {
+  const code = String(codeClient || '').trim().toUpperCase();
+  if (/^BC[A-F0-9]{10}$/.test(code)) {
+    const { data: client, error } = await supabase.from('clients')
+      .select('id, nom, email, scan_code')
+      .eq('restaurant_id', restaurant.id)
+      .eq('scan_code', code)
+      .maybeSingle();
+    if (error) throw error;
+    if (client) return { clientId: client.id, nom: client.nom, email: client.email, identifie: true };
+  }
+
+  const emailNettoye = String(emailSaisi || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNettoye) || emailNettoye.length > 254) {
+    return { clientId: null, nom: 'Client', email: null, identifie: false };
+  }
+  return { clientId: null, nom: 'Client', email: emailNettoye, identifie: false };
+}
+
 function lireCookieBrut(req, nom) {
   return String(req.headers.cookie || '')
     .split(';')
@@ -2723,6 +2750,7 @@ app.get('/api/roue-avis/:token', async (req, res) => {
   try {
     const restaurant = await trouverRestaurantPourRoueAvis(req.params.token);
     if (!restaurant) return res.status(404).json({ erreur: 'Lien invalide ou indisponible.' });
+    const destinataire = await trouverDestinataireRoueAvis(restaurant, req.query.client);
     const cookieId = idCookieRoueAvis(req, res);
 
     const depuis = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -2733,6 +2761,7 @@ app.get('/api/roue-avis/:token', async (req, res) => {
       .eq('cookie_id', cookieId)
       .gte('created_at', depuis)
       .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     res.json({
@@ -2744,7 +2773,9 @@ app.get('/api/roue-avis/:token', async (req, res) => {
       peutJouer: !entreeRecente,
       cadeauDejaGagne: entreeRecente?.cadeau_gagne || null,
       valideDu: entreeRecente?.cadeau_valide_du || null,
-      valideAu: entreeRecente?.cadeau_valide_au || null
+      valideAu: entreeRecente?.cadeau_valide_au || null,
+      clientIdentifie: destinataire.identifie,
+      emailRequis: !destinataire.identifie
     });
   } catch (erreur) {
     console.error('Roue avis:', erreur.message);
@@ -2759,6 +2790,14 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
     if (!req.body?.avisConfirme) {
       return res.status(400).json({ erreur: 'Laissez d’abord votre avis Google avant de jouer.' });
     }
+    const destinataire = await trouverDestinataireRoueAvis(
+      restaurant,
+      req.body?.clientCode,
+      req.body?.email
+    );
+    if (!destinataire.email) {
+      return res.status(400).json({ erreur: 'Indiquez une adresse email valide pour recevoir votre cadeau.' });
+    }
     const cookieId = idCookieRoueAvis(req, res);
 
     const depuis = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -2768,6 +2807,7 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
       .eq('restaurant_id', restaurant.id)
       .eq('cookie_id', cookieId)
       .gte('created_at', depuis)
+      .limit(1)
       .maybeSingle();
     if (entreeRecente) {
       return res.status(400).json({ erreur: 'Vous avez déjà joué aujourd’hui. Revenez demain !' });
@@ -2788,6 +2828,8 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
 
     const { error } = await supabase.from('roue_avis_entries').insert({
       restaurant_id: restaurant.id,
+      client_id: destinataire.clientId,
+      email_destinataire: destinataire.email,
       cookie_id: cookieId,
       cadeau_gagne: lot.label,
       cadeau_icone: lot.icone,
@@ -2796,6 +2838,23 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
       code_retrait: codeRetrait
     });
     if (error) throw error;
+
+    if (!perdu) {
+      try {
+        await email.envoyerEmailCadeau(
+          destinataire.email,
+          destinataire.nom,
+          restaurant,
+          lot.label,
+          lot.icone,
+          validite.dateDebut.toISOString(),
+          validite.dateFin.toISOString(),
+          codeRetrait
+        );
+      } catch (erreurEmail) {
+        console.error('Erreur envoi email cadeau (QR avis):', erreurEmail.message);
+      }
+    }
 
     res.json({
       indexLot: lot.index,
@@ -2891,84 +2950,57 @@ app.post('/api/restaurateur/:slug/cadeaux/valider', async (req, res) => {
   }
 });
 
-// Verifie toutes les 15 minutes les scans a traiter pour l'envoi d'avis Google
-cron.schedule('*/15 * * * *', async () => {
-  console.log('Verification des scans pour envoi d\'avis...');
+// Envoie les emails de bienvenue des qu'ils ont au moins une heure. Il n'y a
+// volontairement aucune borne haute : si Render redemarre ou se reveille plus
+// tard, les messages en attente sont rattrapes au lieu d'etre perdus.
+let traitementEmailsBienvenueEnCours = false;
+async function traiterEmailsBienvenue() {
+  if (traitementEmailsBienvenueEnCours) return;
+  traitementEmailsBienvenueEnCours = true;
+  try {
+    const limite = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: clients, error } = await supabase
+      .from('clients')
+      .select('id, nom, email, scan_code, date_inscription, restaurants(nom, public_qr_token)')
+      .eq('email_bienvenue_envoye', false)
+      .lte('date_inscription', limite)
+      .order('date_inscription', { ascending: true })
+      .limit(100);
 
-  const { data: scans, error } = await supabase
-    .from('scans')
-    .select('*, clients(nom, email, restaurant_id, restaurants(nom, lien_avis_google))')
-    .eq('avis_envoye', false);
-
-  if (error) {
-    console.error('Erreur lecture scans:', error.message);
-    return;
-  }
-
-  const maintenant = new Date();
-
-  for (const scan of scans) {
-    const dateScan = new Date(scan.date_scan);
-    const minutesEcoulees = (maintenant - dateScan) / (1000 * 60);
-
-    if (minutesEcoulees >= 55 && minutesEcoulees <= 75) {
-      try {
-        const lienRoue = `${process.env.URL_SITE}/roue.html?scan=${scan.id}`;
-        await email.envoyerEmailAvis(
-          scan.clients.email,
-          scan.clients.nom,
-          scan.clients.restaurants,
-          lienRoue
-        );
-        await supabase.from('scans').update({ avis_envoye: true }).eq('id', scan.id);
-        console.log(`Avis envoye a ${scan.clients.email}`);
-      } catch (erreurEnvoi) {
-        console.error('Erreur envoi avis:', erreurEnvoi.message);
-      }
+    if (error) {
+      console.error('Erreur lecture clients (email bienvenue):', error.message);
+      return;
     }
-  }
-});
 
-// Verifie toutes les 15 minutes les nouveaux clients a qui envoyer l'email de
-// bienvenue ("tenter de gagner un cadeau"), 1h apres leur inscription. Le
-// meme delai (fenetre 55-75 min) que l'avis post-passage ci-dessus.
-cron.schedule('*/15 * * * *', async () => {
-  const { data: clients, error } = await supabase
-    .from('clients')
-    .select('id, nom, email, date_inscription, restaurants(nom, public_qr_token)')
-    .eq('email_bienvenue_envoye', false);
+    const base = String(process.env.MARKETING_PUBLIC_BASE_URL || 'https://bravocard.fr').replace(/\/$/, '');
 
-  if (error) {
-    console.error('Erreur lecture clients (email bienvenue):', error.message);
-    return;
-  }
-
-  const maintenant = new Date();
-  const base = String(process.env.MARKETING_PUBLIC_BASE_URL || 'https://bravocard.fr').replace(/\/$/, '');
-
-  for (const client of clients) {
-    const dateInscription = new Date(client.date_inscription);
-    const minutesEcoulees = (maintenant - dateInscription) / (1000 * 60);
-
-    if (minutesEcoulees >= 55 && minutesEcoulees <= 75) {
+    for (const client of clients) {
       try {
         const token = client.restaurants?.public_qr_token;
-        if (!token) continue;
-        const lienAvis = `${base}/avis/${encodeURIComponent(token)}`;
+        if (!token || !client.scan_code) continue;
+        const lienAvis = `${base}/avis/${encodeURIComponent(token)}?client=${encodeURIComponent(client.scan_code)}`;
         await email.envoyerEmailBienvenue(
           client.email,
           client.nom,
           client.restaurants,
           lienAvis
         );
-        await supabase.from('clients').update({ email_bienvenue_envoye: true }).eq('id', client.id);
+        const { error: erreurMarquage } = await supabase
+          .from('clients')
+          .update({ email_bienvenue_envoye: true })
+          .eq('id', client.id);
+        if (erreurMarquage) throw erreurMarquage;
         console.log(`Email de bienvenue envoye a ${client.email}`);
       } catch (erreurEnvoi) {
         console.error('Erreur envoi email de bienvenue:', erreurEnvoi.message);
       }
     }
+  } finally {
+    traitementEmailsBienvenueEnCours = false;
   }
-});
+}
+
+cron.schedule('*/15 * * * *', traiterEmailsBienvenue);
 
 async function initialiserGoogleWalletMultiRestaurants() {
   if (!process.env.GOOGLE_ISSUER_ID || !process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
@@ -3030,4 +3062,5 @@ app.listen(PORT, () => {
   console.log(`Serveur demarre sur le port ${PORT}`);
   setImmediate(initialiserGoogleWalletMultiRestaurants);
   setImmediate(initialiserSupportsMarketing);
+  setImmediate(traiterEmailsBienvenue);
 });
