@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-labelledby="title desc">
-  <title id="title">Roue cadeau officielle Bravocard</title>
-  <desc id="desc">Roue de la fortune aux couleurs Bravocard, huit sections toutes gagnantes.</desc>
+  <title id="title">Roue cadeau officielle Bravocard sur fond gris</title>
+  <desc id="desc">Présentation de la roue Bravocard sur un fond gris clair uni.</desc>
   <defs>
     <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="13" stdDeviation="14" flood-color="#0F0A1C" flood-opacity=".4"/></filter>
     <linearGradient id="gradLavande" x1="200" y1="15" x2="200" y2="385" gradientUnits="userSpaceOnUse">
@@ -13,6 +13,9 @@
       <stop offset="0" stop-color="#FBEAC0"/><stop offset=".5" stop-color="#E4C77A"/><stop offset="1" stop-color="#C9A24E"/>
     </linearGradient>
   </defs>
+
+  <rect x="0" y="0" width="400" height="400" fill="#E8E7EA"/>
+
   <g filter="url(#shadow)">
     <path d="M200 200L200 28A172 172 0 0 1 321.62 78.38Z" fill="#663ED7" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
     <path d="M200 200L321.62 78.38A172 172 0 0 1 372 200Z" fill="#542FBB" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
