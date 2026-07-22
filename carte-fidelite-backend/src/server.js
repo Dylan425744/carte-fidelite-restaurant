@@ -2990,7 +2990,8 @@ async function traiterEmailsBienvenue() {
           .update({ email_bienvenue_envoye: true })
           .eq('id', client.id);
         if (erreurMarquage) throw erreurMarquage;
-        console.log(`Email de bienvenue envoye a ${client.email}`);
+        // Ne pas conserver l'adresse du consommateur dans les journaux Render.
+        console.log(`Email de bienvenue envoye pour le client ${client.id}.`);
       } catch (erreurEnvoi) {
         console.error('Erreur envoi email de bienvenue:', erreurEnvoi.message);
       }
