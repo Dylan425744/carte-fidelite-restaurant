@@ -397,12 +397,13 @@
               <a class="bouton secondaire" id="telechargerQrPng" target="_blank" rel="noopener">QR code PNG</a>
               <a class="bouton secondaire" id="telechargerQrSvg" target="_blank" rel="noopener">QR code SVG</a>
             </div>
-            <div class="marketing-secondaire" id="marketingSecondaire" hidden>
-              <span class="eyebrow">Inclus avec Croissance et Signature</span><h3>Second QR code · avis Google</h3>
-              <p class="texte-secondaire">Renseignez votre page Google. Le second QR du flyer y conduira automatiquement.</p>
+            <div class="marketing-secondaire" id="marketingSecondaire">
+              <span class="eyebrow">Parcours avis + roue</span><h3>QR code n°2 · tenter de gagner un cadeau</h3>
+              <p class="texte-secondaire" id="marketingSecondaireDescription">Le client laisse son avis, puis accède automatiquement à la roue des cadeaux.</p>
+              <div class="qr-secondaire-apercu"><div class="qr-cadre"><img id="marketingQrAvisPreview" alt="QR code avis et roue"></div><div><strong>Avis client puis roue</strong><small id="marketingSecondaireStatut">Vérification de l’offre…</small></div></div>
               <label for="lienAvisGoogle">Lien public de votre fiche Google</label><input id="lienAvisGoogle" type="url" placeholder="https://g.page/r/…/review">
               <button class="bouton secondaire" id="enregistrerLienAvis" type="button">Enregistrer le lien</button>
-              <div class="marketing-telechargements"><a class="bouton secondaire" id="telechargerQrAvisPng" target="_blank" rel="noopener">QR avis PNG</a><a class="bouton secondaire" id="telechargerQrAvisSvg" target="_blank" rel="noopener">QR avis SVG</a></div>
+              <div class="marketing-telechargements"><a class="bouton secondaire" id="telechargerQrAvisPng" target="_blank" rel="noopener">Télécharger le QR avis + roue (PNG)</a><a class="bouton secondaire" id="telechargerQrAvisSvg" target="_blank" rel="noopener">Télécharger en SVG</a></div>
             </div>
             <label for="marketingLien">Lien public du restaurant</label>
             <div class="champ-copie"><input id="marketingLien" readonly><button class="bouton secondaire" id="copierLienMarketing" type="button">Copier</button></div>

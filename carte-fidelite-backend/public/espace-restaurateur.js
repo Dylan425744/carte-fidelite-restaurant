@@ -1749,8 +1749,18 @@ function afficherSupportsMarketing() {
   $('#marketingStatut').textContent = pret ? 'Supports prêts' : 'Préparation en cours';
   $('#marketingLien').value = supportsMarketing.lien_public || '';
   if (supportsMarketing.qr_png_url) $('#marketingQrPreview').src = supportsMarketing.qr_png_url;
-  $('#marketingSecondaire').hidden = !supportsMarketing.secondaire_disponible;
+  const secondQrDisponible = Boolean(supportsMarketing.secondaire_disponible);
+  $('#marketingSecondaire').classList.toggle('verrouille-abonnement', !secondQrDisponible);
+  $('#marketingSecondaireStatut').textContent = secondQrDisponible
+    ? 'Disponible avec votre offre'
+    : 'Disponible avec les offres Croissance et Signature';
+  $('#marketingSecondaireDescription').textContent = secondQrDisponible
+    ? 'Le client laisse son avis, puis accède automatiquement à la roue des cadeaux.'
+    : 'Ce second parcours reste visible afin que vous sachiez exactement ce qui sera débloqué en passant à l’offre Croissance.';
   $('#lienAvisGoogle').value = supportsMarketing.lien_avis_google || '';
+  const apercuQrAvis = $('#marketingQrAvisPreview');
+  apercuQrAvis.src = supportsMarketing.secondary_qr_png_url || '';
+  apercuQrAvis.hidden = !supportsMarketing.secondary_qr_png_url;
   const liens = [
     ['telechargerFlyer', supportsMarketing.flyer_pdf_url],
     ['telechargerQrPng', supportsMarketing.qr_png_url],
@@ -1768,7 +1778,10 @@ function afficherSupportsMarketing() {
     const element = $(`#${id}`);
     element.href = url || '#';
     element.setAttribute('aria-disabled', url ? 'false' : 'true');
+    element.classList.toggle('desactive', !url);
+    element.tabIndex = url ? 0 : -1;
   });
+  $('#enregistrerLienAvis').disabled = !secondQrDisponible;
 }
 
 async function enregistrerLienAvis() {
