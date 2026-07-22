@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-labelledby="title desc">
+  <title id="title">Roue cadeau officielle Bravocard</title>
+  <desc id="desc">Roue de la fortune aux couleurs Bravocard, huit sections toutes gagnantes.</desc>
+  <defs>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="9" stdDeviation="10" flood-color="#2B1B4D" flood-opacity=".3"/></filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path d="M200 200L200 28A172 172 0 0 1 321.62 78.38Z" fill="#663ED7" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
+    <path d="M200 200L321.62 78.38A172 172 0 0 1 372 200Z" fill="#542FBB" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
+    <path d="M200 200L372 200A172 172 0 0 1 321.62 321.62Z" fill="#CDBCF6" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
+    <path d="M200 200L321.62 321.62A172 172 0 0 1 200 372Z" fill="#6039CE" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
+    <path d="M200 200L200 372A172 172 0 0 1 78.38 321.62Z" fill="#663ED7" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
+    <path d="M200 200L78.38 321.62A172 172 0 0 1 28 200Z" fill="#542FBB" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
+    <path d="M200 200L28 200A172 172 0 0 1 78.38 78.38Z" fill="#CDBCF6" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
+    <path d="M200 200L78.38 78.38A172 172 0 0 1 200 28Z" fill="#6039CE" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>
+
+    <circle cx="200" cy="200" r="177" fill="none" stroke="#CDBCF6" stroke-width="5"/>
+    <circle cx="200" cy="200" r="184" fill="none" stroke="#542FBB" stroke-width="7"/>
+    <circle cx="200" cy="200" r="190" fill="none" stroke="#E4C77A" stroke-width="1.5" opacity=".9"/>
+    <g fill="#E4C77A">
+      <circle cx="334.35" cy="65.65" r="3.2"/><circle cx="390" cy="200" r="3.2"/>
+      <circle cx="334.35" cy="334.35" r="3.2"/><circle cx="200" cy="390" r="3.2"/>
+      <circle cx="65.65" cy="334.35" r="3.2"/><circle cx="10" cy="200" r="3.2"/>
+      <circle cx="65.65" cy="65.65" r="3.2"/>
+    </g>
+
+    <g font-family="'Arial Black', Arial, sans-serif" font-weight="900" font-size="21" letter-spacing=".5" text-anchor="middle">
+      <text x="247" y="77" fill="#fff" transform="rotate(22.5 247 77)">GAGNÉ</text>
+      <text x="323" y="151" fill="#fff" transform="rotate(67.5 323 151)">GAGNÉ</text>
+      <text x="323" y="258" fill="#171020" transform="rotate(-67.5 323 258)">GAGNÉ</text>
+      <text x="247" y="333" fill="#fff" transform="rotate(-22.5 247 333)">GAGNÉ</text>
+      <text x="153" y="333" fill="#fff" transform="rotate(22.5 153 333)">GAGNÉ</text>
+      <text x="77" y="258" fill="#fff" transform="rotate(67.5 77 258)">GAGNÉ</text>
+      <text x="77" y="151" fill="#171020" transform="rotate(-67.5 77 151)">GAGNÉ</text>
+      <text x="153" y="77" fill="#fff" transform="rotate(-22.5 153 77)">GAGNÉ</text>
+    </g>
+
+    <circle cx="200" cy="200" r="49" fill="#fff"/>
+    <circle cx="200" cy="200" r="37" fill="#171020"/>
+    <text x="200" y="217" fill="#fff" font-family="Arial, sans-serif" font-size="42" text-anchor="middle">✦</text>
+
+    <path d="M183 4h34l-17 44z" fill="#171020" stroke="#E4C77A" stroke-width="3" stroke-linejoin="round"/>
+  </g>
+</svg>
