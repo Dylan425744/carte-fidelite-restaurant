@@ -205,6 +205,11 @@
           <label class="select-periode"><span>Période analysée</span><select id="periodeStatistiques"><option value="30">30 derniers jours</option><option value="90">90 derniers jours</option><option value="365">12 derniers mois</option></select></label>
         </div>
 
+        <article class="panneau recompenses-attente" id="panneauRecompensesAttente" hidden>
+          <div class="panneau-titre"><div><span class="eyebrow">Action requise</span><h3>Récompenses à remettre</h3></div><span class="badge-doux badge-or" id="compteurRecompensesAttente">0</span></div>
+          <div id="listeRecompensesAttente" class="liste-recompenses-attente"></div>
+        </article>
+
         <div class="grille-stats statistiques-kpis">
           <article class="stat"><span class="stat-icone violet">+</span><div><small>Nouveaux clients</small><strong id="statNouveauxClients">0</strong><em id="variationNouveauxClients">Sur la période</em></div></article>
           <article class="stat"><span class="stat-icone vert">⌁</span><div><small>Visites enregistrées</small><strong id="statVisites">0</strong><em>Passages validés</em></div></article>
@@ -248,7 +253,7 @@
             <div class="scan-illustration">▥</div><h3>Prêt à scanner</h3><p>Le résultat et le nouveau solde du client apparaîtront ici.</p>
           </article>
         </div>
-        <article class="panneau cadeau-validation"><span class="eyebrow">Comptoir</span><h3>Valider un cadeau de la roue</h3><p class="texte-secondaire">Demandez le code reçu par le client (email ou écran après son tour de roue).</p><div class="champ-copie"><input id="codeCadeauSaisie" placeholder="Ex. K7F3M2" maxlength="6" style="text-transform:uppercase"><button class="bouton principal" id="validerCadeau" type="button">Valider</button></div><span class="message" id="messageCadeau"></span></article>
+        <article class="panneau cadeau-validation"><span class="eyebrow">Comptoir</span><h3>Valider un cadeau</h3><p class="texte-secondaire">Demandez le code reçu par email ou affiché à l’écran, que ce soit un gain de la roue ou une récompense de fidélité.</p><div class="champ-copie"><input id="codeCadeauSaisie" placeholder="Ex. K7F3M2" maxlength="6" style="text-transform:uppercase"><button class="bouton principal" id="validerCadeau" type="button">Valider</button></div><span class="message" id="messageCadeau"></span></article>
       </section>
 
       <section class="vue" id="vue-clients">

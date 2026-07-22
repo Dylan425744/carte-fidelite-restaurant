@@ -176,7 +176,8 @@ function ouvrirChoixAbonnement(plan) {
 function afficherResultatScan(type, titre, contenu) {
   const resultat = $('#resultatScan');
   resultat.className = `panneau resultat-scan ${type}`;
-  resultat.innerHTML = `<div class="scan-illustration">${type === 'succes' ? '✓' : '!'}</div><h3>${echapper(titre)}</h3>${contenu}`;
+  const icone = type === 'succes' ? '✓' : type === 'recompense' ? '★' : '!';
+  resultat.innerHTML = `<div class="scan-illustration">${icone}</div><h3>${echapper(titre)}</h3>${contenu}`;
 }
 
 async function demarrerScanner() {
@@ -243,14 +244,14 @@ async function traiterCodeScanne(code) {
       method: 'POST', body: JSON.stringify({ client_id: code })
     });
     let contenu = donnees.recompenseAtteinte
-      ? '<div class="solde-scan">Récompense !</div><p>Le compteur a été remis à zéro.</p>'
+      ? `<p class="message-recompense">${echapper(donnees.recompense_message || `Félicitations, ${donnees.client_nom} vient de remporter une récompense.`)}</p><div class="code-recompense-scan"><span>Code de retrait envoyé par email au client</span><strong>${echapper(donnees.recompense_code_retrait || '')}</strong></div><p>Le compteur de points a été remis à zéro.</p>`
       : `<div class="solde-scan">${Number(donnees.nouveauSolde)} points</div><p>Nouveau solde de ${echapper(donnees.client_nom)}.</p>`;
     if (donnees.parrainage_valide) {
       contenu += `<div class="info-envoi"><span>✓</span><p>Parrainage validé : ${Number(donnees.bonus_filleul)} points pour le filleul et ${Number(donnees.bonus_parrain)} points pour le parrain.</p></div>`;
     }
     afficherResultatScan(
-      'succes',
-      `${Number(donnees.points_ajoutes || 10)} points ajoutés`,
+      donnees.recompenseAtteinte ? 'recompense' : 'succes',
+      donnees.recompenseAtteinte ? 'Récompense débloquée !' : `${Number(donnees.points_ajoutes || 10)} points ajoutés`,
       contenu
     );
     if (aPermission('dashboard')) await actualiserTableau(true);
@@ -1030,7 +1031,20 @@ function dessinerGraphiqueEvolution(evolution) {
   svg.innerHTML = `${lignes}<path d="${chemin('scans')}" fill="none" stroke="#7a52d6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="${chemin('inscriptions')}" fill="none" stroke="#22a978" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${etiquettes}`;
 }
 
+function afficherRecompensesEnAttente() {
+  const recompenses = donneesTableau.recompenses_en_attente || [];
+  $('#panneauRecompensesAttente').hidden = recompenses.length === 0;
+  $('#compteurRecompensesAttente').textContent = recompenses.length;
+  const descriptionRecompense = restaurant?.description_recompense || 'sa récompense';
+  $('#listeRecompensesAttente').innerHTML = recompenses.map(entree => `
+    <div class="ligne-recompense-attente ${entree.expire ? 'expire' : ''}">
+      <div><strong>${echapper(entree.nom)}</strong><span>doit récupérer : ${echapper(descriptionRecompense)}${entree.expire ? ' — code expiré' : ` · valable jusqu’au ${formaterDate(entree.valide_au)}`}</span></div>
+      <span class="code-attente">${echapper(entree.code_retrait)}</span>
+    </div>`).join('');
+}
+
 function afficherStatistiques() {
+  afficherRecompensesEnAttente();
   const statistiques = donneesTableau.statistiques_detaillees;
   if (!statistiques) return;
 

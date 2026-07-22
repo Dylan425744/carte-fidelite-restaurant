@@ -23,6 +23,11 @@ const roueService = require('./roueService');
 const walletAssetSpecifications = require('./walletAssetSpecifications');
 const reglagesService = require('./reglagesService');
 
+// Delai de retrait pour la recompense du programme de fidelite (seuil de
+// points atteint), disponible immediatement contrairement aux gains de la
+// roue qui imposent un delai anti-fraude d'un jour.
+const DUREE_VALIDITE_RECOMPENSE_PROGRAMME_JOURS = 30;
+
 const app = express();
 app.use(cors());
 
@@ -1373,7 +1378,7 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
     const acces = await authentifierEspaceDesign(req, res, 'dashboard');
     if (!acces) return;
 
-    const [resultatClients, tableauParrainage, tableauAntiFraude, statistiquesDetaillees, historiqueRoue] = await Promise.all([
+    const [resultatClients, tableauParrainage, tableauAntiFraude, statistiquesDetaillees, historiqueRoue, recompensesEnAttente] = await Promise.all([
       supabase
         .from('clients')
         .select(
@@ -1384,7 +1389,8 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
       referral.obtenirTableauParrainage(acces.restaurant.id),
       antiFraude.obtenirTableauAntiFraude(acces.restaurant.id),
       analytics.obtenirStatistiques(acces.restaurant.id, 30),
-      obtenirHistoriqueRoue(acces.restaurant.id)
+      obtenirHistoriqueRoue(acces.restaurant.id),
+      obtenirRecompensesProgrammeEnAttente(acces.restaurant.id)
     ]);
 
     const { data: clients, error } = resultatClients;
@@ -1438,6 +1444,7 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
       parrainage: tableauParrainage,
       anti_fraude: tableauAntiFraude,
       statistiques_detaillees: statistiquesDetaillees,
+      recompenses_en_attente: recompensesEnAttente,
       roue: {
         lots: roueService.lotsRestaurant(acces.restaurant),
         couleur_principale: acces.restaurant.roue_couleur_principale || acces.restaurant.couleur_principale || '',
@@ -1453,16 +1460,39 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
   }
 });
 
+async function obtenirRecompensesProgrammeEnAttente(restaurantId) {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('id, nom, email, recompense_code_retrait, recompense_valide_du, recompense_valide_au')
+    .eq('restaurant_id', restaurantId)
+    .not('recompense_code_retrait', 'is', null)
+    .is('recompense_recuperee_le', null)
+    .order('recompense_valide_du', { ascending: false })
+    .limit(30);
+
+  if (error) throw error;
+  const maintenant = new Date();
+  return (data || []).map(client => ({
+    client_id: client.id,
+    nom: client.nom,
+    email: client.email,
+    code_retrait: client.recompense_code_retrait,
+    valide_du: client.recompense_valide_du,
+    valide_au: client.recompense_valide_au,
+    expire: client.recompense_valide_au ? new Date(client.recompense_valide_au) < maintenant : false
+  }));
+}
+
 app.get('/api/restaurateur/:slug/statistiques', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res, 'statistics');
     if (!acces) return;
 
-    const statistiques = await analytics.obtenirStatistiques(
-      acces.restaurant.id,
-      req.query.jours
-    );
-    res.json({ statistiques });
+    const [statistiques, recompensesEnAttente] = await Promise.all([
+      analytics.obtenirStatistiques(acces.restaurant.id, req.query.jours),
+      obtenirRecompensesProgrammeEnAttente(acces.restaurant.id)
+    ]);
+    res.json({ statistiques, recompenses_en_attente: recompensesEnAttente });
   } catch (erreur) {
     console.error(erreur);
     res.status(400).json({ erreur: erreur.message });
@@ -2580,18 +2610,43 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
     );
     let recompenseAtteinte = false;
     let soldeFinal = Number(clientActualise.points || 0);
+    let descriptionRecompense = '';
+    let codeRetraitProgramme = null;
+    let messageRestaurateur = null;
 
     if (soldeFinal >= seuil) {
       recompenseAtteinte = true;
       soldeFinal = 0; // On remet le compteur a zero apres la recompense
+      descriptionRecompense = String(
+        restaurant?.description_recompense || 'une récompense spéciale'
+      ).trim();
+      codeRetraitProgramme = roueService.genererCodeRetrait();
+      const valideDuProgramme = new Date();
+      const valideAuProgramme = new Date(
+        Date.now() + DUREE_VALIDITE_RECOMPENSE_PROGRAMME_JOURS * 24 * 60 * 60 * 1000
+      );
+      messageRestaurateur = `Félicitations, ${client.nom} vient de remporter : ${descriptionRecompense}.`;
 
       await supabase
         .from('clients')
-        .update({ points: soldeFinal })
+        .update({
+          points: soldeFinal,
+          recompense_code_retrait: codeRetraitProgramme,
+          recompense_valide_du: valideDuProgramme.toISOString(),
+          recompense_valide_au: valideAuProgramme.toISOString(),
+          recompense_recuperee_le: null
+        })
         .eq('id', client.id);
 
       try {
-        await email.envoyerEmailRecompense(client.email, client.nom, restaurant);
+        await email.envoyerEmailRecompense(
+          client.email,
+          client.nom,
+          restaurant,
+          codeRetraitProgramme,
+          valideDuProgramme,
+          valideAuProgramme
+        );
       } catch (erreurEmail) {
         console.error('Erreur envoi email recompense:', erreurEmail.message);
       }
@@ -2616,8 +2671,27 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       )
     };
 
+    // Message de felicitations professionnel : remplace ponctuellement le
+    // message habituel ("Vous avez maintenant X points") pour cette seule
+    // mise a jour, sans jamais modifier la configuration enregistree.
+    const restaurantPourWallet = recompenseAtteinte
+      ? {
+          ...restaurant,
+          points_change_message_override:
+            `Félicitations, vous venez de remporter ${descriptionRecompense} ! Nouveau solde : %@ points.`
+        }
+      : restaurant;
+
     try {
-      await wallet.synchroniserObjetWallet(clientPourWallet, restaurant);
+      await wallet.synchroniserObjetWallet(clientPourWallet, restaurantPourWallet);
+      if (recompenseAtteinte) {
+        await wallet.envoyerNotificationWallet(
+          client,
+          'Félicitations !',
+          `Vous venez de remporter ${descriptionRecompense}. Le détail vous a été envoyé par email.`,
+          `recompense-${client.id}-${Date.now()}`
+        );
+      }
     } catch (erreurGoogle) {
       console.error('Erreur mise a jour Google Wallet:', erreurGoogle.message);
     }
@@ -2628,7 +2702,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
         await appleWallet.mettreAJourPasseApple(
           client.apple_wallet_serial,
           clientPourWallet,
-          restaurant
+          restaurantPourWallet
         );
       } catch (erreurApple) {
         console.error('Erreur mise a jour Apple Wallet:', erreurApple.message);
@@ -2686,6 +2760,9 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       nouveauSolde: soldeFinal,
       points_ajoutes: pointsAAjouter,
       recompenseAtteinte,
+      recompense_description: descriptionRecompense || null,
+      recompense_message: messageRestaurateur,
+      recompense_code_retrait: codeRetraitProgramme,
       parrainage_valide: Boolean(parrainageValide),
       bonus_filleul: Number(parrainageValide?.referee_points_awarded || 0),
       bonus_parrain: Number(parrainageValide?.sponsor_points_awarded || 0),
@@ -3103,13 +3180,35 @@ app.post('/api/restaurateur/:slug/cadeaux/valider', async (req, res) => {
       .eq('restaurant_id', acces.restaurant.id)
       .maybeSingle();
 
-    if (!entree) return res.status(404).json({ erreur: 'Code introuvable pour ce restaurant.' });
-    if (entree.utilise) return res.status(400).json({ erreur: 'Ce code a déjà été utilisé.' });
-    if (new Date(entree.cadeau_valide_au) < new Date()) {
+    if (entree) {
+      if (entree.utilise) return res.status(400).json({ erreur: 'Ce code a déjà été utilisé.' });
+      if (new Date(entree.cadeau_valide_au) < new Date()) {
+        return res.status(400).json({ erreur: 'Ce cadeau a expiré.' });
+      }
+      await supabase.from('roue_avis_entries').update({ utilise: true, utilise_le: new Date().toISOString() }).eq('id', entree.id);
+      return res.json({ succes: true, cadeau: entree.cadeau_gagne, valide_au: entree.cadeau_valide_au });
+    }
+
+    const { data: clientRecompense } = await supabase
+      .from('clients')
+      .select('id, nom, recompense_code_retrait, recompense_valide_au, recompense_recuperee_le, restaurant_id')
+      .eq('recompense_code_retrait', code)
+      .eq('restaurant_id', acces.restaurant.id)
+      .maybeSingle();
+
+    if (!clientRecompense) return res.status(404).json({ erreur: 'Code introuvable pour ce restaurant.' });
+    if (clientRecompense.recompense_recuperee_le) {
+      return res.status(400).json({ erreur: 'Ce code a déjà été utilisé.' });
+    }
+    if (new Date(clientRecompense.recompense_valide_au) < new Date()) {
       return res.status(400).json({ erreur: 'Ce cadeau a expiré.' });
     }
-    await supabase.from('roue_avis_entries').update({ utilise: true, utilise_le: new Date().toISOString() }).eq('id', entree.id);
-    res.json({ succes: true, cadeau: entree.cadeau_gagne, valide_au: entree.cadeau_valide_au });
+    await supabase.from('clients').update({ recompense_recuperee_le: new Date().toISOString() }).eq('id', clientRecompense.id);
+    res.json({
+      succes: true,
+      cadeau: acces.restaurant.description_recompense || 'une récompense spéciale',
+      valide_au: clientRecompense.recompense_valide_au
+    });
   } catch (erreur) {
     console.error(erreur);
     res.status(400).json({ erreur: erreur.message });

@@ -214,15 +214,20 @@ async function envoyerEmailCadeau(emailDestinataire, nomClient, restaurant, labe
   await envoyerEmail(emailDestinataire, `Vous avez gagné ${label} chez ${nomRestaurant} !`, texte, html);
 }
 
-async function envoyerEmailRecompense(emailDestinataire, nomClient, restaurant) {
+async function envoyerEmailRecompense(emailDestinataire, nomClient, restaurant, codeRetrait = null, valideDu = null, valideAu = null) {
   const nomRestaurant = restaurant?.nom || 'votre restaurant';
   const descriptionRecompense = restaurant?.description_recompense || 'une récompense spéciale';
+  const aUnCode = Boolean(codeRetrait && valideDu && valideAu);
 
   const texte =
     `Bonjour ${nomClient},\n\n` +
     `Félicitations ! Vous avez atteint le seuil de points chez ${nomRestaurant}.\n\n` +
     `Vous avez droit à : ${descriptionRecompense}\n\n` +
-    `Présentez simplement votre carte de fidélité lors de votre prochaine visite pour en profiter.\n\n` +
+    (aUnCode
+      ? `Utilisable du ${formaterDateLisible(valideDu)} au ${formaterDateLisible(valideAu)}.\n\n` +
+        `Présentez simplement ce code au comptoir de ${nomRestaurant} :\n\n` +
+        `  ${codeRetrait}\n\n`
+      : `Présentez simplement votre carte de fidélité lors de votre prochaine visite pour en profiter.\n\n`) +
     `Merci pour votre fidélité,\n` +
     `L'équipe de ${nomRestaurant}`;
 
@@ -233,7 +238,13 @@ async function envoyerEmailRecompense(emailDestinataire, nomClient, restaurant) 
       <p style="margin:0 0 18px;font-size:22px;font-weight:800;font-family:Arial,Helvetica,sans-serif;color:${COULEUR_TEXTE};line-height:1.3;">Félicitations, votre récompense vous attend !</p>
       <p style="margin:0 0 18px;">Vous avez atteint le seuil de points chez ${echapperHtml(nomRestaurant)}. Vous avez droit à :</p>
       <p style="margin:0 0 18px;font-size:16px;font-weight:700;color:${COULEUR_VIOLET};">${echapperHtml(descriptionRecompense)}</p>
+      ${aUnCode ? `
+      <p style="margin:0 0 4px;color:${COULEUR_SECONDAIRE};font-size:12px;">Utilisable du ${formaterDateLisible(valideDu)} au ${formaterDateLisible(valideAu)}</p>
+      <p style="margin:18px 0 6px;color:${COULEUR_SECONDAIRE};font-size:12px;">Présentez ce code au comptoir de ${echapperHtml(nomRestaurant)}</p>
+      <p style="margin:0;padding:14px 18px;background:#f5f2fa;border-radius:10px;display:inline-block;font-family:'Courier New',monospace;font-size:22px;font-weight:800;letter-spacing:3px;color:${COULEUR_TEXTE};">${echapperHtml(codeRetrait)}</p>
+      ` : `
       <p style="margin:0;">Présentez simplement votre carte de fidélité lors de votre prochaine visite pour en profiter.</p>
+      `}
     `
   });
 

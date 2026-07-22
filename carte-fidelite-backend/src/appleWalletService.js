@@ -266,7 +266,11 @@ function construireChampsCarte(client, restaurant = null) {
       {
         label: pointsLabel,
         value: String(points),
-        changeMessage: 'Vous avez maintenant %@ points.'
+        // Message ponctuel de felicitations lors du franchissement du seuil
+        // de recompense, sinon le message habituel de mise a jour des points.
+        changeMessage: restaurant?.points_change_message_override
+          ? String(restaurant.points_change_message_override).trim().slice(0, 160)
+          : 'Vous avez maintenant %@ points.'
       }
     ],
 
