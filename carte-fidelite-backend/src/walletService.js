@@ -72,11 +72,9 @@ function logoParDefaut() {
 
 function construireClasseFidelite(restaurant) {
   const nom = String(restaurant.nom || 'Bravocard').trim().slice(0, 80);
-  const valeurConfiguree = (champ, valeurParDefaut = '') =>
-    restaurant[champ] === null || restaurant[champ] === undefined
-      ? valeurParDefaut
-      : String(restaurant[champ]).trim();
-  const carteLabel = valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
+  // Google ne lit jamais les libelles de personnalisation Apple. Son rendu
+  // repose sur le programme general du restaurant.
+  const carteLabel = 'FIDÉLITÉ';
 
   // Images propres a Google Wallet : jamais celles d'Apple. Le logo rond
   // retombe sur le logo general du restaurant (Reglages) puis, en dernier
@@ -131,12 +129,9 @@ function construireClasseFidelite(restaurant) {
 }
 
 function construireObjetFidelite(client, restaurant) {
-  const pointsLabel = restaurant.apple_points_label === null || restaurant.apple_points_label === undefined
-    ? 'Points sur 100'
-    : String(restaurant.apple_points_label).trim();
-  const carteLabel = restaurant.apple_card_label === null || restaurant.apple_card_label === undefined
-    ? 'FIDÉLITÉ'
-    : String(restaurant.apple_card_label).trim();
+  const seuilRecompense = Math.max(1, Number.parseInt(restaurant.seuil_recompense || 100, 10));
+  const pointsLabel = `Points sur ${seuilRecompense}`;
+  const carteLabel = 'FIDÉLITÉ';
   const objet = {
     id: getObjectId(client.id),
     classId: getRestaurantClassId(restaurant),

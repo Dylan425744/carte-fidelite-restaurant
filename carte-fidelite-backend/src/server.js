@@ -1143,7 +1143,11 @@ app.put('/api/reglages/:slug', async (req, res) => {
       return res.status(400).json({ erreur: 'Section de réglages inconnue.' });
     }
 
-    const miseAJour = constructeur(req.body);
+    const miseAJour = reglagesService.ajouterSynchronisations(
+      section,
+      constructeur(req.body),
+      acces.restaurant
+    );
 
     const { data, error } = await supabase
       .from('restaurants')
@@ -1155,7 +1159,11 @@ app.put('/api/reglages/:slug', async (req, res) => {
     if (error) throw error;
 
     if (section === 'programme') {
-      await antiFraude.synchroniserAvecProgramme(data.id, data.points_per_scan);
+      await antiFraude.synchroniserAvecProgramme(
+        data.id,
+        data.points_per_scan,
+        acces.restaurant.points_per_scan
+      );
     }
 
     // L'identite (logo, couleurs) et le programme (texte de recompense) sont
@@ -1171,6 +1179,10 @@ app.put('/api/reglages/:slug', async (req, res) => {
       });
     }
 
+    const reglagesAntiFraude = section === 'programme'
+      ? await antiFraude.obtenirReglages(data.id)
+      : null;
+
     res.json({
       succes: true,
       message: 'Enregistré.',
@@ -1178,7 +1190,13 @@ app.put('/api/reglages/:slug', async (req, res) => {
       restaurant: designRestaurant.serialiserRestaurant(
         data,
         appleWallet.designProDisponible()
-      )
+      ),
+      roue: {
+        lots: roueService.lotsRestaurant(data),
+        couleur_principale: data.roue_couleur_principale || data.couleur_principale || '',
+        couleur_secondaire: data.roue_couleur_secondaire || data.couleur_secondaire || ''
+      },
+      anti_fraude_reglages: reglagesAntiFraude
     });
   } catch (erreur) {
     console.error(erreur);

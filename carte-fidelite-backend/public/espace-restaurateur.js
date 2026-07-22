@@ -611,7 +611,7 @@ function actualiserCouleursApercuRoue() {
   dessinerRoueReelle(roue, lotsRoue(), $('#roueCouleurPrincipale').value, $('#roueCouleurSecondaire').value);
 }
 
-function remplirApercuRoue() {
+function remplirApercuRoue(forcerCouleurs = false) {
   const roue = $('#roueApercu');
   if (!roue) return;
   const lots = donneesTableau?.roue?.lots?.length
@@ -624,7 +624,7 @@ function remplirApercuRoue() {
     type: ['gain', 'perdu', 'rejouer'].includes(lot.type) ? lot.type : 'gain'
   }));
   afficherLotsEdition();
-  if (!$('#roueCouleurPrincipale').value || $('#roueCouleurPrincipale').dataset.rempli !== 'oui') {
+  if (forcerCouleurs || !$('#roueCouleurPrincipale').value || $('#roueCouleurPrincipale').dataset.rempli !== 'oui') {
     $('#roueCouleurPrincipale').value = donneesTableau?.roue?.couleur_principale || '#6C3CE9';
     $('#roueCouleurSecondaire').value = donneesTableau?.roue?.couleur_secondaire || '#E8891F';
     $('#roueCouleurPrincipale').dataset.rempli = 'oui';
@@ -1318,6 +1318,7 @@ async function enregistrerSectionReglages(section) {
       body: JSON.stringify(corps)
     });
     donneesTableau.reglages = donnees.reglages;
+    const ancienNomRestaurant = restaurant?.nom || '';
     if (donnees.restaurant) {
       restaurant = { ...restaurant, ...donnees.restaurant };
       donneesTableau.restaurant = restaurant;
@@ -1325,7 +1326,23 @@ async function enregistrerSectionReglages(section) {
       $('#commerceAvatar').textContent = initiales(restaurant.nom);
       $('#messageBienvenue').textContent = `Bonjour ${restaurant.nom} 👋`;
       remplirDesign();
-      remplirApercuRoue();
+      if (!$('#titreNotification').value.trim() || $('#titreNotification').value.trim() === ancienNomRestaurant) {
+        $('#titreNotification').value = restaurant.nom;
+        actualiserApercuNotification();
+      }
+    }
+    if (donnees.roue) {
+      donneesTableau.roue = { ...donneesTableau.roue, ...donnees.roue };
+      remplirApercuRoue(true);
+    }
+    if (donnees.anti_fraude_reglages) {
+      donneesTableau.anti_fraude.reglages = donnees.anti_fraude_reglages;
+      afficherAntiFraude();
+    }
+    const pointsParPassage = Number(donnees.reglages.points_per_scan || 10);
+    $('#scannerInstructionPoints').textContent = `Cadrez entièrement le code affiché dans Apple Wallet ou Google Wallet. Chaque visite validée ajoute automatiquement ${pointsParPassage} points.`;
+    if (aPermission('marketing_view') && kitCommunication && ['identite', 'programme'].includes(section)) {
+      await chargerKitCommunication();
     }
     remplirReglages();
     messageEl.textContent = 'Enregistré.';

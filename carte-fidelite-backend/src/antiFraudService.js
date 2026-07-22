@@ -104,19 +104,27 @@ async function enregistrerReglages(restaurantId, donnees) {
   return serialiserReglages(data, pointsParScan);
 }
 
-async function synchroniserAvecProgramme(restaurantId, pointsParScan) {
+async function synchroniserAvecProgramme(restaurantId, pointsParScan, anciensPointsParScan = null) {
   const minimum = entierDansIntervalle(pointsParScan, 1, 100, 'Les points par passage');
+  const ancienMinimum = Math.max(1, Number(anciensPointsParScan) || minimum);
   const { data: existant, error: erreurLecture } = await supabase
     .from('fraud_settings')
-    .select('max_points_per_scan, max_points_per_day')
+    .select('max_scans_per_day, max_points_per_scan, max_points_per_day')
     .eq('restaurant_id', restaurantId)
     .maybeSingle();
   if (erreurLecture) throw erreurLecture;
 
+  const ancienneLimiteScan = Number(existant?.max_points_per_scan || 0);
+  const anciensScansJour = Number(existant?.max_scans_per_day || REGLAGES_PAR_DEFAUT.max_scans_per_day);
+  const ancienneLimiteJour = Number(existant?.max_points_per_day || 0);
+  const limiteScanHeritee = !existant || ancienneLimiteScan <= ancienMinimum;
+  const limiteJourHeritee = !existant || ancienneLimiteJour === ancienMinimum * anciensScansJour;
   const miseAJour = {
     restaurant_id: restaurantId,
-    max_points_per_scan: Math.max(Number(existant?.max_points_per_scan || 0), minimum),
-    max_points_per_day: Math.max(Number(existant?.max_points_per_day || 0), minimum),
+    max_points_per_scan: limiteScanHeritee ? minimum : Math.max(ancienneLimiteScan, minimum),
+    max_points_per_day: limiteJourHeritee
+      ? minimum * anciensScansJour
+      : Math.max(ancienneLimiteJour, minimum),
     updated_at: new Date().toISOString()
   };
   const { error } = await supabase.from('fraud_settings').upsert(miseAJour, {
@@ -235,6 +243,7 @@ module.exports = {
   enregistrerReglages,
   enregistrerScan,
   synchroniserAvecProgramme,
+  obtenirReglages,
   obtenirTableauAntiFraude,
   traiterAlerte
 };

@@ -92,6 +92,89 @@ function construireMiseAJourAvis(donnees) {
   };
 }
 
+function memeValeur(valeurA, valeurB) {
+  const a = String(valeurA || '').trim().toUpperCase();
+  const b = String(valeurB || '').trim().toUpperCase();
+  return Boolean(a && b && a === b);
+}
+
+function estEncoreHeritee(valeurSpecialisee, ancienneValeurGenerale, valeursGeneriques = []) {
+  const specialisee = String(valeurSpecialisee || '').trim();
+  if (!specialisee) return true;
+  return memeValeur(specialisee, ancienneValeurGenerale) ||
+    valeursGeneriques.some(valeur => memeValeur(specialisee, valeur));
+}
+
+/**
+ * Propage une valeur generale uniquement si le module cible utilise encore
+ * son ancienne valeur heritee. Une vraie personnalisation (valeur differente)
+ * reste donc intacte.
+ */
+function ajouterSynchronisations(section, miseAJour, restaurantActuel) {
+  if (section === 'identite') {
+    const ancienLogo = restaurantActuel.logo_url;
+    const ancienneCouleurPrincipale = restaurantActuel.couleur_principale;
+    const ancienneCouleurSecondaire = restaurantActuel.couleur_secondaire;
+
+    if (estEncoreHeritee(restaurantActuel.apple_logo_text, restaurantActuel.nom)) {
+      miseAJour.apple_logo_text = miseAJour.nom;
+    }
+    ['apple_logo_url', 'apple_icon_url', 'google_program_logo_url', 'communication_logo_url']
+      .forEach(champ => {
+        if (estEncoreHeritee(restaurantActuel[champ], ancienLogo)) {
+          miseAJour[champ] = miseAJour.logo_url;
+        }
+      });
+    const couleursPrincipalesGeneriques = {
+      apple_custom_color: ['#17171D', '#1B1030'],
+      google_custom_color: ['#17171D', '#1B1030'],
+      roue_couleur_principale: ['#6C3CE9'],
+      communication_primary_color: ['#6C3CE9']
+    };
+    Object.entries(couleursPrincipalesGeneriques).forEach(([champ, valeursGeneriques]) => {
+        if (estEncoreHeritee(restaurantActuel[champ], ancienneCouleurPrincipale, valeursGeneriques)) {
+          miseAJour[champ] = miseAJour.couleur_principale;
+        }
+      });
+    const couleursSecondairesGeneriques = {
+      roue_couleur_secondaire: ['#E8891F'],
+      communication_secondary_color: ['#E8891F']
+    };
+    Object.entries(couleursSecondairesGeneriques).forEach(([champ, valeursGeneriques]) => {
+      if (estEncoreHeritee(restaurantActuel[champ], ancienneCouleurSecondaire, valeursGeneriques)) {
+        miseAJour[champ] = miseAJour.couleur_secondaire;
+      }
+    });
+  }
+
+  if (section === 'programme') {
+    const ancienSeuil = Number(restaurantActuel.seuil_recompense || 100);
+    const ancienTexte = restaurantActuel.description_recompense;
+    if (estEncoreHeritee(
+      restaurantActuel.apple_points_label,
+      `POINTS SUR ${ancienSeuil}`,
+      ['POINTS FIDELITE', 'POINTS FIDÉLITÉ']
+    )) {
+      miseAJour.apple_points_label = `POINTS SUR ${miseAJour.seuil_recompense}`;
+    }
+    if (estEncoreHeritee(
+      restaurantActuel.apple_reward_text,
+      ancienTexte,
+      ['RECOMPENSE A DEBLOQUER', 'RÉCOMPENSE À DÉBLOQUER']
+    )) {
+      miseAJour.apple_reward_text = miseAJour.description_recompense;
+    }
+    if (estEncoreHeritee(restaurantActuel.reward_title, ancienTexte)) {
+      miseAJour.reward_title = miseAJour.description_recompense;
+    }
+    if (estEncoreHeritee(restaurantActuel.reward_description, ancienTexte)) {
+      miseAJour.reward_description = miseAJour.description_recompense;
+    }
+  }
+
+  return miseAJour;
+}
+
 function nomReellementConfigure(nom) {
   const texte = String(nom || '').trim().toLowerCase();
   return Boolean(texte) && !NOMS_GENERIQUES.includes(texte);
@@ -176,6 +259,7 @@ module.exports = {
   construireMiseAJourContact,
   construireMiseAJourProgramme,
   construireMiseAJourAvis,
+  ajouterSynchronisations,
   calculerCompletion,
   serialiserReglages
 };
