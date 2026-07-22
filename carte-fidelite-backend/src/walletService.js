@@ -71,7 +71,7 @@ function logoParDefaut() {
 }
 
 function construireClasseFidelite(restaurant) {
-  const nom = String(restaurant.nom || 'Bravocard').trim().slice(0, 80);
+  const nom = String(restaurant.wallet_display_name || restaurant.nom || 'Bravocard').trim().slice(0, 80);
   // Google ne lit jamais les libelles de personnalisation Apple. Son rendu
   // repose sur le programme general du restaurant.
   const carteLabel = 'FIDÉLITÉ';
@@ -130,8 +130,9 @@ function construireClasseFidelite(restaurant) {
 
 function construireObjetFidelite(client, restaurant) {
   const seuilRecompense = Math.max(1, Number.parseInt(restaurant.seuil_recompense || 100, 10));
-  const pointsLabel = `Points sur ${seuilRecompense}`;
-  const carteLabel = 'FIDÉLITÉ';
+  const pointsLabel = String(restaurant.wallet_points_label || `Points sur ${seuilRecompense}`).trim();
+  const carteLabel = String(restaurant.wallet_card_label || 'FIDÉLITÉ').trim();
+  const recompense = String(restaurant.wallet_reward_text || restaurant.description_recompense || '').trim();
   const objet = {
     id: getObjectId(client.id),
     classId: getRestaurantClassId(restaurant),
@@ -149,7 +150,11 @@ function construireObjetFidelite(client, restaurant) {
     },
     textModulesData: [
       { id: 'client', header: 'CLIENT', body: client.nom },
-      ...(carteLabel ? [{ id: 'type_carte', header: 'CARTE', body: carteLabel }] : [])
+      ...(carteLabel ? [{ id: 'type_carte', header: 'CARTE', body: carteLabel }] : []),
+      ...(recompense ? [{ id: 'recompense', header: 'RÉCOMPENSE', body: recompense }] : []),
+      ...(restaurant.telephone ? [{ id: 'telephone', header: 'TÉLÉPHONE', body: String(restaurant.telephone) }] : []),
+      ...(restaurant.adresse ? [{ id: 'adresse', header: 'ADRESSE', body: String(restaurant.adresse) }] : []),
+      ...(restaurant.email_public ? [{ id: 'contact', header: 'CONTACT', body: String(restaurant.email_public) }] : [])
     ]
   };
 
@@ -161,11 +166,11 @@ function construireObjetFidelite(client, restaurant) {
     });
   }
 
-  if (client.referral_link) {
-    objet.linksModuleData = {
-      uris: [{ id: 'parrainage', uri: client.referral_link, description: 'Parrainer un proche' }]
-    };
-  }
+  const liens = [
+    ...(restaurant.site_web ? [{ id: 'site_restaurant', uri: restaurant.site_web, description: 'Site du restaurant' }] : []),
+    ...(client.referral_link ? [{ id: 'parrainage', uri: client.referral_link, description: 'Parrainer un proche' }] : [])
+  ];
+  if (liens.length) objet.linksModuleData = { uris: liens };
   return objet;
 }
 

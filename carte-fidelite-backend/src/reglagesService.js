@@ -116,6 +116,9 @@ function ajouterSynchronisations(section, miseAJour, restaurantActuel) {
     const ancienneCouleurPrincipale = restaurantActuel.couleur_principale;
     const ancienneCouleurSecondaire = restaurantActuel.couleur_secondaire;
 
+    if (estEncoreHeritee(restaurantActuel.wallet_display_name, restaurantActuel.nom)) {
+      miseAJour.wallet_display_name = miseAJour.nom;
+    }
     if (estEncoreHeritee(restaurantActuel.apple_logo_text, restaurantActuel.nom)) {
       miseAJour.apple_logo_text = miseAJour.nom;
     }
@@ -151,6 +154,13 @@ function ajouterSynchronisations(section, miseAJour, restaurantActuel) {
     const ancienSeuil = Number(restaurantActuel.seuil_recompense || 100);
     const ancienTexte = restaurantActuel.description_recompense;
     if (estEncoreHeritee(
+      restaurantActuel.wallet_points_label,
+      `POINTS SUR ${ancienSeuil}`,
+      ['POINTS FIDELITE', 'POINTS FIDÉLITÉ']
+    )) {
+      miseAJour.wallet_points_label = `POINTS SUR ${miseAJour.seuil_recompense}`;
+    }
+    if (estEncoreHeritee(
       restaurantActuel.apple_points_label,
       `POINTS SUR ${ancienSeuil}`,
       ['POINTS FIDELITE', 'POINTS FIDÉLITÉ']
@@ -163,6 +173,13 @@ function ajouterSynchronisations(section, miseAJour, restaurantActuel) {
       ['RECOMPENSE A DEBLOQUER', 'RÉCOMPENSE À DÉBLOQUER']
     )) {
       miseAJour.apple_reward_text = miseAJour.description_recompense;
+    }
+    if (estEncoreHeritee(
+      restaurantActuel.wallet_reward_text,
+      ancienTexte,
+      ['RECOMPENSE A DEBLOQUER', 'RÉCOMPENSE À DÉBLOQUER']
+    )) {
+      miseAJour.wallet_reward_text = miseAJour.description_recompense;
     }
     if (estEncoreHeritee(restaurantActuel.reward_title, ancienTexte)) {
       miseAJour.reward_title = miseAJour.description_recompense;

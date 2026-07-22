@@ -208,14 +208,16 @@ function construireChampsCarte(client, restaurant = null) {
   };
   // Sans réglage explicite du restaurateur, le nom du restaurant sert de
   // texte par défaut (y compris s'il a été explicitement vidé).
-  const logoText = valeurConfiguree('apple_logo_text') || nomRestaurant;
-  const pointsLabel = valeurConfiguree('apple_points_label', 'POINTS SUR 100');
-  const carteLabel = valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
+  const logoText = valeurConfiguree('wallet_display_name') || valeurConfiguree('apple_logo_text') || nomRestaurant;
+  const pointsLabel = valeurConfiguree('wallet_points_label') ||
+    valeurConfiguree('apple_points_label', `POINTS SUR ${Number(restaurant?.seuil_recompense || 100)}`);
+  const carteLabel = valeurConfiguree('wallet_card_label') || valeurConfiguree('apple_card_label', 'FIDÉLITÉ');
   // Sans texte specifique a la carte Apple, on reprend la recompense
   // generale du programme de fidelite (Reglages). Si rien n'est configure
   // nulle part, la carte n'affiche rien a cet endroit plutot qu'un texte
   // generique fige.
-  const texteRecompense = valeurConfiguree('apple_reward_text') || String(restaurant?.description_recompense || '').trim();
+  const texteRecompense = valeurConfiguree('wallet_reward_text') ||
+    valeurConfiguree('apple_reward_text') || String(restaurant?.description_recompense || '').trim();
   const conditions = valeurConfiguree(
     'apple_terms',
     'Conditions du programme disponibles auprès du restaurant.'
@@ -304,6 +306,10 @@ function construireChampsCarte(client, restaurant = null) {
         label: 'IDENTIFIANT DE LA CARTE',
         value: String(client.id)
       },
+      ...(restaurant?.telephone ? [{ label: 'TÉLÉPHONE', value: String(restaurant.telephone) }] : []),
+      ...(restaurant?.adresse ? [{ label: 'ADRESSE', value: String(restaurant.adresse) }] : []),
+      ...(restaurant?.email_public ? [{ label: 'CONTACT', value: String(restaurant.email_public) }] : []),
+      ...(restaurant?.site_web ? [{ label: 'SITE INTERNET', value: String(restaurant.site_web) }] : []),
       {
         label: 'PROPULSÉ PAR',
         value: 'Bravocard'

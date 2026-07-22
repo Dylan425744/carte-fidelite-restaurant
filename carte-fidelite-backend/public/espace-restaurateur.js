@@ -144,7 +144,9 @@ function ouvrirVue(nom) {
     equipe: 'Mon équipe', compte: 'Mon compte'
   }[nom];
   if (nom === 'equipe') chargerEquipe();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Un saut instantane evite les oscillations visuelles lors du changement
+  // entre deux vues dont la hauteur est tres differente.
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
 function afficherOffreDemandee() {
@@ -1341,7 +1343,8 @@ async function enregistrerSectionReglages(section) {
     }
     const pointsParPassage = Number(donnees.reglages.points_per_scan || 10);
     $('#scannerInstructionPoints').textContent = `Cadrez entièrement le code affiché dans Apple Wallet ou Google Wallet. Chaque visite validée ajoute automatiquement ${pointsParPassage} points.`;
-    if (aPermission('marketing_view') && kitCommunication && ['identite', 'programme'].includes(section)) {
+    if (supportsMarketing && section === 'identite') afficherSupportsMarketing();
+    if (aPermission('marketing_view') && kitCommunication && ['identite', 'contact', 'programme'].includes(section)) {
       await chargerKitCommunication();
     }
     remplirReglages();
@@ -1498,18 +1501,18 @@ function remplirDesign() {
   if (choixFormat) choixFormat.checked = true;
 
   const correspondancesCommunes = {
-    walletPointsLabel: 'apple_points_label',
-    walletCardLabel: 'apple_card_label',
-    walletRewardText: 'apple_reward_text',
+    walletRestaurantName: 'wallet_display_name',
+    walletPointsLabel: 'wallet_points_label',
+    walletCardLabel: 'wallet_card_label',
+    walletRewardText: 'wallet_reward_text',
     appleColor: 'apple_custom_color',
-    appleLogoText: 'apple_logo_text',
     appleTerms: 'apple_terms'
   };
   for (const [id, champ] of Object.entries(correspondancesCommunes)) $(`#${id}`).value = restaurant[champ] || '';
-  $('#appleLogoText').value = restaurant.apple_logo_text || nomRestaurant;
-  $('#walletPointsLabel').value = restaurant.apple_points_label || `POINTS SUR ${reglages.seuil_recompense || restaurant.seuil_recompense || 100}`;
-  $('#walletCardLabel').value = restaurant.apple_card_label || 'FIDÉLITÉ';
-  $('#walletRewardText').value = restaurant.apple_reward_text || reglages.description_recompense || restaurant.description_recompense || 'Récompense à débloquer';
+  $('#walletRestaurantName').value = restaurant.wallet_display_name || nomRestaurant;
+  $('#walletPointsLabel').value = restaurant.wallet_points_label || `POINTS SUR ${reglages.seuil_recompense || restaurant.seuil_recompense || 100}`;
+  $('#walletCardLabel').value = restaurant.wallet_card_label || 'FIDÉLITÉ';
+  $('#walletRewardText').value = restaurant.wallet_reward_text || reglages.description_recompense || restaurant.description_recompense || 'Récompense à débloquer';
   $('#appleColor').value = restaurant.apple_custom_color || couleurPrincipale;
   $('#appleColorPicker').value = /^#[0-9a-f]{6}$/i.test(restaurant.apple_custom_color || '')
     ? restaurant.apple_custom_color
@@ -1518,9 +1521,7 @@ function remplirDesign() {
   $('#googleColorPicker').value = /^#[0-9a-f]{6}$/i.test(restaurant.google_custom_color || '')
     ? restaurant.google_custom_color
     : (/^#[0-9a-f]{6}$/i.test(couleurPrincipale) ? couleurPrincipale : '#17171D');
-  $('#appleLogoText').placeholder = restaurant.nom
-    ? `Laissez vide pour afficher « ${restaurant.nom} »`
-    : 'Laissez vide pour reprendre le nom du restaurant';
+  $('#walletRestaurantName').placeholder = nomRestaurant || 'Nom du restaurant';
 
   const correspondancesAssets = {
     'apple.logo': 'apple_logo_url',
@@ -1552,7 +1553,7 @@ function actualiserApercuWallet() {
   const exacte = $('#appleColor').value;
   $('#wallet').style.background = /^#[0-9a-f]{6}$/i.test(exacte)
     ? exacte : couleursWallet.dark;
-  const logoTexte = $('#appleLogoText').value.trim() || restaurant?.nom || 'Bravocard';
+  const logoTexte = $('#walletRestaurantName').value.trim() || restaurant?.nom || 'Bravocard';
   const pointsTexte = $('#walletPointsLabel').value.trim();
   const carteTexte = $('#walletCardLabel').value.trim();
   const recompenseTexte = $('#walletRewardText').value.trim();
@@ -1568,7 +1569,7 @@ function actualiserApercuWallet() {
   const imageLogo = $('#previewLogoImage');
   imageLogo.src = logo;
   imageLogo.classList.toggle('visible', Boolean(logo));
-  $('#previewLogo').hidden = Boolean(logo) || !logoTexte;
+  $('#previewLogo').hidden = !logoTexte;
   const zoneBanniere = $('#previewBanniere');
   zoneBanniere.style.backgroundImage = banniere ? `url("${banniere.replace(/"/g, '%22')}")` : '';
   zoneBanniere.classList.toggle('visible', Boolean(banniere));
@@ -1582,12 +1583,16 @@ function actualiserApercuGoogleWallet() {
     ? exacte : couleursWallet.dark;
   const pointsTexte = $('#walletPointsLabel').value.trim();
   const carteTexte = $('#walletCardLabel').value.trim();
-  $('#googlePreviewProgramme').textContent = restaurant?.nom || '';
-  $('#googlePreviewProgramme').hidden = !restaurant?.nom;
+  const recompenseTexte = $('#walletRewardText').value.trim();
+  const nomWallet = $('#walletRestaurantName').value.trim() || restaurant?.nom || '';
+  $('#googlePreviewProgramme').textContent = nomWallet;
+  $('#googlePreviewProgramme').hidden = !nomWallet;
   $('#googlePreviewPointsLabel').textContent = pointsTexte;
   $('#googlePreviewPointsLabel').hidden = !pointsTexte;
   $('#googlePreviewCardLabel').textContent = carteTexte;
   $('#googlePreviewCardLabel').parentElement.hidden = !carteTexte;
+  $('#googlePreviewRecompense').textContent = recompenseTexte;
+  $('#googlePreviewBlocRecompense').hidden = !recompenseTexte;
 
   const logoRond = valeurAsset('google', 'logoRond');
   const logoLarge = valeurAsset('google', 'logoLarge');
@@ -1963,10 +1968,10 @@ async function enregistrerDesign() {
     apple_color_preset: 'dark',
     apple_custom_color: $('#appleColor').value,
     google_custom_color: $('#googleColor').value,
-    apple_points_label: $('#walletPointsLabel').value,
-    apple_card_label: $('#walletCardLabel').value,
-    apple_reward_text: $('#walletRewardText').value,
-    apple_logo_text: $('#appleLogoText').value,
+    wallet_display_name: $('#walletRestaurantName').value,
+    wallet_points_label: $('#walletPointsLabel').value,
+    wallet_card_label: $('#walletCardLabel').value,
+    wallet_reward_text: $('#walletRewardText').value,
     apple_terms: $('#appleTerms').value,
     apple_logo_url: valeurAsset('apple', 'logo'),
     apple_strip_url: valeurAsset('apple', 'banniere'),

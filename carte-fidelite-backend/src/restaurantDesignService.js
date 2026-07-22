@@ -98,6 +98,10 @@ function construireMiseAJourDesign(donnees) {
   const miseAJour = {
     wallet_barcode_format: donnees.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128',
     apple_color_preset: preset,
+    wallet_display_name: nettoyerTexteOptionnel(donnees.wallet_display_name, 80),
+    wallet_points_label: nettoyerTexteOptionnel(donnees.wallet_points_label, 28),
+    wallet_card_label: nettoyerTexteOptionnel(donnees.wallet_card_label, 28),
+    wallet_reward_text: nettoyerTexteOptionnel(donnees.wallet_reward_text, 90),
     apple_logo_text: nettoyerTexteOptionnel(donnees.apple_logo_text, 32),
     apple_points_label: nettoyerTexteOptionnel(donnees.apple_points_label, 28),
     apple_card_label: nettoyerTexteOptionnel(donnees.apple_card_label, 28),
@@ -164,6 +168,16 @@ function serialiserRestaurant(restaurant, proDisponible) {
       ? restaurant.apple_color_preset
       : 'dark',
     apple_logo_text: restaurant.apple_logo_text || '',
+    wallet_display_name: valeurOuDefaut(restaurant.wallet_display_name, restaurant.nom || ''),
+    wallet_points_label: valeurOuDefaut(
+      restaurant.wallet_points_label,
+      `POINTS SUR ${Number(restaurant.seuil_recompense || 100)}`
+    ),
+    wallet_card_label: valeurOuDefaut(restaurant.wallet_card_label, 'FIDÉLITÉ'),
+    wallet_reward_text: valeurOuDefaut(
+      restaurant.wallet_reward_text,
+      restaurant.description_recompense || 'Récompense à débloquer'
+    ),
     apple_points_label: valeurOuDefaut(restaurant.apple_points_label, 'POINTS SUR 100'),
     wallet_barcode_format: restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128',
     apple_card_label: valeurOuDefaut(restaurant.apple_card_label, 'FIDÉLITÉ'),

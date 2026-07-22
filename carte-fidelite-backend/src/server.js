@@ -55,6 +55,10 @@ const CHAMPS_RESTAURANT = [
   'apple_logo_text',
   'apple_points_label',
   'apple_card_label',
+  'wallet_display_name',
+  'wallet_points_label',
+  'wallet_card_label',
+  'wallet_reward_text',
   'wallet_barcode_format',
   'apple_custom_color',
   'google_custom_color',
@@ -1166,9 +1170,8 @@ app.put('/api/reglages/:slug', async (req, res) => {
       );
     }
 
-    // L'identite (logo, couleurs) et le programme (texte de recompense) sont
-    // utilises comme valeurs par defaut sur les cartes Wallet existantes.
-    if (section === 'identite' || section === 'programme') {
+    // Identite, contact et programme alimentent les cartes Wallet existantes.
+    if (['identite', 'contact', 'programme'].includes(section)) {
       setImmediate(() => {
         actualiserCartesAppleEnArrierePlan(data);
         actualiserClasseGoogleEnArrierePlan(data);
