@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1500" role="img" aria-labelledby="title desc">
+  <title id="title">Maquette Bravocard — ajout de la carte Wallet</title>
+  <desc id="desc">Affiche bronze avec téléphone, QR code, boutons Apple et Google Wallet et trois étapes.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" class="wallet-background-secondary-stop" stop-color="#2A211C"/><stop offset=".42" class="wallet-background-primary-stop" stop-color="#5C3A27"/><stop offset=".72" class="wallet-background-primary-deep-stop" stop-color="#302620"/><stop offset="1" stop-color="#120F10"/>
+    </linearGradient>
+    <radialGradient id="top-glow" cx="50%" cy="17%" r="55%"><stop offset="0" class="wallet-secondary-stop" stop-color="#F0B45A" stop-opacity=".42"/><stop offset=".55" class="wallet-primary-stop" stop-color="#A94E20" stop-opacity=".14"/><stop offset="1" class="wallet-primary-stop" stop-color="#A94E20" stop-opacity="0"/></radialGradient>
+    <radialGradient id="floor-glow" cx="56%" cy="82%" r="52%"><stop offset="0" class="wallet-secondary-stop" stop-color="#F0B45A" stop-opacity=".28"/><stop offset="1" class="wallet-secondary-stop" stop-color="#F0B45A" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="wallet-secondary-light-stop" stop-color="#FFF0B4"/><stop offset=".22" class="wallet-secondary-stop" stop-color="#F0B45A"/><stop offset=".55" class="wallet-primary-stop" stop-color="#A94E20"/><stop offset=".78" class="wallet-secondary-light-stop" stop-color="#FFD77A"/><stop offset="1" class="wallet-primary-deep-stop" stop-color="#7D2F14"/></linearGradient>
+    <linearGradient id="pass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="wallet-primary-stop" stop-color="#D06A2D"/><stop offset=".5" class="wallet-primary-stop" stop-color="#A94E20"/><stop offset="1" class="wallet-primary-deep-stop" stop-color="#54200F"/></linearGradient>
+    <linearGradient id="phone-edge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="wallet-secondary-light-stop" stop-color="#FFF0B4"/><stop offset=".1" class="wallet-primary-deep-stop" stop-color="#6E3C1F"/><stop offset=".28" stop-color="#171415"/><stop offset=".72" stop-color="#050506"/><stop offset=".9" class="wallet-secondary-stop" stop-color="#F0B45A"/><stop offset="1" class="wallet-primary-deep-stop" stop-color="#4E2415"/></linearGradient>
+    <linearGradient id="qr-card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFDF7"/><stop offset=".65" stop-color="#F4EBDD"/><stop offset="1" stop-color="#DAC8B1"/></linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="wallet-primary-stop" stop-color="#A94E20"/><stop offset="1" class="wallet-secondary-stop" stop-color="#F0B45A"/></linearGradient>
+    <filter id="soft-shadow" x="-40%" y="-30%" width="190%" height="190%"><feDropShadow dx="0" dy="24" stdDeviation="24" flood-color="#090607" flood-opacity=".65"/></filter>
+    <filter id="gold-glow" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow class="wallet-secondary-shadow" dx="0" dy="0" stdDeviation="9" flood-color="#F0B45A" flood-opacity=".48"/></filter>
+    <filter id="small-shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="5" dy="10" stdDeviation="9" flood-color="#120B08" flood-opacity=".45"/></filter>
+  </defs>
+
+  <!-- Fond généré à partir des deux couleurs, indépendant de toute photographie -->
+  <rect width="1000" height="1500" fill="url(#background)"/>
+  <rect width="1000" height="1500" fill="url(#top-glow)"/>
+  <rect width="1000" height="1500" fill="url(#floor-glow)"/>
+  <path d="M0 1180C220 1115 795 1115 1000 1190V1500H0Z" fill="#130F10" opacity=".38"/>
+
+  <!-- Identité et titres, entièrement éditables -->
+  <g id="restaurant-brand">
+    <text x="500" y="109" fill="#FFF9EF" stroke="#3E180D" stroke-width="1" paint-order="stroke" font-family="Georgia, Times New Roman, serif" font-size="52" font-weight="700" text-anchor="middle">Bella Fiamma</text>
+    <line x1="302" y1="142" x2="365" y2="142" class="wallet-secondary-stroke" stroke="#F0B45A" stroke-width="2"/>
+    <text x="500" y="149" fill="#F0B45A" font-family="Inter, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="6" text-anchor="middle">PIZZERIA ITALIANA</text>
+    <line x1="635" y1="142" x2="698" y2="142" class="wallet-secondary-stroke" stroke="#F0B45A" stroke-width="2"/>
+  </g>
+
+  <g id="headline" text-anchor="middle">
+    <text x="500" y="241" fill="#FFF9EF" stroke="#411A0E" stroke-width="2" paint-order="stroke" font-family="Georgia, Times New Roman, serif" font-size="61" font-weight="700" letter-spacing="2">AJOUTEZ VOTRE</text>
+    <text x="500" y="311" fill="#FFF9EF" stroke="#411A0E" stroke-width="2" paint-order="stroke" font-family="Georgia, Times New Roman, serif" font-size="61" font-weight="700" letter-spacing="2">CARTE DE FIDÉLITÉ</text>
+    <line x1="100" y1="369" x2="160" y2="369" class="wallet-secondary-stroke" stroke="#F0B45A" stroke-width="2"/>
+    <text x="500" y="374" fill="#F0B45A" font-family="Inter, Helvetica, Arial, sans-serif" font-size="21" font-weight="800" letter-spacing="3">DIRECTEMENT DANS APPLE WALLET</text>
+    <text x="500" y="407" fill="#F0B45A" font-family="Inter, Helvetica, Arial, sans-serif" font-size="21" font-weight="800" letter-spacing="3">OU GOOGLE WALLET</text>
+    <line x1="840" y1="369" x2="900" y2="369" class="wallet-secondary-stroke" stroke="#F0B45A" stroke-width="2"/>
+  </g>
+
+  <!-- Téléphone -->
+  <g id="phone" transform="rotate(-3 420 805)" filter="url(#soft-shadow)">
+    <rect x="250" y="455" width="360" height="690" rx="70" fill="#0A0809" opacity=".35"/>
+    <rect x="238" y="440" width="360" height="690" rx="70" fill="url(#phone-edge)" stroke="#FFE9A6" stroke-width="3"/>
+    <rect x="255" y="457" width="326" height="656" rx="55" fill="#08090A" stroke="#3A2D29" stroke-width="2"/>
+    <rect x="348" y="468" width="136" height="30" rx="15" fill="#020203"/>
+    <circle cx="462" cy="483" r="4" fill="#19191C"/>
+    <rect x="228" y="555" width="10" height="72" rx="5" fill="#6A3B22"/><rect x="228" y="650" width="10" height="108" rx="5" fill="#6A3B22"/>
+    <text x="283" y="505" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="800">9:41</text>
+    <g transform="translate(490 486)" fill="#FFFFFF"><rect width="4" height="7" rx="1"/><rect x="7" y="-3" width="4" height="10" rx="1"/><rect x="14" y="-7" width="4" height="14" rx="1"/><path d="M25 1q8-8 16 0M29 4q4-4 8 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><rect x="47" y="-8" width="25" height="13" rx="3" fill="none" stroke="#fff" stroke-width="2"/></g>
+
+    <rect x="286" y="570" width="266" height="179" rx="20" fill="url(#pass)" stroke="#FFCE74" stroke-opacity=".5"/>
+    <ellipse cx="360" cy="590" rx="68" ry="23" fill="#FFFFFF" opacity=".08" transform="rotate(-15 360 590)"/>
+    <text x="307" y="614" fill="#FFF8EB" font-family="Georgia, Times New Roman, serif" font-size="21" font-weight="700">Bella Fiamma</text>
+    <text x="528" y="614" fill="#FFE09A" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="800" text-anchor="end">FIDÉLITÉ</text>
+    <text x="307" y="696" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="800">CARTE DE FIDÉLITÉ</text>
+    <text x="307" y="720" fill="#FFF5E5" font-family="Inter, Arial, sans-serif" font-size="14">Merci pour votre fidélité !</text>
+
+    <circle cx="418" cy="825" r="32" fill="none" stroke="#6CEBFF" stroke-width="3"/>
+    <path d="M404 826l10 10 21-27" fill="none" stroke="#6CEBFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="418" y="878" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="600" text-anchor="middle">Ajoutée</text>
+    <g><rect x="306" y="1003" width="230" height="48" rx="10" fill="#4D4538"/><rect x="306" y="992" width="230" height="48" rx="10" fill="#C6AE7E"/><rect x="306" y="981" width="230" height="48" rx="10" fill="#F1DFC0"/><rect x="306" y="970" width="230" height="48" rx="10" fill="#6B604D"/></g>
+    <rect x="367" y="1081" width="103" height="5" rx="2.5" fill="#F3F1F3"/>
+  </g>
+
+  <!-- Carte QR -->
+  <g id="qr-card" transform="rotate(5 690 840)" filter="url(#small-shadow)">
+    <rect x="535" y="675" width="330" height="430" rx="38" fill="#2B160D" opacity=".32"/>
+    <rect x="522" y="660" width="330" height="430" rx="38" fill="url(#qr-card)" stroke="url(#gold)" stroke-width="4"/>
+    <text x="687" y="710" fill="#1B1716" font-family="Inter, Helvetica, Arial, sans-serif" font-size="28" font-weight="900" letter-spacing="1" text-anchor="middle">SCANNEZ-MOI</text>
+    <rect x="559" y="733" width="256" height="236" rx="16" fill="#FFFFFF" class="wallet-secondary-stroke" stroke="#F0B45A" stroke-width="3"/>
+    <svg x="576" y="743" width="222" height="222" viewBox="0 0 45 45" shape-rendering="crispEdges"><path fill="#FFFFFF" d="M0 0h45v45H0z"/><path stroke="#111111" d="M2 2.5h7m1 0h2m1 0h1m4 0h2m1 0h2m2 0h1m1 0h1m2 0h2m1 0h2m1 0h7M2 3.5h1m5 0h1m1 0h1m1 0h5m2 0h2m1 0h1m1 0h1m2 0h4m3 0h1m1 0h1m5 0h1M2 4.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h1m1 0h2m2 0h1m2 0h1m1 0h1m1 0h2m3 0h1m1 0h1m1 0h3m1 0h1M2 5.5h1m1 0h3m1 0h1m3 0h3m4 0h1m1 0h3m1 0h1m2 0h1m1 0h2m2 0h1m1 0h1m1 0h3m1 0h1M2 6.5h1m1 0h3m1 0h1m2 0h1m2 0h1m1 0h1m2 0h1m2 0h1m1 0h1m1 0h2m2 0h1m1 0h3m1 0h1m1 0h3m1 0h1M2 7.5h1m5 0h1m1 0h1m1 0h2m2 0h3m3 0h1m3 0h2m1 0h1m1 0h2m1 0h1m1 0h1m5 0h1M2 8.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M10 9.5h1m1 0h1m3 0h6m2 0h1m3 0h2m2 0h1M4 10.5h3m1 0h1m1 0h2m3 0h1m1 0h4m1 0h2m2 0h3m2 0h1m3 0h3m2 0h3M2 11.5h1m2 0h3m3 0h1m1 0h4m1 0h1m1 0h4m1 0h4m1 0h1m2 0h2m1 0h3m1 0h3M3 12.5h6m3 0h8m1 0h2m1 0h4m1 0h4m1 0h1m1 0h3M4 13.5h1m2 0h1m1 0h2m4 0h1m2 0h1m1 0h6m4 0h1m1 0h3m2 0h3M4 14.5h6m1 0h1m1 0h2m2 0h1m1 0h4m3 0h1m3 0h2m1 0h1m3 0h1m1 0h2M4 15.5h3m2 0h2m2 0h1m3 0h3m1 0h2m1 0h4m1 0h1m3 0h6m2 0h2M4 16.5h3m1 0h2m2 0h1m3 0h2m1 0h2m2 0h1m1 0h3m1 0h4m1 0h2m4 0h1M5 17.5h2m2 0h1m1 0h1m1 0h4m3 0h1m3 0h1m1 0h1m2 0h1m2 0h1m3 0h4M3 18.5h1m2 0h3m1 0h2m1 0h2m1 0h3m2 0h1m1 0h4m1 0h4m2 0h2m1 0h1m2 0h1m1 0h1M2 19.5h4m4 0h1m1 0h4m1 0h3m1 0h3m3 0h1m3 0h4m1 0h5m1 0h1M2 20.5h1m5 0h3m3 0h1m4 0h1m6 0h1m2 0h1m4 0h2m2 0h1M4 21.5h2m1 0h1m2 0h1m2 0h1m1 0h2m1 0h4m1 0h1m1 0h1m1 0h4m4 0h2m1 0h1M3 22.5h1m2 0h1m1 0h2m3 0h1m3 0h1m3 0h2m1 0h2m1 0h3m1 0h1m3 0h1m3 0h3M2 23.5h4m5 0h2m1 0h1m1 0h1m2 0h1m1 0h3m1 0h1m1 0h1m2 0h1m1 0h5m1 0h5M4 24.5h3m1 0h1m1 0h2m2 0h3m1 0h1m1 0h8m1 0h1m1 0h2m1 0h2m1 0h2M3 25.5h1m3 0h1m1 0h9m1 0h2m5 0h3m1 0h1m1 0h2m2 0h1m1 0h2m2 0h1M2 26.5h8m2 0h1m1 0h1m1 0h2m1 0h4m1 0h2m1 0h1m3 0h1m8 0h1M3 27.5h2m4 0h1m1 0h1m1 0h3m3 0h1m3 0h1m6 0h1m1 0h2m2 0h4m1 0h2M2 28.5h1m1 0h2m1 0h3m1 0h2m1 0h1m1 0h5m1 0h1m5 0h2m4 0h1M4 29.5h2m1 0h1m1 0h2m3 0h1m3 0h2m1 0h8m1 0h1m1 0h5m1 0h2m1 0h2M2 30.5h1m2 0h1m1 0h4m1 0h3m2 0h1m3 0h2m1 0h2m1 0h1m1 0h1m1 0h1m1 0h1m5 0h3M2 31.5h4m3 0h4m1 0h3m1 0h1m1 0h1m1 0h1m4 0h4m1 0h8m1 0h2M2 32.5h1m1 0h3m1 0h5m2 0h2m3 0h1m1 0h1m1 0h1m1 0h2m4 0h1m1 0h3M2 33.5h1m1 0h1m2 0h1m2 0h4m1 0h2m5 0h2m2 0h2m2 0h1m4 0h3m3 0h1M2 34.5h1m1 0h2m1 0h2m1 0h2m2 0h5m1 0h3m1 0h1m5 0h2m1 0h6m1 0h1M10 35.5h1m1 0h3m1 0h3m2 0h1m1 0h2m1 0h3m1 0h1m1 0h1m1 0h1m3 0h5M2 36.5h7m2 0h3m1 0h2m2 0h2m2 0h4m1 0h2m2 0h3m1 0h1m1 0h3M2 37.5h1m5 0h1m2 0h4m1 0h1m1 0h1m2 0h2m1 0h2m1 0h2m1 0h1m2 0h2m3 0h2m2 0h1M2 38.5h1m1 0h3m1 0h1m1 0h1m3 0h7m2 0h2m1 0h1m1 0h1m3 0h1m1 0h8M2 39.5h1m1 0h3m1 0h1m1 0h1m4 0h2m2 0h1m1 0h1m1 0h1m2 0h2m4 0h1m2 0h1m1 0h1m1 0h2m1 0h1M2 40.5h1m1 0h3m1 0h1m1 0h1m4 0h1m1 0h1m4 0h1m1 0h1m2 0h1m1 0h2m1 0h2m1 0h4m2 0h1M2 41.5h1m5 0h1m2 0h1m2 0h2m2 0h3m4 0h2m1 0h3m3 0h1m1 0h1m1 0h2m1 0h1M2 42.5h7m2 0h1m4 0h1m1 0h1m1 0h2m1 0h5m1 0h3m1 0h1m2 0h3m1 0h1"/></svg>
+
+    <rect x="556" y="979" width="262" height="52" rx="12" fill="#09090A"/>
+    <g transform="translate(571 989)"><rect width="31" height="31" rx="7" fill="#FFFFFF"/><path d="M5 7h21v5H5z" fill="#F4B53F"/><path d="M5 12h21v5H5z" fill="#50A96B"/><path d="M5 17h21v5H5z" fill="#E64E57"/><path d="M5 22h21v4H5z" fill="#4D75CF"/></g>
+    <text x="616" y="996" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="11">Ajouter à</text><text x="616" y="1020" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600">Apple Wallet</text>
+
+    <rect x="556" y="1034" width="262" height="52" rx="12" fill="#F5F2ED" stroke="#D8CFC6"/>
+    <g transform="translate(571 1044)"><rect width="31" height="31" rx="7" fill="#FFFFFF"/><path d="M5 6l21 5v5L5 12z" fill="#F3BD3E"/><path d="M5 12l21 4v6L5 20z" fill="#E84B4F"/><path d="M5 20l21 2v5L5 26z" fill="#4578D0"/><path d="M5 9v17l8-8z" fill="#3BA86B"/></g>
+    <text x="616" y="1051" fill="#252026" font-family="Inter, Arial, sans-serif" font-size="11">Ajouter à</text><text x="616" y="1075" fill="#252026" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="600">Google Wallet</text>
+    <!-- Éclats fins sur le cadre QR -->
+    <path d="M536 702l13-4 5-13 5 13 13 4-13 5-5 13-5-13z" fill="#FFF5C7" opacity=".95" filter="url(#gold-glow)"/>
+    <path d="M823 936l7-2 3-8 3 8 8 2-8 3-3 8-3-8z" fill="#FFF5C7" opacity=".9"/>
+  </g>
+
+  <!-- Parcours en trois étapes -->
+  <g id="steps" font-family="Inter, Helvetica, Arial, sans-serif">
+    <line x1="340" y1="1250" x2="340" y2="1325" class="wallet-secondary-stroke" stroke="#F0B45A" stroke-width="2" opacity=".65"/>
+    <line x1="663" y1="1250" x2="663" y2="1325" class="wallet-secondary-stroke" stroke="#F0B45A" stroke-width="2" opacity=".65"/>
+    <circle cx="115" cy="1285" r="30" class="wallet-primary-fill wallet-secondary-stroke" fill="#A94E20" stroke="#FFD77A" stroke-width="2"/><text x="115" y="1296" fill="#FFF8E8" font-family="Georgia, serif" font-size="34" font-weight="700" text-anchor="middle">1</text>
+    <text x="162" y="1278" fill="#FFF8ED" font-size="18" font-weight="800">Scannez</text><text x="162" y="1307" fill="#F6E9D9" font-size="17">le QR code</text>
+    <circle cx="401" cy="1285" r="30" class="wallet-primary-fill wallet-secondary-stroke" fill="#A94E20" stroke="#FFD77A" stroke-width="2"/><text x="401" y="1296" fill="#FFF8E8" font-family="Georgia, serif" font-size="34" font-weight="700" text-anchor="middle">2</text>
+    <text x="448" y="1278" fill="#FFF8ED" font-size="18" font-weight="800">Ajoutez la carte</text><text x="448" y="1307" fill="#F6E9D9" font-size="17">à votre téléphone</text>
+    <circle cx="720" cy="1285" r="30" class="wallet-primary-fill wallet-secondary-stroke" fill="#A94E20" stroke="#FFD77A" stroke-width="2"/><text x="720" y="1296" fill="#FFF8E8" font-family="Georgia, serif" font-size="34" font-weight="700" text-anchor="middle">3</text>
+    <text x="767" y="1278" fill="#FFF8ED" font-size="18" font-weight="800">Présentez-la</text><text x="767" y="1307" fill="#F6E9D9" font-size="17">à chaque visite</text>
+    <line x1="92" y1="1370" x2="180" y2="1370" class="wallet-secondary-stroke" stroke="#F0B45A" stroke-width="2"/><line x1="820" y1="1370" x2="908" y2="1370" class="wallet-secondary-stroke" stroke="#F0B45A" stroke-width="2"/>
+    <text x="500" y="1378" class="wallet-secondary-fill" fill="#F0B45A" font-size="18" font-weight="800" letter-spacing="3" text-anchor="middle">AUCUNE APPLICATION À TÉLÉCHARGER</text>
+  </g>
+</svg>

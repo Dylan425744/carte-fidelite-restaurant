@@ -12,8 +12,8 @@ const TYPES_SUPPORT = {
     nom: 'Avis client & roue cadeau',
     description: 'Le QR code ouvre le parcours avis puis la roue des cadeaux.',
     lien: 'review',
-    titreParDefaut: 'Tentez de gagner un cadeau',
-    sousTitreParDefaut: 'Scannez, partagez votre avis et découvrez votre surprise.'
+    titreParDefaut: 'Faites tourner la roue et gagnez !',
+    sousTitreParDefaut: 'Tentez votre chance à chaque visite'
   }
 };
 

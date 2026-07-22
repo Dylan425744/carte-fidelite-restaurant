@@ -9,7 +9,8 @@ const RACINE_PUBLIQUE = path.join(__dirname, '..', 'public');
 // Source visuelle unique : remplacer ce fichier suffit pour actualiser tous les
 // modèles, sans toucher aux gabarits ni aux QR codes réels.
 const ROUE_OFFICIELLE = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wheel-official.svg');
-const WALLET_OFFICIEL = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wallet-enrollment-official.svg');
+const WALLET_FLYER_OFFICIEL = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wallet-flyer-official.svg');
+const ROUE_FLYER_OFFICIEL = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wheel-flyer-official.svg');
 
 function echapperXml(valeur) {
   return String(valeur == null ? '' : valeur).replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -182,54 +183,61 @@ function roueFixe(x, y, taille, style) {
   return `<svg x="${x}" y="${y}" width="${taille}" height="${taille}" viewBox="0 0 1200 1200" overflow="visible" aria-label="Roue cadeau officielle">${interieur}</svg>`;
 }
 
-function walletFixe(x, y, largeur, hauteur, style, viewBox = '0 0 1000 1400') {
-  let source = fs.readFileSync(WALLET_OFFICIEL, 'utf8');
+function viderTextesModele(source, textes) {
+  return textes.reduce((svg, texte) => svg.replaceAll(`>${texte}</text>`, '></text>'), source);
+}
+
+function walletFixe(x, y, largeur, hauteur, style, viewBox = '0 0 1000 1500') {
+  let source = fs.readFileSync(WALLET_FLYER_OFFICIEL, 'utf8');
+  source = viderTextesModele(source, [
+    'Bella Fiamma', 'PIZZERIA ITALIANA', 'AJOUTEZ VOTRE', 'CARTE DE FIDÉLITÉ',
+    'DIRECTEMENT DANS APPLE WALLET', 'OU GOOGLE WALLET'
+  ]);
+  source = source.replace(/<svg x="576" y="743"[\s\S]*?<\/svg>/, '');
   const palette = paletteWallet(style);
   const couleursStops = {
     'wallet-primary-stop': palette.primaire,
     'wallet-primary-deep-stop': palette.profond,
-    'wallet-secondary-stop': palette.secondaire
+    'wallet-secondary-stop': palette.secondaire,
+    'wallet-secondary-light-stop': melangerCouleurs(palette.secondaire, '#FFFFFF', .62),
+    'wallet-background-primary-stop': palette.fond,
+    'wallet-background-primary-deep-stop': melangerCouleurs(palette.fond, '#000000', .48),
+    'wallet-background-secondary-stop': palette.fondSecondaire
   };
   for (const [classe, couleur] of Object.entries(couleursStops)) {
     source = appliquerAttributPalette(source, 'stop', classe, 'stop-color', couleur);
   }
   source = appliquerAttributPalette(source, 'circle', 'wallet-secondary-fill', 'fill', palette.secondaire);
   source = appliquerAttributPalette(source, 'text', 'wallet-secondary-fill', 'fill', palette.secondaire);
-  source = appliquerAttributPalette(source, 'g', 'wallet-text-fill', 'fill', palette.texte);
-  source = appliquerAttributPalette(source, 'text', 'wallet-text-fill', 'fill', palette.texte);
+  source = appliquerAttributPalette(source, 'circle', 'wallet-primary-fill', 'fill', palette.primaire);
   source = appliquerAttributPalette(source, 'circle', 'wallet-primary-stroke', 'stroke', palette.primaire);
   source = appliquerAttributPalette(source, 'path', 'wallet-primary-stroke', 'stroke', palette.primaire);
-  for (const balise of ['g', 'line']) {
+  for (const balise of ['g', 'line', 'rect', 'circle']) {
     source = appliquerAttributPalette(source, balise, 'wallet-secondary-stroke', 'stroke', palette.secondaire);
   }
+  source = appliquerAttributPalette(source, 'feDropShadow', 'wallet-secondary-shadow', 'flood-color', palette.secondaire);
   const interieur = source.replace(/^.*?<svg[^>]*>/s, '').replace(/<\/svg>\s*$/s, '');
-  return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-label="Illustration officielle d'ajout Wallet">${interieur}</svg>`;
+  return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="none" overflow="hidden" aria-label="Illustration officielle d'ajout Wallet">${interieur}</svg>`;
 }
 
-function walletDynamique(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1400') {
-  const { nomRestaurant, logo, style, qrGenere, titre, sousTitre, suffixe } = ctx;
+function walletDynamique(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1500') {
+  const { nomRestaurant, style, qrGenere, titre, sousTitre } = ctx;
   const palette = paletteWallet(style);
-  const couleurEntete = palette.texte;
   const lignesTitre = decouperLignes(String(titre).toUpperCase(), 25, 2);
-  const tailleTitre = Math.max(32, Math.min(70, 720 / (Math.max(10, ...lignesTitre.map(ligne => ligne.length)) * .55)));
-  const lignesSousTitre = decouperLignes(String(sousTitre).toUpperCase(), 50, 2);
-  const tailleNom = Math.max(20, Math.min(43, 560 / (Math.max(8, nomRestaurant.length) * .56)));
-  const tailleNomCarte = Math.max(11, Math.min(21, 225 / (Math.max(8, nomRestaurant.length) * .55)));
-  const idLogo = `wallet-logo-${suffixe}`;
-  const badge = logo
-    ? `<defs><clipPath id="${idLogo}"><circle cx="300" cy="78" r="39"/></clipPath></defs><circle cx="300" cy="78" r="43" fill="#FFFFFF"/><image href="${logo}" x="261" y="39" width="78" height="78" preserveAspectRatio="xMidYMid slice" clip-path="url(#${idLogo})"/>`
-    : `<circle cx="300" cy="78" r="42" fill="${palette.primaire}"/><circle cx="300" cy="78" r="36" fill="none" stroke="${palette.secondaire}" stroke-width="2"/><text x="300" y="92" fill="${texteContraste(palette.primaire)}" font-family="Georgia, serif" font-size="43" font-weight="700" text-anchor="middle">${echapperXml(initiales(nomRestaurant).slice(0, 1))}</text>`;
-  return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-label="Contenu personnalisé du restaurant">
-    ${badge}
-    <text x="360" y="84" fill="${couleurEntete}" font-family="Georgia, Times New Roman, serif" font-size="${tailleNom}" font-weight="700">${echapperXml(nomRestaurant)}</text>
-    <text x="362" y="116" fill="${palette.secondaire}" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="800" letter-spacing="5">CARTE DE FIDÉLITÉ</text>
-    ${lignesTitre.map((ligne, index) => `<text x="500" y="${190 + index * 72}" fill="${couleurEntete}" font-family="Georgia, Times New Roman, serif" font-size="${tailleTitre}" font-weight="700" letter-spacing="2" text-anchor="middle">${echapperXml(ligne)}</text>`).join('')}
-    ${lignesSousTitre.map((ligne, index) => `<text x="500" y="${307 + index * 28}" fill="${palette.secondaire}" font-family="Helvetica, Arial, sans-serif" font-size="21" font-weight="800" letter-spacing="3" text-anchor="middle">${echapperXml(ligne)}</text>`).join('')}
-    <g transform="rotate(-4 360 760)">
-      <text x="208" y="515" fill="#FFFFFF" font-family="Georgia, Times New Roman, serif" font-size="${tailleNomCarte}" font-weight="700">${echapperXml(nomRestaurant)}</text>
-      <text x="448" y="613" fill="${texteContraste(palette.secondaire)}" font-family="Georgia, serif" font-size="20" font-weight="700" text-anchor="middle">${echapperXml(initiales(nomRestaurant).slice(0, 1))}</text>
+  const tailleTitre = Math.max(34, Math.min(61, 690 / (Math.max(10, ...lignesTitre.map(ligne => ligne.length)) * .55)));
+  const lignesSousTitre = decouperLignes(String(sousTitre).toUpperCase(), 45, 2);
+  const tailleNom = Math.max(25, Math.min(52, 660 / (Math.max(8, nomRestaurant.length) * .56)));
+  const tailleNomCarte = Math.max(12, Math.min(21, 220 / (Math.max(8, nomRestaurant.length) * .55)));
+  return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="none" overflow="hidden" aria-label="Contenu personnalisé du restaurant">
+    <text x="500" y="109" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="${tailleNom}" font-weight="700" text-anchor="middle">${echapperXml(nomRestaurant)}</text>
+    <text x="500" y="149" fill="${palette.secondaire}" font-family="Inter, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="5" text-anchor="middle">CARTE DE FIDÉLITÉ</text>
+    ${lignesTitre.map((ligne, index) => `<text x="500" y="${241 + index * 70}" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="${tailleTitre}" font-weight="700" letter-spacing="2" text-anchor="middle">${echapperXml(ligne)}</text>`).join('')}
+    ${lignesSousTitre.map((ligne, index) => `<text x="500" y="${374 + index * 33}" fill="${palette.secondaire}" font-family="Inter, Helvetica, Arial, sans-serif" font-size="21" font-weight="800" letter-spacing="3" text-anchor="middle">${echapperXml(ligne)}</text>`).join('')}
+    <g transform="rotate(-3 420 805)">
+      <text x="307" y="614" fill="#FFF8EB" font-family="Georgia, Times New Roman, serif" font-size="${tailleNomCarte}" font-weight="700">${echapperXml(nomRestaurant)}</text>
+      <text x="307" y="696" fill="#FFFFFF" font-family="Inter, Helvetica, Arial, sans-serif" font-size="16" font-weight="800">CARTE DE FIDÉLITÉ</text>
     </g>
-    <g id="restaurant-real-wallet-qr" transform="rotate(7 710 820)">${qr.qrIntegrable(qrGenere, 577, 644, 230)}</g>
+    <g id="restaurant-real-wallet-qr" transform="rotate(5 690 840)">${qr.qrIntegrable(qrGenere, 576, 743, 222)}</g>
   </svg>`;
 }
 
@@ -242,8 +250,69 @@ function fondWallet(ctx) {
   </defs><rect width="${ctx.largeur}" height="${ctx.hauteur}" fill="url(#${id})"/><rect width="${ctx.largeur}" height="${ctx.hauteur}" fill="url(#${id}-lueur)"/>`;
 }
 
-function walletOfficiel(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1400') {
+function walletOfficiel(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1500') {
   return `${walletFixe(x, y, largeur, hauteur, ctx.style, viewBox)}${walletDynamique(ctx, x, y, largeur, hauteur, viewBox)}`;
+}
+
+function roueFlyerFixe(x, y, largeur, hauteur, style, viewBox = '0 0 1000 1500') {
+  let source = fs.readFileSync(ROUE_FLYER_OFFICIEL, 'utf8');
+  source = viderTextesModele(source, ['FAITES TOURNER', 'LA ROUE ET GAGNEZ !', 'TENTEZ VOTRE CHANCE À CHAQUE VISITE']);
+  source = source.replace(/<svg x="662" y="829"[\s\S]*?<\/svg>/, '');
+  const primaire = nettoyerCouleur(style.primaire, '#663ED7');
+  const secondaire = nettoyerCouleur(style.secondaire, '#CDBCF6');
+  const accent = nettoyerCouleur(style.accent, '#D6B15E');
+  const fond = melangerCouleurs(primaire, '#08060D', .72);
+  const couleursStops = {
+    'flyer-primary-stop': primaire,
+    'flyer-primary-deep-stop': melangerCouleurs(primaire, '#000000', .62),
+    'flyer-secondary-stop': secondaire,
+    'flyer-secondary-light-stop': melangerCouleurs(secondaire, '#FFFFFF', .58),
+    'flyer-accent-stop': accent,
+    'flyer-accent-light-stop': melangerCouleurs(accent, '#FFFFFF', .58),
+    'flyer-accent-deep-stop': melangerCouleurs(accent, '#000000', .48),
+    'flyer-background-primary-stop': fond,
+    'flyer-background-primary-deep-stop': melangerCouleurs(fond, '#000000', .5),
+    'flyer-background-secondary-stop': melangerCouleurs(secondaire, '#08060D', .76)
+  };
+  for (const [classe, couleur] of Object.entries(couleursStops)) source = appliquerAttributPalette(source, 'stop', classe, 'stop-color', couleur);
+  for (const balise of ['circle', 'rect']) {
+    source = appliquerAttributPalette(source, balise, 'flyer-primary-fill', 'fill', primaire);
+    source = appliquerAttributPalette(source, balise, 'flyer-primary-deep-fill', 'fill', melangerCouleurs(primaire, '#000000', .62));
+  }
+  for (const balise of ['g', 'line', 'rect', 'circle', 'path']) {
+    source = appliquerAttributPalette(source, balise, 'flyer-primary-stroke', 'stroke', primaire);
+    source = appliquerAttributPalette(source, balise, 'flyer-primary-deep-stroke', 'stroke', melangerCouleurs(primaire, '#000000', .62));
+    source = appliquerAttributPalette(source, balise, 'flyer-secondary-stroke', 'stroke', secondaire);
+    source = appliquerAttributPalette(source, balise, 'flyer-accent-stroke', 'stroke', accent);
+  }
+  source = appliquerAttributPalette(source, 'text', 'flyer-primary-text', 'fill', melangerCouleurs(primaire, '#000000', .55));
+  source = appliquerAttributPalette(source, 'text', 'flyer-surface-text', 'fill', texteContraste(fond));
+  source = appliquerAttributPalette(source, 'text', 'flyer-surface-muted-text', 'fill', melangerCouleurs(texteContraste(fond), fond, .2));
+  source = appliquerAttributPalette(source, 'text', 'flyer-accent-text', 'fill', accent);
+  source = appliquerAttributPalette(source, 'text', 'flyer-light-text', 'fill', texteContraste(primaire));
+  source = appliquerAttributPalette(source, 'text', 'flyer-dark-text', 'fill', texteContraste(secondaire));
+  const interieur = source.replace(/^.*?<svg[^>]*>/s, '').replace(/<\/svg>\s*$/s, '');
+  return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="none" overflow="hidden" aria-label="Flyer officiel de la roue cadeau">${interieur}</svg>`;
+}
+
+function roueFlyerDynamique(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1500') {
+  const { titre, sousTitre, style, qrGenere } = ctx;
+  const primaire = nettoyerCouleur(style.primaire, '#663ED7');
+  const accent = nettoyerCouleur(style.accent, '#D6B15E');
+  const fond = melangerCouleurs(primaire, '#08060D', .72);
+  const lignes = decouperLignes(String(titre).toUpperCase(), 16, 2);
+  const taille = Math.max(38, Math.min(69, 760 / (Math.max(10, ...lignes.map(ligne => ligne.length)) * .55)));
+  const sousTitreMajuscule = String(sousTitre).toUpperCase();
+  const tailleSousTitre = Math.max(12, Math.min(23, 760 / (Math.max(10, sousTitreMajuscule.length) * .58)));
+  return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="none" overflow="hidden" aria-label="Contenu dynamique du flyer roue">
+    ${lignes.map((ligne, index) => `<text x="500" y="${96 + index * 78}" fill="${texteContraste(fond)}" font-family="Georgia, Times New Roman, serif" font-size="${taille}" font-weight="700" letter-spacing="1" text-anchor="middle">${echapperXml(ligne)}</text>`).join('')}
+    <text x="500" y="236" fill="${accent}" font-family="Inter, Helvetica, Arial, sans-serif" font-size="${tailleSousTitre}" font-weight="800" letter-spacing="2" text-anchor="middle">${echapperXml(sousTitreMajuscule)}</text>
+    <g id="restaurant-real-wheel-qr" transform="rotate(6 760 885)">${qr.qrIntegrable(qrGenere, 662, 829, 180)}</g>
+  </svg>`;
+}
+
+function roueFlyerOfficiel(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1500') {
+  return `${roueFlyerFixe(x, y, largeur, hauteur, ctx.style, viewBox)}${roueFlyerDynamique(ctx, x, y, largeur, hauteur, viewBox)}`;
 }
 
 function badgeRestaurant(x, y, rayon, nom, logo, style, suffixe) {
@@ -317,12 +386,9 @@ function rendreCarre(ctx) {
   const { largeur: w, hauteur: h, marge: m, style, type, titre, sousTitre } = ctx;
   const titleSize = tailleTexte(titre, w - 2 * m, 6.7, 4.1);
   if (type.id === 'wallet') {
-    return `${fondWallet(ctx)}${walletOfficiel(ctx, 0, 0, w, h, '0 0 1000 1000')}`;
+    return walletOfficiel(ctx, 0, 0, w, h, '0 0 1000 1100');
   }
-  return `${fondSupport(ctx)}${marque(ctx, true)}
-    <text x="${w / 2}" y="27" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
-    <text x="${w / 2}" y="34" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="2.45" text-anchor="middle">${echapperXml(sousTitre)}</text>
-    ${roueFixe(7, 35, 61, style)}${carteQrRoue(ctx, 54, 56, 40, 7)}`;
+  return roueFlyerOfficiel(ctx, 0, 0, w, h, '0 0 1000 1100');
 }
 
 function rendrePortrait(ctx) {
@@ -331,21 +397,9 @@ function rendrePortrait(ctx) {
   const heroFin = h * .34;
   const titleSize = tailleTexte(titre, w - 2 * m, 8.2 * echelle, 5.2 * echelle);
   if (type.id === 'wallet') {
-    return `${fondWallet(ctx)}${walletOfficiel(ctx, 0, 0, w, h)}`;
+    return walletOfficiel(ctx, 0, 0, w, h);
   }
-  const grand = formatId === 'a4-portrait';
-  const roueTaille = grand ? 125 : 70;
-  const roueX = grand ? 18 : 7;
-  const roueY = grand ? 143 : 73;
-  const carteLargeur = grand ? 86 : 49;
-  const carteX = grand ? 108 : 50;
-  const carteY = grand ? 182 : 91;
-  return `${fondSupport(ctx)}${marque(ctx)}
-    <text x="${w / 2}" y="${heroFin + 13 * echelle}" fill="${style.texte}" font-family="${style.police}" font-size="${titleSize}" font-weight="800" text-anchor="middle">${echapperXml(titre)}</text>
-    <text x="${w / 2}" y="${heroFin + 22 * echelle}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${3.1 * echelle}" text-anchor="middle">${echapperXml(sousTitre)}</text>
-    ${roueFixe(roueX, roueY, roueTaille, style)}
-    ${carteQrRoue(ctx, carteX, carteY, carteLargeur, 7)}
-    <text x="${w / 2}" y="${h - m}" fill="${style.texteAttenue}" font-family="Helvetica, Arial, sans-serif" font-size="${2.4 * echelle}" text-anchor="middle">Avis Google → validation → roue cadeau</text>`;
+  return roueFlyerOfficiel(ctx, 0, 0, w, h);
 }
 
 async function construireSupport(restaurant, parametresRecus, marketing) {

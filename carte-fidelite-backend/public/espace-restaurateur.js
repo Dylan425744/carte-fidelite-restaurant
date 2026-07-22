@@ -2128,8 +2128,9 @@ function rafraichirPickersGenerateur() {
   const format = kitCommunication.formats.find(item => item.id === genEtat.formatId);
   const wallet = genEtat.kind === 'wallet';
   $('#genListeStyles').style.display = wallet ? 'none' : '';
-  $('#genBlocPhotos').style.display = wallet ? 'none' : '';
-  $('#genVariante').style.display = wallet ? 'none' : '';
+  $('#genBlocLogo').style.display = 'none';
+  $('#genBlocPhotos').style.display = 'none';
+  $('#genVariante').style.display = 'none';
   $('#genEtapeStyleTitre').textContent = wallet ? 'Choisissez vos deux couleurs' : 'Donnez-lui votre style';
   $('#genEtapeStyleAide').textContent = wallet
     ? 'Bravocard calcule automatiquement les dégradés, contrastes et ombres.'
