@@ -54,8 +54,6 @@
 .segment-contenu{position:absolute;display:flex;flex-direction:column;align-items:center;gap:5px;width:84px;left:-42px}
 .segment-contenu .icone-lot{font-size:23px;line-height:1}
 .segment-contenu .texte-lot{font-size:10px;letter-spacing:-.1px;font-weight:700;font-family:"Manrope",sans-serif;color:#fff9f3;line-height:1.15;text-shadow:0 1px 3px rgba(0,0,0,.35)}
-.segment-contenu-compact .texte-lot{display:none}
-.segment-contenu-minuscule .icone-lot{display:none}
 .centre-roue-reel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:62px;height:62px;border-radius:50%;border:5px solid #fff7d4;background:radial-gradient(circle at 35% 30%,#fff6b3,#f2b944);display:flex;align-items:center;justify-content:center;font-size:24px;z-index:5;box-shadow:0 5px 14px rgba(0,0,0,.34)}
 /* Icones professionnelles remplacant les emojis : recolorees a l'identique du texte (#FFF9F3) via un masque, le centre garde ses couleurs d'origine. */
 .icone-glyphe{display:inline-block;background-color:#fff9f3;-webkit-mask:var(--icone-src) center/contain no-repeat;mask:var(--icone-src) center/contain no-repeat}

@@ -554,18 +554,14 @@ function lotsRoue() {
 const COULEURS_ROUE_REELLE = ['#6C3CE9', '#12B886', '#5A2FD0', '#0E9469', '#7C4FF0', '#0A7A56'];
 const RAYON_TEXTE_ROUE = 112;
 
-function geometrieLotsRoue(lots) {
-  const poids = lots.map(lot => Math.max(0, Number(lot.probabilite) || 0));
-  const total = poids.reduce((somme, valeur) => somme + valeur, 0);
-  const diviseur = total > 0 ? total : lots.length || 1;
-  let cumul = 0;
-  return lots.map((lot, index) => {
-    const probabilite = total > 0 ? poids[index] : 1;
-    const debut = cumul / diviseur * 360;
-    cumul += probabilite;
-    const fin = cumul / diviseur * 360;
-    return { index, probabilite, debut, fin, centre: debut + (fin - debut) / 2, amplitude: fin - debut };
-  });
+function geometrieVisuelleLotsRoue(lots) {
+  const amplitude = 360 / (lots.length || 1);
+  return lots.map((lot, index) => ({
+    index,
+    debut: index * amplitude,
+    fin: (index + 1) * amplitude,
+    centre: index * amplitude + amplitude / 2
+  }));
 }
 
 function tirerIndexLotPondere(lots) {
@@ -583,13 +579,11 @@ function tirerIndexLotPondere(lots) {
 
 function dessinerRoueReelle(conteneur, lots, couleurPrincipale, couleurSecondaire) {
   const palette = (couleurPrincipale && couleurSecondaire) ? [couleurPrincipale, couleurSecondaire] : COULEURS_ROUE_REELLE;
-  const geometrie = geometrieLotsRoue(lots);
-  const degrades = geometrie
-    .filter(segment => segment.probabilite > 0)
-    .map(segment => `${palette[segment.index % palette.length]} ${segment.debut}deg ${segment.fin}deg`);
+  const geometrie = geometrieVisuelleLotsRoue(lots);
+  const degrades = geometrie.map(segment => `${palette[segment.index % palette.length]} ${segment.debut}deg ${segment.fin}deg`);
   conteneur.style.background = `conic-gradient(${degrades.join(',')})`;
   conteneur.querySelectorAll('.segment-pivot').forEach(noeud => noeud.remove());
-  geometrie.filter(segment => segment.probabilite > 0).forEach(segment => {
+  geometrie.forEach(segment => {
     const lot = lots[segment.index];
     const centreAngle = segment.centre;
     const pivot = document.createElement('div');
@@ -597,8 +591,6 @@ function dessinerRoueReelle(conteneur, lots, couleurPrincipale, couleurSecondair
     pivot.style.transform = `rotate(${centreAngle}deg)`;
     const contenu = document.createElement('div');
     contenu.className = 'segment-contenu';
-    if (segment.amplitude < 14) contenu.classList.add('segment-contenu-compact');
-    if (segment.amplitude < 7) contenu.classList.add('segment-contenu-minuscule');
     contenu.style.transform = `translateY(-${RAYON_TEXTE_ROUE}px) rotate(${-centreAngle}deg)`;
     contenu.innerHTML = `<div class="icone-lot">${rendreIconeLot(lot.icone)}</div><div class="texte-lot">${echapper(lot.label)}</div>`;
     pivot.appendChild(contenu);
@@ -802,7 +794,7 @@ function lancerApercuRoue() {
   const lots = lotsRoue();
   if (!roue || !lots.length || bouton.disabled) return;
   const index = tirerIndexLotPondere(lots);
-  const centreSegment = geometrieLotsRoue(lots)[index].centre;
+  const centreSegment = geometrieVisuelleLotsRoue(lots)[index].centre;
   const cible = (360 - centreSegment + 360) % 360;
   const positionActuelle = ((rotationApercuRoue % 360) + 360) % 360;
   const mouvementVersCible = (cible - positionActuelle + 360) % 360;
