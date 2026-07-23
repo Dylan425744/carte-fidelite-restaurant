@@ -481,58 +481,18 @@
       </section>
 
       <section class="vue" id="vue-marketing">
-        <div class="marketing-hero">
-          <div><span class="eyebrow">Acquisition en restaurant</span><h2>Un QR code unique, prêt à convertir.</h2><p>Chaque scan ouvre la création de carte du bon restaurant. Téléchargez le support qui convient à votre comptoir, vos tables ou votre vitrine.</p></div>
-          <span class="marketing-statut" id="marketingStatut">Préparation…</span>
-        </div>
-        <div class="grille-marketing">
-          <article class="panneau marketing-apercu">
-            <div class="flyer-apercu">
-              <span>VOTRE FIDÉLITÉ, DANS VOTRE TÉLÉPHONE</span>
-              <h3 id="marketingRestaurantNom">Votre restaurant</h3>
-              <p>Scannez. Ajoutez la carte.<br>Cumulez vos avantages.</p>
-              <div class="qr-cadre"><img id="marketingQrPreview" alt="QR code du restaurant"></div>
-              <strong>Scannez pour créer votre carte</strong>
-              <small>PROPULSÉ PAR BRAVOCARD</small>
-            </div>
-          </article>
-          <article class="panneau marketing-outils">
-            <span class="eyebrow">Kit de communication</span><h3>Téléchargez et imprimez</h3>
-            <p class="texte-secondaire">Le lien est stable : vous pouvez imprimer ces supports durablement. Il continuera d’ouvrir la bonne carte même après une modification du design.</p>
-            <div class="marketing-telechargements">
-              <a class="bouton principal" id="telechargerFlyer" target="_blank" rel="noopener">Télécharger le flyer PDF</a>
-              <a class="bouton secondaire" id="telechargerQrPng" target="_blank" rel="noopener">QR code PNG</a>
-              <a class="bouton secondaire" id="telechargerQrSvg" target="_blank" rel="noopener">QR code SVG</a>
-            </div>
-            <div class="marketing-secondaire" id="marketingSecondaire">
-              <span class="eyebrow">Parcours avis + roue</span><h3>QR code n°2 · tenter de gagner un cadeau</h3>
-              <p class="texte-secondaire" id="marketingSecondaireDescription">Le client laisse son avis, puis accède automatiquement à la roue des cadeaux.</p>
-              <div class="qr-secondaire-apercu"><div class="qr-cadre"><img id="marketingQrAvisPreview" alt="QR code avis et roue"></div><div><strong>Avis client puis roue</strong><small id="marketingSecondaireStatut">Vérification de l’offre…</small></div></div>
-              <label for="lienAvisGoogle">Lien public de votre fiche Google</label><input id="lienAvisGoogle" type="url" placeholder="https://g.page/r/…/review">
-              <button class="bouton secondaire" id="enregistrerLienAvis" type="button">Enregistrer le lien</button>
-              <div class="marketing-telechargements"><a class="bouton secondaire" id="telechargerQrAvisPng" target="_blank" rel="noopener">Télécharger le QR avis + roue (PNG)</a><a class="bouton secondaire" id="telechargerQrAvisSvg" target="_blank" rel="noopener">Télécharger en SVG</a></div>
-            </div>
-            <label for="marketingLien">Lien public du restaurant</label>
-            <div class="champ-copie"><input id="marketingLien" readonly><button class="bouton secondaire" id="copierLienMarketing" type="button">Copier</button></div>
-            <div class="info-envoi"><span>i</span><p>Si le restaurant est désactivé ou placé dans la corbeille, ce QR code affiche une page d’indisponibilité sans perdre ses fichiers.</p></div>
-            <button class="lien-bouton" id="regenererSupports" type="button">Régénérer les fichiers</button>
-            <span class="message" id="messageMarketing"></span>
-          </article>
-        </div>
-
         <div class="generateur-supports">
           <div class="generateur-entete">
-            <span class="eyebrow">Studio créatif Bravocard</span>
-            <h3>Vos supports, prêts à attirer l’œil</h3>
-            <p class="texte-secondaire">Composez un support fidèle à votre identité. L’aperçu, le PNG haute définition et le PDF imprimable utilisent exactement le même rendu.</p>
+            <div><span class="eyebrow">QR codes &amp; flyers</span>
+              <h2>Votre studio d’impression Bravocard</h2>
+              <p class="texte-secondaire">Choisissez le parcours, adaptez les couleurs puis téléchargez un flyer complet avec le vrai QR code de votre restaurant.</p>
+            </div>
+            <div class="generateur-format-unique"><span>Format unique</span><strong>A6 portrait</strong><small>105 × 148 mm · prêt à imprimer</small></div>
           </div>
           <div class="grille-generateur">
             <article class="panneau generateur-reglages">
               <div class="generateur-etape"><span>1</span><div><strong>Choisissez le parcours</strong><small>Chaque support conserve son propre vrai QR code.</small></div></div>
               <div class="modeles-wallet generateur-types" id="genListeTypes"></div>
-
-              <label class="titre-modeles">Format d’impression</label>
-              <div class="modeles-wallet generateur-formats" id="genListeFormats"></div>
 
               <div class="generateur-etape"><span>2</span><div><strong id="genEtapeStyleTitre">Choisissez vos couleurs</strong><small id="genEtapeStyleAide">Les dégradés, contrastes et ombres sont générés automatiquement.</small></div></div>
               <div class="modeles-wallet generateur-styles" id="genListeStyles"></div>
@@ -544,10 +504,12 @@
               </div>
               <button class="lien-bouton generateur-reset-roue" id="genRoueDefaut" type="button">Revenir aux couleurs Bravocard</button>
 
-              <div class="generateur-etape"><span>3</span><div><strong>Adaptez le message</strong><small>Les valeurs proposées restent entièrement modifiables.</small></div></div>
-              <div class="deux-colonnes">
-                <div><label for="genTitre">Texte principal</label><input id="genTitre" type="text" maxlength="60"></div>
-                <div><label for="genSousTitre">Sous-titre</label><input id="genSousTitre" type="text" maxlength="100"></div>
+              <div id="genBlocMessage">
+                <div class="generateur-etape"><span>3</span><div><strong>Adaptez le message</strong><small>Les valeurs proposées restent entièrement modifiables.</small></div></div>
+                <div class="deux-colonnes">
+                  <div><label for="genTitre">Texte principal</label><input id="genTitre" type="text" maxlength="60"></div>
+                  <div><label for="genSousTitre">Sous-titre</label><input id="genSousTitre" type="text" maxlength="100"></div>
+                </div>
               </div>
 
               <div id="genBlocLogo"><label for="genLogoUrl">Logo personnalisé (URL PNG, facultatif)</label>

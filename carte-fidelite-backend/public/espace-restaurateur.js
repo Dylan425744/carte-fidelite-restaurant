@@ -27,7 +27,6 @@ let etablissements = [];
 let permissions = [];
 let abonnement = null;
 let etablissementsBloques = [];
-let supportsMarketing = null;
 let kitCommunication = null;
 let genEtat = { kind: 'wallet', formatId: 'a6-portrait', style: 'premium', photoUrl: '', variant: 0, reglages: {} };
 let genMinuteurApercu = null;
@@ -284,9 +283,6 @@ async function chargerEspace() {
   if (design) remplirDesign();
   if (donneesTableau) afficherTableau();
   if (aPermission('marketing_view')) {
-    chargerSupportsMarketing().catch(erreur =>
-      afficherMessage($('#messageMarketing'), erreur.message, 'erreur')
-    );
     chargerKitCommunication().catch(erreur =>
       afficherMessage($('#messageGenerateur'), erreur.message, 'erreur')
     );
@@ -448,7 +444,6 @@ function appliquerPermissions() {
   $('#enregistrerDesign').style.display = aPermission('design_manage') ? '' : 'none';
   $('#enregistrerRoue').style.display = aPermission('design_manage') ? '' : 'none';
   $('#ajouterLot').style.display = aPermission('design_manage') ? '' : 'none';
-  $('#regenererSupports').style.display = aPermission('marketing_manage') ? '' : 'none';
   $('#genEnregistrer').style.display = aPermission('marketing_manage') ? '' : 'none';
   $('#roleMembre').querySelector('option[value="owner"]').hidden = !sessionUtilisateur?.super_admin;
 
@@ -1357,7 +1352,6 @@ async function enregistrerSectionReglages(section) {
     }
     const pointsParPassage = Number(donnees.reglages.points_per_scan || 10);
     $('#scannerInstructionPoints').textContent = `Cadrez entièrement le code affiché dans Apple Wallet ou Google Wallet. Chaque visite validée ajoute automatiquement ${pointsParPassage} points.`;
-    if (supportsMarketing && section === 'identite') afficherSupportsMarketing();
     if (aPermission('marketing_view') && kitCommunication && ['identite', 'contact', 'programme'].includes(section)) {
       await chargerKitCommunication();
     }
@@ -2008,103 +2002,6 @@ async function enregistrerDesign() {
   }
 }
 
-function afficherSupportsMarketing() {
-  if (!supportsMarketing) return;
-  const pret = supportsMarketing.statut === 'ready';
-  $('#marketingRestaurantNom').textContent = restaurant?.nom || 'Votre restaurant';
-  $('#marketingStatut').textContent = pret ? 'Supports prêts' : 'Préparation en cours';
-  $('#marketingLien').value = supportsMarketing.lien_public || '';
-  if (supportsMarketing.qr_png_url) $('#marketingQrPreview').src = supportsMarketing.qr_png_url;
-  const secondQrDisponible = Boolean(supportsMarketing.secondaire_disponible);
-  $('#marketingSecondaire').classList.toggle('verrouille-abonnement', !secondQrDisponible);
-  $('#marketingSecondaireStatut').textContent = secondQrDisponible
-    ? 'Disponible avec votre offre'
-    : 'Disponible avec les offres Croissance et Signature';
-  $('#marketingSecondaireDescription').textContent = secondQrDisponible
-    ? 'Le client laisse son avis, puis accède automatiquement à la roue des cadeaux.'
-    : 'Ce second parcours reste visible afin que vous sachiez exactement ce qui sera débloqué en passant à l’offre Croissance.';
-  $('#lienAvisGoogle').value = supportsMarketing.lien_avis_google || '';
-  const apercuQrAvis = $('#marketingQrAvisPreview');
-  apercuQrAvis.src = supportsMarketing.secondary_qr_png_url || '';
-  apercuQrAvis.hidden = !supportsMarketing.secondary_qr_png_url;
-  const liens = [
-    ['telechargerFlyer', supportsMarketing.flyer_pdf_url],
-    ['telechargerQrPng', supportsMarketing.qr_png_url],
-    ['telechargerQrSvg', supportsMarketing.qr_svg_url]
-  ];
-  liens.forEach(([id, url]) => {
-    const element = $(`#${id}`);
-    element.href = url || '#';
-    element.setAttribute('aria-disabled', url ? 'false' : 'true');
-  });
-  [
-    ['telechargerQrAvisPng', supportsMarketing.secondary_qr_png_url],
-    ['telechargerQrAvisSvg', supportsMarketing.secondary_qr_svg_url]
-  ].forEach(([id, url]) => {
-    const element = $(`#${id}`);
-    element.href = url || '#';
-    element.setAttribute('aria-disabled', url ? 'false' : 'true');
-    element.classList.toggle('desactive', !url);
-    element.tabIndex = url ? 0 : -1;
-  });
-  $('#enregistrerLienAvis').disabled = !secondQrDisponible;
-}
-
-async function enregistrerLienAvis() {
-  const bouton = $('#enregistrerLienAvis');
-  bouton.disabled = true;
-  afficherMessage($('#messageMarketing'), 'Actualisation du second QR code…');
-  try {
-    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/marketing`, {
-      method: 'PUT', body: JSON.stringify({ lien_avis_google: $('#lienAvisGoogle').value })
-    });
-    supportsMarketing = donnees.supports;
-    afficherSupportsMarketing();
-    afficherMessage($('#messageMarketing'), donnees.message, 'succes');
-  } catch (erreur) {
-    afficherMessage($('#messageMarketing'), erreur.message, 'erreur');
-  } finally {
-    bouton.disabled = false;
-  }
-}
-
-async function chargerSupportsMarketing() {
-  $('#marketingStatut').textContent = 'Préparation…';
-  const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/marketing`);
-  supportsMarketing = donnees.supports;
-  afficherSupportsMarketing();
-}
-
-async function regenererSupportsMarketing() {
-  const bouton = $('#regenererSupports');
-  bouton.disabled = true;
-  afficherMessage($('#messageMarketing'), 'Régénération du QR code et du flyer…');
-  try {
-    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/marketing/regenerer`, {
-      method: 'POST', body: JSON.stringify({})
-    });
-    supportsMarketing = donnees.supports;
-    afficherSupportsMarketing();
-    afficherMessage($('#messageMarketing'), donnees.message, 'succes');
-  } catch (erreur) {
-    afficherMessage($('#messageMarketing'), erreur.message, 'erreur');
-  } finally {
-    bouton.disabled = false;
-  }
-}
-
-async function copierLienMarketing() {
-  const lien = $('#marketingLien').value;
-  if (!lien) return;
-  try {
-    await navigator.clipboard.writeText(lien);
-  } catch {
-    $('#marketingLien').select();
-    document.execCommand('copy');
-  }
-  afficherMessage($('#messageMarketing'), 'Lien copié.', 'succes');
-}
-
 function afficherPickerGenerateur(conteneurId, items, valeurActuelle, attribut, degrade) {
   $(`#${conteneurId}`).innerHTML = items.map(item => `
     <button type="button" data-${attribut}="${echapper(item.id)}" class="${item.id === valeurActuelle ? 'actif' : ''}">
@@ -2118,8 +2015,6 @@ function rafraichirPickersGenerateur() {
   if (!kitCommunication) return;
   afficherPickerGenerateur('genListeTypes', kitCommunication.types_support, genEtat.kind, 'kind', item =>
     item.id === 'wallet' ? 'linear-gradient(145deg,#17111f,#7047eb)' : 'linear-gradient(145deg,#ff8a35,#7047eb)');
-  afficherPickerGenerateur('genListeFormats', kitCommunication.formats, genEtat.formatId, 'format', item =>
-    item.id === 'square' ? 'linear-gradient(135deg,#fff 48%,#ddd 49%)' : item.id === 'a4-portrait' ? 'linear-gradient(160deg,#17111f 60%,#7047eb 61%)' : 'linear-gradient(160deg,#fff5e7 60%,#ff8a35 61%)');
   afficherPickerGenerateur('genListeStyles', kitCommunication.styles, genEtat.style, 'style', item =>
     `linear-gradient(145deg, ${item.fond}, ${item.primaire} 60%, ${item.secondaire})`);
   $('#genListePhotos').innerHTML = `<button type="button" class="generateur-photo aucune ${!genEtat.photoUrl ? 'actif' : ''}" data-photo=""><span>Sans photo</span></button>` +
@@ -2131,6 +2026,7 @@ function rafraichirPickersGenerateur() {
   $('#genBlocLogo').style.display = 'none';
   $('#genBlocPhotos').style.display = 'none';
   $('#genVariante').style.display = 'none';
+  $('#genBlocMessage').style.display = wallet ? 'none' : '';
   $('#genEtapeStyleTitre').textContent = wallet ? 'Choisissez vos deux couleurs' : 'Donnez-lui votre style';
   $('#genEtapeStyleAide').textContent = wallet
     ? 'Bravocard calcule automatiquement les dégradés, contrastes et ombres.'
@@ -2172,7 +2068,7 @@ function appliquerReglageGenerateur(kind) {
   const type = kitCommunication.types_support.find(item => item.id === kind);
   const reglage = genEtat.reglages[kind] || {};
   genEtat.kind = kind;
-  genEtat.formatId = reglage.format_layout || 'a6-portrait';
+  genEtat.formatId = 'a6-portrait';
   genEtat.style = reglage.style || (kind === 'wheel' ? 'fun' : 'premium');
   genEtat.photoUrl = kind === 'wallet' ? '' : (reglage.photo_url || '');
   genEtat.variant = Number(reglage.variant) || 0;
@@ -2215,13 +2111,6 @@ function choisirTypeGenerateur(kind) {
   if (!kitCommunication.types_support.some(item => item.id === kind) || kind === genEtat.kind) return;
   memoriserReglageGenerateur();
   appliquerReglageGenerateur(kind);
-  demanderApercuGenerateur();
-}
-
-function choisirFormatGenerateur(formatId) {
-  if (!kitCommunication.formats.some(item => item.id === formatId)) return;
-  genEtat.formatId = formatId;
-  rafraichirPickersGenerateur();
   demanderApercuGenerateur();
 }
 
@@ -2560,16 +2449,9 @@ $('#validerCadeau').addEventListener('click', validerCadeauComptoir);
 $('#demarrerScanner').addEventListener('click', demarrerScanner);
 $('#relancerScanner').addEventListener('click', demarrerScanner);
 $('#enregistrerDesign').addEventListener('click', enregistrerDesign);
-$('#regenererSupports').addEventListener('click', regenererSupportsMarketing);
-$('#enregistrerLienAvis').addEventListener('click', enregistrerLienAvis);
-$('#copierLienMarketing').addEventListener('click', copierLienMarketing);
 $('#genListeTypes').addEventListener('click', evenement => {
   const bouton = evenement.target.closest('[data-kind]');
   if (bouton) choisirTypeGenerateur(bouton.dataset.kind);
-});
-$('#genListeFormats').addEventListener('click', evenement => {
-  const bouton = evenement.target.closest('[data-format]');
-  if (bouton) choisirFormatGenerateur(bouton.dataset.format);
 });
 $('#genListeStyles').addEventListener('click', evenement => {
   const bouton = evenement.target.closest('[data-style]');

@@ -18,9 +18,7 @@ const TYPES_SUPPORT = {
 };
 
 const FORMATS = {
-  square: { id: 'square', nom: 'Carré', description: 'Sticker ou chevalet · 100 × 100 mm', largeurMm: 100, hauteurMm: 100 },
-  'a6-portrait': { id: 'a6-portrait', nom: 'A6 portrait', description: 'Comptoir ou table · 105 × 148 mm', largeurMm: 105, hauteurMm: 148 },
-  'a4-portrait': { id: 'a4-portrait', nom: 'A4 portrait', description: 'Affiche murale · 210 × 297 mm', largeurMm: 210, hauteurMm: 297 }
+  'a6-portrait': { id: 'a6-portrait', nom: 'A6 portrait', description: 'Format unique · 105 × 148 mm', largeurMm: 105, hauteurMm: 148 }
 };
 
 const STYLES = {
@@ -60,8 +58,8 @@ const PHOTOS_DEFAUT = [
 ].map(([fichier, nom]) => ({ id: fichier.replace('.webp', ''), nom, url: `/wallet-banners/${fichier}`, source: 'Bravocard' }));
 
 const ANCIENS_SUPPORTS = {
-  'loyalty-square': { kind: 'wallet', format_layout: 'square' },
-  'review-square': { kind: 'wheel', format_layout: 'square' },
+  'loyalty-square': { kind: 'wallet', format_layout: 'a6-portrait' },
+  'review-square': { kind: 'wheel', format_layout: 'a6-portrait' },
   'loyalty-poster-a5': { kind: 'wallet', format_layout: 'a6-portrait' }
 };
 

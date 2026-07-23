@@ -9,7 +9,7 @@ const RACINE_PUBLIQUE = path.join(__dirname, '..', 'public');
 // Source visuelle unique : remplacer ce fichier suffit pour actualiser tous les
 // modèles, sans toucher aux gabarits ni aux QR codes réels.
 const ROUE_OFFICIELLE = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wheel-official.svg');
-const WALLET_FLYER_OFFICIEL = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wallet-flyer-official.svg');
+const WALLET_FLYER_OFFICIEL = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wallet-enrollment-official.svg');
 const ROUE_FLYER_OFFICIEL = path.join(RACINE_PUBLIQUE, 'marketing-assets', 'bravocard-wheel-flyer-official.svg');
 
 function echapperXml(valeur) {
@@ -187,57 +187,44 @@ function viderTextesModele(source, textes) {
   return textes.reduce((svg, texte) => svg.replaceAll(`>${texte}</text>`, '></text>'), source);
 }
 
-function walletFixe(x, y, largeur, hauteur, style, viewBox = '0 0 1000 1500') {
+function walletFixe(x, y, largeur, hauteur, style, viewBox = '0 0 1000 1400') {
   let source = fs.readFileSync(WALLET_FLYER_OFFICIEL, 'utf8');
-  source = viderTextesModele(source, [
-    'Bella Fiamma', 'PIZZERIA ITALIANA', 'AJOUTEZ VOTRE', 'CARTE DE FIDÉLITÉ',
-    'DIRECTEMENT DANS APPLE WALLET', 'OU GOOGLE WALLET'
-  ]);
-  source = source.replace(/<svg x="576" y="743"[\s\S]*?<\/svg>/, '');
+  source = source
+    .replace(/\s*<g id="bravocard-signature"[\s\S]*?<\/g>/, '')
+    .replace(/\s*<circle cx="448" cy="606"[^>]*\/>/, '')
+    .replace('transform="translate(453 381)"', 'transform="translate(430 381)"')
+    .replace('transform="rotate(-4 360 760)"', 'transform="translate(0 -170) rotate(-4 360 760)"')
+    .replace('transform="rotate(7 710 820)"', 'transform="translate(0 -170) rotate(7 710 820)"');
   const palette = paletteWallet(style);
   const couleursStops = {
     'wallet-primary-stop': palette.primaire,
     'wallet-primary-deep-stop': palette.profond,
-    'wallet-secondary-stop': palette.secondaire,
-    'wallet-secondary-light-stop': melangerCouleurs(palette.secondaire, '#FFFFFF', .62),
-    'wallet-background-primary-stop': palette.fond,
-    'wallet-background-primary-deep-stop': melangerCouleurs(palette.fond, '#000000', .48),
-    'wallet-background-secondary-stop': palette.fondSecondaire
+    'wallet-secondary-stop': palette.secondaire
   };
   for (const [classe, couleur] of Object.entries(couleursStops)) {
     source = appliquerAttributPalette(source, 'stop', classe, 'stop-color', couleur);
   }
   source = appliquerAttributPalette(source, 'circle', 'wallet-secondary-fill', 'fill', palette.secondaire);
   source = appliquerAttributPalette(source, 'text', 'wallet-secondary-fill', 'fill', palette.secondaire);
-  source = appliquerAttributPalette(source, 'circle', 'wallet-primary-fill', 'fill', palette.primaire);
+  source = appliquerAttributPalette(source, 'g', 'wallet-text-fill', 'fill', palette.texte);
+  source = appliquerAttributPalette(source, 'text', 'wallet-text-fill', 'fill', palette.texte);
   source = appliquerAttributPalette(source, 'circle', 'wallet-primary-stroke', 'stroke', palette.primaire);
   source = appliquerAttributPalette(source, 'path', 'wallet-primary-stroke', 'stroke', palette.primaire);
-  for (const balise of ['g', 'line', 'rect', 'circle']) {
+  for (const balise of ['g', 'line']) {
     source = appliquerAttributPalette(source, balise, 'wallet-secondary-stroke', 'stroke', palette.secondaire);
   }
-  source = appliquerAttributPalette(source, 'feDropShadow', 'wallet-secondary-shadow', 'flood-color', palette.secondaire);
   const interieur = source.replace(/^.*?<svg[^>]*>/s, '').replace(/<\/svg>\s*$/s, '');
   return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="none" overflow="hidden" aria-label="Illustration officielle d'ajout Wallet">${interieur}</svg>`;
 }
 
-function walletDynamique(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1500') {
-  const { nomRestaurant, style, qrGenere, titre, sousTitre } = ctx;
-  const palette = paletteWallet(style);
-  const lignesTitre = decouperLignes(String(titre).toUpperCase(), 25, 2);
-  const tailleTitre = Math.max(34, Math.min(61, 690 / (Math.max(10, ...lignesTitre.map(ligne => ligne.length)) * .55)));
-  const lignesSousTitre = decouperLignes(String(sousTitre).toUpperCase(), 45, 2);
-  const tailleNom = Math.max(25, Math.min(52, 660 / (Math.max(8, nomRestaurant.length) * .56)));
+function walletDynamique(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1400') {
+  const { nomRestaurant, qrGenere } = ctx;
   const tailleNomCarte = Math.max(12, Math.min(21, 220 / (Math.max(8, nomRestaurant.length) * .55)));
   return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="none" overflow="hidden" aria-label="Contenu personnalisé du restaurant">
-    <text x="500" y="109" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="${tailleNom}" font-weight="700" text-anchor="middle">${echapperXml(nomRestaurant)}</text>
-    <text x="500" y="149" fill="${palette.secondaire}" font-family="Inter, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="5" text-anchor="middle">CARTE DE FIDÉLITÉ</text>
-    ${lignesTitre.map((ligne, index) => `<text x="500" y="${241 + index * 70}" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="${tailleTitre}" font-weight="700" letter-spacing="2" text-anchor="middle">${echapperXml(ligne)}</text>`).join('')}
-    ${lignesSousTitre.map((ligne, index) => `<text x="500" y="${374 + index * 33}" fill="${palette.secondaire}" font-family="Inter, Helvetica, Arial, sans-serif" font-size="21" font-weight="800" letter-spacing="3" text-anchor="middle">${echapperXml(ligne)}</text>`).join('')}
-    <g transform="rotate(-3 420 805)">
-      <text x="307" y="614" fill="#FFF8EB" font-family="Georgia, Times New Roman, serif" font-size="${tailleNomCarte}" font-weight="700">${echapperXml(nomRestaurant)}</text>
-      <text x="307" y="696" fill="#FFFFFF" font-family="Inter, Helvetica, Arial, sans-serif" font-size="16" font-weight="800">CARTE DE FIDÉLITÉ</text>
+    <g transform="translate(0 -170) rotate(-4 360 760)">
+      <text x="208" y="520" fill="#FFFFFF" font-family="Georgia, Times New Roman, serif" font-size="${tailleNomCarte}" font-weight="700">${echapperXml(nomRestaurant)}</text>
     </g>
-    <g id="restaurant-real-wallet-qr" transform="rotate(5 690 840)">${qr.qrIntegrable(qrGenere, 576, 743, 222)}</g>
+    <g id="restaurant-real-wallet-qr" transform="translate(0 -170) rotate(7 710 820)">${qr.qrIntegrable(qrGenere, 577, 644, 230)}</g>
   </svg>`;
 }
 
@@ -250,7 +237,7 @@ function fondWallet(ctx) {
   </defs><rect width="${ctx.largeur}" height="${ctx.hauteur}" fill="url(#${id})"/><rect width="${ctx.largeur}" height="${ctx.hauteur}" fill="url(#${id}-lueur)"/>`;
 }
 
-function walletOfficiel(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1500') {
+function walletOfficiel(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1400') {
   return `${walletFixe(x, y, largeur, hauteur, ctx.style, viewBox)}${walletDynamique(ctx, x, y, largeur, hauteur, viewBox)}`;
 }
 
@@ -386,7 +373,7 @@ function rendreCarre(ctx) {
   const { largeur: w, hauteur: h, marge: m, style, type, titre, sousTitre } = ctx;
   const titleSize = tailleTexte(titre, w - 2 * m, 6.7, 4.1);
   if (type.id === 'wallet') {
-    return walletOfficiel(ctx, 0, 0, w, h, '0 0 1000 1100');
+    return `${fondWallet(ctx)}${walletOfficiel(ctx, 0, 0, w, h)}`;
   }
   return roueFlyerOfficiel(ctx, 0, 0, w, h, '0 0 1000 1100');
 }
@@ -397,7 +384,7 @@ function rendrePortrait(ctx) {
   const heroFin = h * .34;
   const titleSize = tailleTexte(titre, w - 2 * m, 8.2 * echelle, 5.2 * echelle);
   if (type.id === 'wallet') {
-    return walletOfficiel(ctx, 0, 0, w, h);
+    return `${fondWallet(ctx)}${walletOfficiel(ctx, 0, 0, w, h)}`;
   }
   return roueFlyerOfficiel(ctx, 0, 0, w, h);
 }
