@@ -277,7 +277,7 @@
           <article class="panneau synthese-wallet"><span class="eyebrow">Canaux Wallet</span><h3>Présence dans les téléphones</h3><div class="wallet-repartition"><div><span class="pastille-wallet apple"></span><div><strong id="walletAppleDetail">0</strong><small>cartes Apple</small></div></div><div><span class="pastille-wallet google">G</span><div><strong id="walletGoogleDetail">0</strong><small>cartes Google</small></div></div></div><p>Les clients Apple et Google reçoivent les mises à jour de points directement sur leur carte.</p></article>
         </div>
 
-        <article class="panneau top-clients"><div class="panneau-titre"><div><span class="eyebrow">Engagement</span><h3>Clients les plus actifs</h3></div><span class="badge-doux" id="resumeTopClients">0 client</span></div><div class="table-conteneur"><table><thead><tr><th>Client</th><th>Visites</th><th>Points gagnés</th><th>Dernière visite</th><th>Profil</th></tr></thead><tbody id="tableTopClients"></tbody></table></div><div class="etat-vide" id="aucunTopClient">Les premiers passages apparaîtront ici.</div></article>
+        <article class="panneau top-clients"><div class="panneau-titre"><div><span class="eyebrow">Engagement</span><h3>Clients les plus actifs</h3></div><span class="badge-doux" id="resumeTopClients">0 client</span></div><div class="table-conteneur"><table><thead><tr><th>Client</th><th>Visites</th><th>Points gagnés</th><th>Dernière visite</th><th>Profil</th><th>Niveau</th></tr></thead><tbody id="tableTopClients"></tbody></table></div><div class="etat-vide" id="aucunTopClient">Les premiers passages apparaîtront ici.</div></article>
       </section>
 
       <section class="vue" id="vue-scanner">
@@ -406,7 +406,7 @@
             <div class="panneau-titre"><div><span class="eyebrow">Règles intelligentes</span><h3>Niveau de protection</h3></div><label class="interrupteur"><input id="antiFraudeActif" type="checkbox"><span></span></label></div>
             <p class="texte-secondaire">Ces limites s’appliquent séparément à chaque carte. Les tentatives bloquées n’ajoutent aucun point.</p>
             <div class="grille-reglages-fraude">
-              <div><label for="delaiAntiFraude">Délai entre deux scans</label><div class="champ-points"><input id="delaiAntiFraude" type="number" min="1" max="1440"><span>min</span></div></div>
+              <div><label for="delaiAntiFraude">Délai entre deux scans</label><div class="champ-points"><input id="delaiAntiFraude" type="number" min="0" max="1440"><span>min</span></div></div>
               <div><label for="maxScansJour">Scans maximum par jour</label><div class="champ-points"><input id="maxScansJour" type="number" min="1" max="100"><span>scans</span></div></div>
               <div><label for="maxPointsScan">Points maximum par scan</label><div class="champ-points"><input id="maxPointsScan" type="number" min="1" max="500"><span>pts</span></div></div>
               <div><label for="maxPointsJour">Points maximum par jour</label><div class="champ-points"><input id="maxPointsJour" type="number" min="1" max="5000"><span>pts</span></div></div>

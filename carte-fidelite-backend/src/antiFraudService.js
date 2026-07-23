@@ -32,7 +32,7 @@ function serialiserReglages(reglages, pointsParScan = REGLAGES_PAR_DEFAUT.max_po
   const minimumParScan = Math.max(1, Number(pointsParScan) || REGLAGES_PAR_DEFAUT.max_points_per_scan);
   return {
     enabled: reglages?.enabled !== false,
-    cooldown_minutes: Number(reglages?.cooldown_minutes || REGLAGES_PAR_DEFAUT.cooldown_minutes),
+    cooldown_minutes: Number(reglages?.cooldown_minutes ?? REGLAGES_PAR_DEFAUT.cooldown_minutes),
     max_scans_per_day: Number(reglages?.max_scans_per_day || REGLAGES_PAR_DEFAUT.max_scans_per_day),
     max_points_per_scan: Math.max(
       Number(reglages?.max_points_per_scan || REGLAGES_PAR_DEFAUT.max_points_per_scan),
@@ -72,7 +72,7 @@ async function enregistrerReglages(restaurantId, donnees) {
     enabled: donnees.enabled !== false,
     cooldown_minutes: entierDansIntervalle(
       donnees.cooldown_minutes,
-      1,
+      0,
       1440,
       'Le délai entre deux scans'
     ),

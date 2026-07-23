@@ -1162,7 +1162,8 @@ function afficherStatistiques() {
   $('#tableTopClients').innerHTML = topClients.map(client => {
     const visites = Number(client.visites || 0);
     const profil = visites >= 5 ? 'Ambassadeur' : visites >= 2 ? 'Fidèle' : 'Nouveau';
-    return `<tr><td><div class="client-cell"><span class="avatar-client">${echapper(initiales(client.nom))}</span><strong>${echapper(client.nom)}</strong></div></td><td><strong>${visites}</strong> passages</td><td><span class="points-badge">${Number(client.points_gagnes || 0)} pts</span></td><td>${formaterDate(client.derniere_visite, true)}</td><td><span class="profil-client ${profil.toLowerCase()}">${profil}</span></td></tr>`;
+    const niveau = calculerNiveauVip(donneesTableau.vip, client.points_cumules);
+    return `<tr><td><div class="client-cell"><span class="avatar-client">${echapper(initiales(client.nom))}</span><strong>${echapper(client.nom)}</strong></div></td><td><strong>${visites}</strong> passages</td><td><span class="points-badge">${Number(client.points_gagnes || 0)} pts</span></td><td>${formaterDate(client.derniere_visite, true)}</td><td><span class="profil-client ${profil.toLowerCase()}">${profil}</span></td><td>${niveau ? `<span class="badge-niveau-vip ${niveau}">${libelleNiveauVip(niveau)}</span>` : ''}</td></tr>`;
   }).join('');
   $('#aucunTopClient').style.display = topClients.length ? 'none' : 'block';
 }
