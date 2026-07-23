@@ -72,6 +72,7 @@
         <button class="navigation" data-vue="scanner">Scanner</button>
         <button class="navigation" data-vue="clients">Mes clients</button>
         <button class="navigation" data-vue="parrainage">Parrainage</button>
+        <button class="navigation" data-vue="vip">Niveaux VIP</button>
         <button class="navigation" data-vue="anti-fraude">Anti-fraude</button>
         <button class="navigation" data-vue="notifications">Notifications</button>
         <button class="navigation" data-vue="roue">Roue cadeaux<span class="pastille-brillante" data-pastille="roue" hidden></span></button>
@@ -298,7 +299,7 @@
       <section class="vue" id="vue-clients">
         <div class="panneau">
           <div class="panneau-titre clients-titre"><div><span class="eyebrow">Votre communauté</span><h3>Clients fidèles</h3></div><div class="recherche"><span>⌕</span><input id="rechercheClients" type="search" placeholder="Rechercher un client"></div></div>
-          <div class="table-conteneur"><table><thead><tr><th>Client</th><th>Contact</th><th>Wallet</th><th>Points</th><th>Inscription</th><th></th></tr></thead><tbody id="tableClients"></tbody></table></div>
+          <div class="table-conteneur"><table><thead><tr><th>Client</th><th>Contact</th><th>Wallet</th><th>Points</th><th>Niveau</th><th>Inscription</th><th></th></tr></thead><tbody id="tableClients"></tbody></table></div>
           <div class="etat-vide" id="aucunClient">Aucun client ne correspond à cette recherche.</div>
         </div>
       </section>
@@ -335,6 +336,56 @@
 
         <article class="panneau historique-parrainage"><div class="panneau-titre"><div><span class="eyebrow">Suivi</span><h3>Invitations récentes</h3></div><span class="badge-doux" id="resumeParrainage">0 invitation</span></div><div class="table-conteneur"><table><thead><tr><th>Parrain</th><th>Filleul</th><th>Code</th><th>Date</th><th>Récompense</th><th>Statut</th></tr></thead><tbody id="tableParrainages"></tbody></table></div><div class="etat-vide" id="aucunParrainage">Les premières invitations apparaîtront ici.</div></article>
         <article class="panneau historique-parrainage"><div class="panneau-titre"><div><span class="eyebrow">Répertoire</span><h3>Codes de parrainage clients</h3></div><span class="badge-doux" id="resumeCodesParrainage">0 code</span></div><p class="texte-secondaire">Retrouvez ici le code personnel d’un client s’il l’a oublié.</p><div class="table-conteneur"><table><thead><tr><th>Client</th><th>Contact</th><th>Code personnel</th><th>Points</th><th>Créé le</th></tr></thead><tbody id="tableCodesParrainage"></tbody></table></div><div class="etat-vide" id="aucunCodeParrainage">Les codes apparaîtront après la création des premières cartes.</div></article>
+      </section>
+
+      <section class="vue" id="vue-vip">
+        <div class="vip-hero">
+          <div><span class="eyebrow">Fidélisation par statut</span><h2>Vos clients aiment monter de niveau.</h2><p>Bronze, Argent, Or : plus ils reviennent, plus leur statut grimpe, directement visible sur leur carte Wallet.</p></div>
+          <div class="vip-symbole"><span>★</span><small>Trois<br>niveaux</small></div>
+        </div>
+
+        <div class="grille-stats vip-stats">
+          <article class="stat"><span class="stat-icone bleu">B</span><div><small>Bronze</small><strong id="statVipBronze">0</strong><em>Clients</em></div></article>
+          <article class="stat"><span class="stat-icone violet">A</span><div><small>Argent</small><strong id="statVipArgent">0</strong><em>Clients</em></div></article>
+          <article class="stat"><span class="stat-icone orange">O</span><div><small>Or</small><strong id="statVipOr">0</strong><em>Clients</em></div></article>
+        </div>
+
+        <div class="grille-parrainage grille-vip">
+          <article class="panneau reglage-vip">
+            <div class="panneau-titre"><div><span class="eyebrow">Réglages</span><h3>Niveaux VIP</h3></div><label class="interrupteur" title="Activer les niveaux VIP"><input id="vipActif" type="checkbox"><span></span></label></div>
+            <p class="texte-secondaire">Le niveau se calcule sur le total de points gagnés depuis toujours, jamais sur le solde qui repart à zéro après une récompense.</p>
+            <div class="deux-colonnes">
+              <div><label for="vipSeuilArgent">Seuil Argent</label><div class="champ-points"><input id="vipSeuilArgent" type="number" min="1" placeholder="200"><span>pts</span></div></div>
+              <div><label for="vipSeuilOr">Seuil Or</label><div class="champ-points"><input id="vipSeuilOr" type="number" min="1" placeholder="500"><span>pts</span></div></div>
+            </div>
+
+            <div class="vip-option">
+              <label class="ligne-interrupteur"><span>Avantage manuel : un texte affiché sur la carte, appliqué par votre équipe au comptoir</span><label class="interrupteur"><input id="vipAvantageManuelActif" type="checkbox"><span></span></label></label>
+              <div class="deux-colonnes">
+                <div><label for="vipAvantageArgent">Avantage Argent</label><input id="vipAvantageArgent" type="text" maxlength="90" placeholder="10% de réduction"></div>
+                <div><label for="vipAvantageOr">Avantage Or</label><input id="vipAvantageOr" type="text" maxlength="90" placeholder="Un plat offert chaque mois"></div>
+              </div>
+            </div>
+
+            <div class="vip-option">
+              <label class="ligne-interrupteur"><span>Bonus automatique : les points sont multipliés selon le niveau, sans rien à faire</span><label class="interrupteur"><input id="vipBonusActif" type="checkbox"><span></span></label></label>
+              <div class="deux-colonnes">
+                <div><label for="vipMultiplicateurArgent">Multiplicateur Argent</label><div class="champ-points"><input id="vipMultiplicateurArgent" type="number" min="1" max="5" step="0.1" placeholder="1.5"><span>x</span></div></div>
+                <div><label for="vipMultiplicateurOr">Multiplicateur Or</label><div class="champ-points"><input id="vipMultiplicateurOr" type="number" min="1" max="5" step="0.1" placeholder="2"><span>x</span></div></div>
+              </div>
+            </div>
+
+            <p class="texte-secondaire">Les deux avantages peuvent être activés en même temps, ou aucun si seul le statut vous intéresse.</p>
+            <button class="bouton principal" id="enregistrerVip">Enregistrer les niveaux</button><span class="message" id="messageVip"></span>
+          </article>
+
+          <article class="panneau parcours-parrainage">
+            <span class="eyebrow">Comment ça marche</span><h3>Une progression automatique</h3>
+            <div class="etape-parrainage"><span>1</span><div><strong>Le client cumule des points</strong><p>Chaque passage compte, même après avoir récupéré une récompense et être revenu à zéro.</p></div></div>
+            <div class="etape-parrainage"><span>2</span><div><strong>Il franchit un seuil</strong><p>Son niveau change automatiquement sur sa carte Wallet, avec un message de félicitations.</p></div></div>
+            <div class="etape-parrainage"><span>3</span><div><strong>Il profite de son avantage</strong><p>Selon vos réglages : une réduction que votre équipe applique au comptoir, plus de points à chaque passage, ou les deux.</p></div></div>
+          </article>
+        </div>
       </section>
 
       <section class="vue" id="vue-anti-fraude">

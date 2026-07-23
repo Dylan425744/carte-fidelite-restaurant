@@ -5,6 +5,8 @@
 // Documentation API :
 // https://api.walletwallet.dev/api/passes
 
+const vipService = require('./vipService');
+
 const BASE_URL = 'https://api.walletwallet.dev/api/passes';
 
 const DELAI_AVANT_NOUVELLE_TENTATIVE_MS = 1500;
@@ -254,6 +256,12 @@ function construireChampsCarte(client, restaurant = null) {
   const lienParrainage = client.referral_link || null;
   const codeParrainage = client.referral_code || null;
 
+  // Niveau VIP (Reglages > Niveaux VIP) : calcule a partir du cumul de
+  // points jamais remis a zero, distinct du solde utilisable ci-dessus.
+  const niveauVip = vipService.calculerNiveau(restaurant, client.points_cumules);
+  const libelleNiveauVip = vipService.libelleNiveau(niveauVip);
+  const avantageVip = vipService.obtenirAvantageTexte(restaurant, niveauVip);
+
   const champs = {
     barcodeValue: String(client.scan_code || client.id),
     barcodeFormat: restaurant?.wallet_barcode_format === 'QR_CODE' ? 'QR' : 'Code128',
@@ -303,10 +311,12 @@ function construireChampsCarte(client, restaurant = null) {
     ],
 
     /*
-     * Rien au centre de la carte : client et récompense vivent tous les
-     * deux dans la même rangée du bas (secondaryFields).
+     * Niveau VIP bien visible au centre de la carte (Reglages > Niveaux
+     * VIP). Vide si la fonctionnalité n'est pas activée pour ce restaurant.
      */
-    primaryFields: [],
+    primaryFields: libelleNiveauVip
+      ? [{ label: 'NIVEAU', value: libelleNiveauVip.toUpperCase() }]
+      : [],
 
     /*
      * Client à gauche, récompense à droite. La récompense n'apparaît que
@@ -324,6 +334,7 @@ function construireChampsCarte(client, restaurant = null) {
      * marketing personnalisées.
      */
     backFields: [
+      ...(avantageVip ? [{ label: `AVANTAGE NIVEAU ${libelleNiveauVip.toUpperCase()}`, value: avantageVip }] : []),
       ...(conditions ? [{ label: 'CONDITIONS', value: conditions }] : []),
       {
         label: 'PROGRAMME DE FIDÉLITÉ',

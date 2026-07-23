@@ -137,7 +137,7 @@ function ouvrirVue(nom) {
   $('#titreVue').textContent = {
     accueil: 'Vue d’ensemble', reglages: 'Réglages', statistiques: 'Statistiques détaillées',
     scanner: 'Scanner une carte', clients: 'Mes clients',
-    parrainage: 'Parrainage', 'anti-fraude': 'Anti-fraude',
+    parrainage: 'Parrainage', vip: 'Niveaux VIP', 'anti-fraude': 'Anti-fraude',
     notifications: 'Notifications', roue: 'Roue cadeaux', design: 'Design Wallet',
     marketing: 'QR & flyer',
     equipe: 'Mon équipe', compte: 'Mon compte'
@@ -242,15 +242,28 @@ async function traiterCodeScanne(code) {
     const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/scan`, {
       method: 'POST', body: JSON.stringify({ client_id: code })
     });
+    const evenementSpecial = donnees.recompenseAtteinte || donnees.niveau_vip_franchi;
     let contenu = donnees.recompenseAtteinte
       ? `<p class="message-recompense">${echapper(donnees.recompense_message || `Félicitations, ${donnees.client_nom} vient de remporter une récompense.`)}</p><div class="code-recompense-scan"><span>Code de retrait envoyé par email au client</span><strong>${echapper(donnees.recompense_code_retrait || '')}</strong></div><p>Le compteur de points a été remis à zéro.</p>`
-      : `<div class="solde-scan">${Number(donnees.nouveauSolde)} points</div><p>Nouveau solde de ${echapper(donnees.client_nom)}.</p>`;
+      : donnees.niveau_vip_franchi
+        ? `<p class="message-recompense">${echapper(donnees.recompense_message || `${donnees.client_nom} vient de passer au niveau ${donnees.niveau_vip_libelle} !`)}</p>`
+        : `<div class="solde-scan">${Number(donnees.nouveauSolde)} points</div><p>Nouveau solde de ${echapper(donnees.client_nom)}.</p>`;
+    if (donnees.niveau_vip_libelle) {
+      contenu += `<div class="scan-niveau-vip"><span class="badge-niveau-vip ${echapper(donnees.niveau_vip)}">${echapper(donnees.niveau_vip_libelle)}</span>${donnees.avantage_vip ? `<span class="avantage-vip">Avantage : ${echapper(donnees.avantage_vip)}</span>` : ''}</div>`;
+    }
+    if (donnees.vip_multiplicateur_applique) {
+      contenu += `<p>Bonus niveau appliqué : points x${donnees.vip_multiplicateur_applique}.</p>`;
+    }
     if (donnees.parrainage_valide) {
       contenu += `<div class="info-envoi"><span>✓</span><p>Parrainage validé : ${Number(donnees.bonus_filleul)} points pour le filleul et ${Number(donnees.bonus_parrain)} points pour le parrain.</p></div>`;
     }
     afficherResultatScan(
-      donnees.recompenseAtteinte ? 'recompense' : 'succes',
-      donnees.recompenseAtteinte ? 'Récompense débloquée !' : `${Number(donnees.points_ajoutes || 10)} points ajoutés`,
+      evenementSpecial ? 'recompense' : 'succes',
+      donnees.recompenseAtteinte
+        ? 'Récompense débloquée !'
+        : donnees.niveau_vip_franchi
+          ? `Niveau ${donnees.niveau_vip_libelle} débloqué !`
+          : `${Number(donnees.points_ajoutes || 10)} points ajoutés`,
       contenu
     );
     if (aPermission('dashboard')) await actualiserTableau(true);
@@ -426,7 +439,7 @@ function afficherAbonnement() {
 function appliquerPermissions() {
   const correspondances = {
     accueil: 'dashboard', statistiques: 'statistics', scanner: 'scan',
-    clients: 'clients', parrainage: 'referral_view', 'anti-fraude': 'fraud_view',
+    clients: 'clients', parrainage: 'referral_view', vip: 'design_view', 'anti-fraude': 'fraud_view',
     notifications: 'notifications', roue: 'dashboard', design: 'design_view',
     marketing: 'marketing_view', equipe: 'team_manage'
   };
@@ -440,6 +453,7 @@ function appliquerPermissions() {
   document.querySelector('.navigation[data-vue="compte"]')
     ?.classList.toggle('masquee', !sessionUtilisateur);
   $('#enregistrerParrainage').style.display = aPermission('referral_manage') ? '' : 'none';
+  $('#enregistrerVip').style.display = aPermission('design_manage') ? '' : 'none';
   $('#enregistrerAntiFraude').style.display = aPermission('fraud_manage') ? '' : 'none';
   $('#enregistrerDesign').style.display = aPermission('design_manage') ? '' : 'none';
   $('#enregistrerRoue').style.display = aPermission('design_manage') ? '' : 'none';
@@ -495,6 +509,7 @@ function afficherTableau() {
   remplirListeClientsNotification();
   remplirReglages();
   afficherParrainage();
+  afficherVip();
   afficherAntiFraude();
   afficherStatistiques();
   remplirApercuRoue();
@@ -885,6 +900,77 @@ function afficherParrainage() {
   }));
 }
 
+// Reflet cote client de vipService.calculerNiveau (backend) : le total de
+// points gagnes depuis toujours, jamais le solde qui repart a 0.
+function calculerNiveauVip(reglages, pointsCumules) {
+  if (!reglages?.vip_actif) return null;
+  const points = Number(pointsCumules) || 0;
+  const seuilOr = Number(reglages.vip_seuil_or);
+  const seuilArgent = Number(reglages.vip_seuil_argent);
+  if (Number.isFinite(seuilOr) && seuilOr > 0 && points >= seuilOr) return 'or';
+  if (Number.isFinite(seuilArgent) && seuilArgent > 0 && points >= seuilArgent) return 'argent';
+  return 'bronze';
+}
+
+function libelleNiveauVip(niveau) {
+  return { bronze: 'Bronze', argent: 'Argent', or: 'Or' }[niveau] || '';
+}
+
+function afficherVip() {
+  const reglages = donneesTableau.vip;
+  if (!reglages) return;
+
+  $('#vipActif').checked = reglages.vip_actif;
+  $('#vipSeuilArgent').value = reglages.vip_seuil_argent ?? '';
+  $('#vipSeuilOr').value = reglages.vip_seuil_or ?? '';
+  $('#vipAvantageManuelActif').checked = reglages.vip_avantage_manuel_actif;
+  $('#vipAvantageArgent').value = reglages.vip_avantage_argent || '';
+  $('#vipAvantageOr').value = reglages.vip_avantage_or || '';
+  $('#vipBonusActif').checked = reglages.vip_bonus_actif;
+  $('#vipMultiplicateurArgent').value = reglages.vip_multiplicateur_argent ?? '';
+  $('#vipMultiplicateurOr').value = reglages.vip_multiplicateur_or ?? '';
+
+  const clients = donneesTableau.clients || [];
+  const compteurs = { bronze: 0, argent: 0, or: 0 };
+  clients.forEach(client => {
+    const niveau = calculerNiveauVip(reglages, client.points_cumules);
+    if (niveau) compteurs[niveau] += 1;
+  });
+  $('#statVipBronze').textContent = compteurs.bronze;
+  $('#statVipArgent').textContent = compteurs.argent;
+  $('#statVipOr').textContent = compteurs.or;
+}
+
+async function enregistrerVip() {
+  const bouton = $('#enregistrerVip');
+  bouton.disabled = true;
+  afficherMessage($('#messageVip'), 'Enregistrement...');
+
+  try {
+    const donnees = await api(`/api/restaurateur/${encodeURIComponent(slug)}/vip`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        vip_actif: $('#vipActif').checked,
+        vip_seuil_argent: $('#vipSeuilArgent').value,
+        vip_seuil_or: $('#vipSeuilOr').value,
+        vip_avantage_manuel_actif: $('#vipAvantageManuelActif').checked,
+        vip_avantage_argent: $('#vipAvantageArgent').value.trim(),
+        vip_avantage_or: $('#vipAvantageOr').value.trim(),
+        vip_bonus_actif: $('#vipBonusActif').checked,
+        vip_multiplicateur_argent: $('#vipMultiplicateurArgent').value,
+        vip_multiplicateur_or: $('#vipMultiplicateurOr').value
+      })
+    });
+    donneesTableau.vip = donnees.reglages;
+    afficherVip();
+    afficherMessage($('#messageVip'), 'Niveaux VIP enregistrés.', 'succes');
+  } catch (erreur) {
+    afficherMessage($('#messageVip'), erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
 async function enregistrerParrainage() {
   const bouton = $('#enregistrerParrainage');
   bouton.disabled = true;
@@ -1105,15 +1191,19 @@ function afficherClients(clients) {
       .some(valeur => String(valeur).toLowerCase().includes(recherche))
   );
 
-  $('#tableClients').innerHTML = filtres.map(client => `
+  $('#tableClients').innerHTML = filtres.map(client => {
+    const niveau = calculerNiveauVip(donneesTableau.vip, client.points_cumules);
+    return `
     <tr>
       <td><div class="client-cell"><span class="avatar-client">${echapper(initiales(client.nom))}</span><strong>${echapper(client.nom)}</strong></div></td>
       <td class="contact-cell">${echapper(client.email)}<span>${echapper(client.telephone || 'Téléphone non renseigné')}</span></td>
       <td><div class="wallet-badges">${client.apple_wallet ? '<span class="wallet-badge apple"> Apple</span>' : ''}<span class="wallet-badge google">G Google</span></div></td>
       <td><span class="points-badge">${Number(client.points || 0)} pts</span></td>
+      <td>${niveau ? `<span class="badge-niveau-vip ${niveau}">${libelleNiveauVip(niveau)}</span>` : ''}</td>
       <td>${formaterDate(client.date_inscription)}</td>
       <td><button class="bouton-table" data-supprimer-client="${echapper(client.id)}" title="Supprimer ce client">Supprimer</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   $('#aucunClient').style.display = filtres.length ? 'none' : 'block';
 }
 
@@ -2525,6 +2615,7 @@ $('#genCopierNfc').addEventListener('click', copierLienNfc);
 $('#genExportPdf').addEventListener('click', () => telechargerExportGenerateur('pdf'));
 $('#genExportPng').addEventListener('click', () => telechargerExportGenerateur('png'));
 $('#enregistrerParrainage').addEventListener('click', enregistrerParrainage);
+$('#enregistrerVip').addEventListener('click', enregistrerVip);
 $('#enregistrerAntiFraude').addEventListener('click', enregistrerAntiFraude);
 $('#periodeStatistiques').addEventListener('change', chargerStatistiques);
 $('#tableAlertesFraude').addEventListener('click', evenement => {

@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { GoogleAuth } = require('google-auth-library');
 const supabase = require('./supabaseClient');
+const vipService = require('./vipService');
 
 const PORTEE_GOOGLE = 'https://www.googleapis.com/auth/wallet_object.issuer';
 const CACHE_CLASSE_MS = 10 * 60 * 1000;
@@ -148,6 +149,15 @@ function construireObjetFidelite(client, restaurant) {
   const pointsLabel = String(restaurant.wallet_points_label || `Points sur ${seuilRecompense}`).trim();
   const carteLabel = String(restaurant.wallet_card_label || 'FIDÉLITÉ').trim();
   const recompense = String(restaurant.wallet_reward_text || restaurant.description_recompense || '').trim();
+
+  // Niveau VIP (Reglages > Niveaux VIP), calcule a partir du cumul de
+  // points jamais remis a zero. Google n'a pas de champ de niveau par
+  // client au sens strict : on utilise le second emplacement de points,
+  // prevu pour afficher du texte plutot qu'un nombre.
+  const niveauVip = vipService.calculerNiveau(restaurant, client.points_cumules);
+  const libelleNiveauVip = vipService.libelleNiveau(niveauVip);
+  const avantageVip = vipService.obtenirAvantageTexte(restaurant, niveauVip);
+
   const objet = {
     id: getObjectId(client.id),
     classId: getRestaurantClassId(restaurant),
@@ -158,6 +168,12 @@ function construireObjetFidelite(client, restaurant) {
       label: pointsLabel,
       balance: { int: Number.parseInt(client.points || 0, 10) }
     },
+    ...(libelleNiveauVip ? {
+      secondaryLoyaltyPoints: {
+        label: 'Niveau',
+        balance: { string: libelleNiveauVip }
+      }
+    } : {}),
     barcode: {
       type: restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128',
       value: client.scan_code || client.id,
@@ -167,6 +183,7 @@ function construireObjetFidelite(client, restaurant) {
       { id: 'client', header: 'CLIENT', body: client.nom },
       ...(carteLabel ? [{ id: 'type_carte', header: 'CARTE', body: carteLabel }] : []),
       ...(recompense ? [{ id: 'recompense', header: 'RÉCOMPENSE', body: recompense }] : []),
+      ...(avantageVip ? [{ id: 'avantage_vip', header: `AVANTAGE ${libelleNiveauVip.toUpperCase()}`, body: avantageVip }] : []),
       ...(restaurant.telephone ? [{ id: 'telephone', header: 'TÉLÉPHONE', body: String(restaurant.telephone) }] : []),
       ...(restaurant.adresse ? [{ id: 'adresse', header: 'ADRESSE', body: String(restaurant.adresse) }] : []),
       ...(restaurant.email_public ? [{ id: 'contact', header: 'CONTACT', body: String(restaurant.email_public) }] : [])

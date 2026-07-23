@@ -23,6 +23,7 @@ const roueService = require('./roueService');
 const walletAssetSpecifications = require('./walletAssetSpecifications');
 const reglagesService = require('./reglagesService');
 const geocodingService = require('./geocodingService');
+const vipService = require('./vipService');
 
 // Delai de retrait pour la recompense du programme de fidelite (seuil de
 // points atteint), disponible immediatement contrairement aux gains de la
@@ -135,7 +136,16 @@ const CHAMPS_RESTAURANT = [
   'geoloc_longitude',
   'geoloc_message_proximite',
   'geoloc_actif',
-  'geoloc_coordonnees_manuelles'
+  'geoloc_coordonnees_manuelles',
+  'vip_actif',
+  'vip_seuil_argent',
+  'vip_seuil_or',
+  'vip_avantage_manuel_actif',
+  'vip_avantage_argent',
+  'vip_avantage_or',
+  'vip_bonus_actif',
+  'vip_multiplicateur_argent',
+  'vip_multiplicateur_or'
 ].join(', ');
 
 function pageProgrammeIndisponible(titre, texte) {
@@ -1439,7 +1449,7 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
       supabase
         .from('clients')
         .select(
-          'id, nom, email, telephone, points, apple_wallet_serial, google_wallet_object_id, date_inscription'
+          'id, nom, email, telephone, points, points_cumules, apple_wallet_serial, google_wallet_object_id, date_inscription'
         )
         .eq('restaurant_id', acces.restaurant.id)
         .order('date_inscription', { ascending: false }),
@@ -1493,6 +1503,7 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
         email: client.email,
         telephone: client.telephone,
         points: client.points,
+        points_cumules: client.points_cumules,
         date_inscription: client.date_inscription,
         apple_wallet: Boolean(client.apple_wallet_serial),
         google_wallet: true
@@ -1509,6 +1520,7 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
         historique: historiqueRoue
       },
       reglages: reglagesService.serialiserReglages(acces.restaurant),
+      vip: vipService.serialiserReglagesVip(acces.restaurant),
       notification_en_cours: Boolean(acces.restaurant.notification_sending)
     });
   } catch (erreur) {
@@ -1654,6 +1666,65 @@ app.put('/api/restaurateur/:slug/parrainage', async (req, res) => {
       succes: true,
       message: 'Le programme de parrainage a bien été enregistré.',
       reglages
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+app.get('/api/restaurateur/:slug/vip', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'design_manage');
+    if (!acces) return;
+    res.json({ succes: true, reglages: vipService.serialiserReglagesVip(acces.restaurant) });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+app.put('/api/restaurateur/:slug/vip', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'design_manage');
+    if (!acces) return;
+
+    const miseAJour = vipService.construireMiseAJourVip(req.body || {});
+
+    const { data, error } = await supabase
+      .from('restaurants')
+      .update(miseAJour)
+      .eq('id', acces.restaurant.id)
+      .select(CHAMPS_RESTAURANT)
+      .single();
+
+    if (error) throw error;
+
+    // Le plafond anti-fraude doit pouvoir encaisser le multiplicateur le
+    // plus haut, sinon un scan legitime d'un client Or se ferait bloquer.
+    if (data.vip_bonus_actif) {
+      const pireMultiplicateur = Math.max(
+        Number(data.vip_multiplicateur_argent) || 1,
+        Number(data.vip_multiplicateur_or) || 1
+      );
+      await antiFraude.assurerPlafondPourMultiplicateur(
+        data.id,
+        data.points_per_scan,
+        pireMultiplicateur
+      );
+    }
+
+    // Le niveau (et l'avantage qui va avec) doit apparaitre tout de suite
+    // sur les cartes deja creees, pas seulement au prochain scan.
+    setImmediate(() => {
+      actualiserCartesAppleEnArrierePlan(data);
+      actualiserCartesGoogleEnArrierePlan(data);
+    });
+
+    res.json({
+      succes: true,
+      message: 'Les niveaux VIP ont bien été enregistrés.',
+      reglages: vipService.serialiserReglagesVip(data)
     });
   } catch (erreur) {
     console.error(erreur);
@@ -2623,10 +2694,16 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       });
     }
 
+    // Le multiplicateur se base sur le niveau deja atteint avant ce scan :
+    // il faut deja etre Or pour beneficier du bonus Or sur ce passage.
+    const niveauAvant = vipService.calculerNiveau(acces.restaurant, client.points_cumules);
+    const multiplicateurVip = vipService.obtenirMultiplicateur(acces.restaurant, niveauAvant);
+    const pointsAvecBonus = Math.round(pointsAAjouter * multiplicateurVip);
+
     const controleScan = await antiFraude.enregistrerScan(
       acces.restaurant.id,
       client.id,
-      pointsAAjouter
+      pointsAvecBonus
     );
 
     if (!controleScan.autorise) {
@@ -2653,7 +2730,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
 
     const { data: clientActualise, error: erreurSolde } = await supabase
       .from('clients')
-      .select('points')
+      .select('points, points_cumules')
       .eq('id', client.id)
       .single();
 
@@ -2661,6 +2738,16 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
 
     // Verifie si le client vient d'atteindre le seuil de recompense
     const restaurant = client.restaurants || null;
+
+    // Niveau VIP apres ce scan : points_cumules ne redescend jamais, donc
+    // un passage de niveau ne peut être qu'une progression.
+    const niveauApres = vipService.calculerNiveau(restaurant, clientActualise.points_cumules);
+    const niveauVipFranchi = Boolean(
+      niveauAvant && niveauApres && vipService.rangNiveau(niveauApres) > vipService.rangNiveau(niveauAvant)
+    );
+    const avantageVipTexte = vipService.obtenirAvantageTexte(restaurant, niveauApres);
+    const libelleNiveauApres = vipService.libelleNiveau(niveauApres);
+
     const seuil = Number.parseInt(
       restaurant?.seuil_recompense || process.env.SEUIL_RECOMPENSE || '100',
       10
@@ -2709,6 +2796,12 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       }
     }
 
+    // Message dedie a l'interface restaurateur quand seul le niveau VIP
+    // change (la recompense du programme, elle, a deja son propre message).
+    if (niveauVipFranchi && !messageRestaurateur) {
+      messageRestaurateur = `${client.nom} vient de passer au niveau ${libelleNiveauApres} !`;
+    }
+
     // On met a jour la carte Google Wallet en temps reel
     let codeClient = null;
     try {
@@ -2721,6 +2814,7 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
     const clientPourWallet = {
       ...client,
       points: soldeFinal,
+      points_cumules: clientActualise.points_cumules,
       referral_code: codeClient,
       referral_link: referral.construireLienParrainage(
         restaurant.slug,
@@ -2730,23 +2824,41 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
 
     // Message de felicitations professionnel : remplace ponctuellement le
     // message habituel ("Vous avez maintenant X points") pour cette seule
-    // mise a jour, sans jamais modifier la configuration enregistree.
-    const restaurantPourWallet = recompenseAtteinte
-      ? {
-          ...restaurant,
-          points_change_message_override:
-            `Félicitations, vous venez de remporter ${descriptionRecompense} ! Nouveau solde : %@ points.`
-        }
+    // mise a jour, sans jamais modifier la configuration enregistree. Un
+    // scan peut a la fois debloquer la recompense du programme ET faire
+    // franchir un niveau VIP : le message combine alors les deux.
+    let messagePointsOverride = null;
+    let notifTitreClient = null;
+    let notifCorpsClient = null;
+
+    if (recompenseAtteinte && niveauVipFranchi) {
+      messagePointsOverride = `Félicitations, vous remportez ${descriptionRecompense} et passez au niveau ${libelleNiveauApres} ! Nouveau solde : %@ points.`;
+      notifTitreClient = 'Félicitations !';
+      notifCorpsClient = `Vous remportez ${descriptionRecompense} et passez au niveau ${libelleNiveauApres} ! Le détail de votre récompense vous a été envoyé par email.`;
+    } else if (recompenseAtteinte) {
+      messagePointsOverride = `Félicitations, vous venez de remporter ${descriptionRecompense} ! Nouveau solde : %@ points.`;
+      notifTitreClient = 'Félicitations !';
+      notifCorpsClient = `Vous venez de remporter ${descriptionRecompense}. Le détail vous a été envoyé par email.`;
+    } else if (niveauVipFranchi) {
+      messagePointsOverride = `Bravo, vous êtes maintenant client ${libelleNiveauApres} ! Nouveau solde : %@ points.`;
+      notifTitreClient = `Niveau ${libelleNiveauApres} débloqué !`;
+      notifCorpsClient = avantageVipTexte
+        ? `Vous êtes maintenant client ${libelleNiveauApres}. Votre avantage : ${avantageVipTexte}.`
+        : `Vous êtes maintenant client ${libelleNiveauApres}. Merci pour votre fidélité !`;
+    }
+
+    const restaurantPourWallet = messagePointsOverride
+      ? { ...restaurant, points_change_message_override: messagePointsOverride }
       : restaurant;
 
     try {
       await wallet.synchroniserObjetWallet(clientPourWallet, restaurantPourWallet);
-      if (recompenseAtteinte) {
+      if (notifTitreClient) {
         await wallet.envoyerNotificationWallet(
           client,
-          'Félicitations !',
-          `Vous venez de remporter ${descriptionRecompense}. Le détail vous a été envoyé par email.`,
-          `recompense-${client.id}-${Date.now()}`
+          notifTitreClient,
+          notifCorpsClient,
+          `evenement-${client.id}-${Date.now()}`
         );
       }
     } catch (erreurGoogle) {
@@ -2815,11 +2927,16 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
       succes: true,
       client_nom: client.nom,
       nouveauSolde: soldeFinal,
-      points_ajoutes: pointsAAjouter,
+      points_ajoutes: pointsAvecBonus,
+      vip_multiplicateur_applique: multiplicateurVip > 1 ? multiplicateurVip : null,
       recompenseAtteinte,
       recompense_description: descriptionRecompense || null,
       recompense_message: messageRestaurateur,
       recompense_code_retrait: codeRetraitProgramme,
+      niveau_vip: niveauApres,
+      niveau_vip_libelle: libelleNiveauApres || null,
+      niveau_vip_franchi: niveauVipFranchi,
+      avantage_vip: avantageVipTexte || null,
       parrainage_valide: Boolean(parrainageValide),
       bonus_filleul: Number(parrainageValide?.referee_points_awarded || 0),
       bonus_parrain: Number(parrainageValide?.sponsor_points_awarded || 0),

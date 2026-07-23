@@ -133,6 +133,32 @@ async function synchroniserAvecProgramme(restaurantId, pointsParScan, anciensPoi
   if (error) throw error;
 }
 
+// Un client VIP peut recevoir plus que points_per_scan grace a son
+// multiplicateur de niveau : le plafond anti-fraude doit pouvoir l'encaisser,
+// sinon un scan legitime se ferait bloquer comme suspect. Ne fait que
+// remonter le plafond si besoin, jamais le redescendre.
+async function assurerPlafondPourMultiplicateur(restaurantId, pointsParScan, multiplicateurMax) {
+  const plafondNecessaire = Math.ceil(
+    Math.max(1, Number(pointsParScan) || 1) * Math.max(1, Number(multiplicateurMax) || 1)
+  );
+  const { data: existant, error: erreurLecture } = await supabase
+    .from('fraud_settings')
+    .select('max_points_per_scan')
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if (erreurLecture) throw erreurLecture;
+
+  const plafondActuel = Number(existant?.max_points_per_scan || 0);
+  if (plafondActuel >= plafondNecessaire) return;
+
+  const { error } = await supabase.from('fraud_settings').upsert({
+    restaurant_id: restaurantId,
+    max_points_per_scan: plafondNecessaire,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'restaurant_id' });
+  if (error) throw error;
+}
+
 async function enregistrerScan(restaurantId, clientId, points) {
   const { data, error } = await supabase.rpc('enregistrer_scan_securise', {
     p_restaurant_id: restaurantId,
@@ -243,6 +269,7 @@ module.exports = {
   enregistrerReglages,
   enregistrerScan,
   synchroniserAvecProgramme,
+  assurerPlafondPourMultiplicateur,
   obtenirReglages,
   obtenirTableauAntiFraude,
   traiterAlerte
