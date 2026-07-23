@@ -1,16 +1,16 @@
 const TYPES_SUPPORT = {
   wallet: {
     id: 'wallet',
-    nom: 'Ajout de la carte Wallet',
-    description: 'Le QR code ouvre la carte de fidélité de ce restaurant.',
+    nom: 'Faire ajouter la carte Wallet',
+    description: 'Le client scanne le flyer pour installer sa carte de fidélité.',
     lien: 'loyalty',
     titreParDefaut: 'Ajoutez votre carte de fidélité',
     sousTitreParDefaut: 'Directement dans Apple Wallet ou Google Wallet'
   },
   wheel: {
     id: 'wheel',
-    nom: 'Avis client & roue cadeau',
-    description: 'Le QR code ouvre le parcours avis puis la roue des cadeaux.',
+    nom: 'Collecter un avis & lancer la roue',
+    description: 'Le client scanne, laisse son avis puis tente de gagner un cadeau.',
     lien: 'review',
     titreParDefaut: 'Faites tourner la roue et gagnez !',
     sousTitreParDefaut: 'Tentez votre chance à chaque visite'

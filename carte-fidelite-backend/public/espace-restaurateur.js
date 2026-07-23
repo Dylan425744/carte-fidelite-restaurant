@@ -2011,10 +2011,22 @@ function afficherPickerGenerateur(conteneurId, items, valeurActuelle, attribut, 
     </button>`).join('');
 }
 
+function afficherTypesGenerateur(items, valeurActuelle) {
+  const icones = {
+    wallet: '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="4" width="25" height="40" rx="6"/><path d="M17 10h9M18 38h7"/><rect x="17" y="15" width="26" height="18" rx="4"/><path d="M22 21h14M22 26h9"/></svg>',
+    wheel: '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="25" r="17"/><circle cx="24" cy="25" r="4"/><path d="M24 8v13M24 29v13M7 25h13M28 25h13M12 13l9 9M27 28l9 9M36 13l-9 9M21 28l-9 9M20 4h8l-4 6z"/></svg>'
+  };
+  $('#genListeTypes').innerHTML = items.map(item => `
+    <button type="button" data-kind="${echapper(item.id)}" class="${item.id === valeurActuelle ? 'actif' : ''}">
+      <span class="generateur-type-icone ${item.id}">${icones[item.id] || icones.wallet}</span>
+      <strong>${echapper(item.nom)}</strong>
+      <small>${echapper(item.description || '')}</small>
+    </button>`).join('');
+}
+
 function rafraichirPickersGenerateur() {
   if (!kitCommunication) return;
-  afficherPickerGenerateur('genListeTypes', kitCommunication.types_support, genEtat.kind, 'kind', item =>
-    item.id === 'wallet' ? 'linear-gradient(145deg,#17111f,#7047eb)' : 'linear-gradient(145deg,#ff8a35,#7047eb)');
+  afficherTypesGenerateur(kitCommunication.types_support, genEtat.kind);
   afficherPickerGenerateur('genListeStyles', kitCommunication.styles, genEtat.style, 'style', item =>
     `linear-gradient(145deg, ${item.fond}, ${item.primaire} 60%, ${item.secondaire})`);
   $('#genListePhotos').innerHTML = `<button type="button" class="generateur-photo aucune ${!genEtat.photoUrl ? 'actif' : ''}" data-photo=""><span>Sans photo</span></button>` +

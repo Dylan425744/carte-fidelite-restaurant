@@ -189,12 +189,6 @@ function viderTextesModele(source, textes) {
 
 function walletFixe(x, y, largeur, hauteur, style, viewBox = '0 0 1000 1400') {
   let source = fs.readFileSync(WALLET_FLYER_OFFICIEL, 'utf8');
-  source = source
-    .replace(/\s*<g id="bravocard-signature"[\s\S]*?<\/g>/, '')
-    .replace(/\s*<circle cx="448" cy="606"[^>]*\/>/, '')
-    .replace('transform="translate(453 381)"', 'transform="translate(430 381)"')
-    .replace('transform="rotate(-4 360 760)"', 'transform="translate(0 -170) rotate(-4 360 760)"')
-    .replace('transform="rotate(7 710 820)"', 'transform="translate(0 -170) rotate(7 710 820)"');
   const palette = paletteWallet(style);
   const couleursStops = {
     'wallet-primary-stop': palette.primaire,
@@ -218,13 +212,19 @@ function walletFixe(x, y, largeur, hauteur, style, viewBox = '0 0 1000 1400') {
 }
 
 function walletDynamique(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1400') {
-  const { nomRestaurant, qrGenere } = ctx;
+  const { nomRestaurant, style, qrGenere } = ctx;
+  const palette = paletteWallet(style);
+  const tailleNom = Math.max(28, Math.min(46, 620 / (Math.max(8, nomRestaurant.length) * .55)));
   const tailleNomCarte = Math.max(12, Math.min(21, 220 / (Math.max(8, nomRestaurant.length) * .55)));
   return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="none" overflow="hidden" aria-label="Contenu personnalisé du restaurant">
-    <g transform="translate(0 -170) rotate(-4 360 760)">
+    <text x="500" y="68" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="${tailleNom}" font-weight="700" text-anchor="middle">${echapperXml(nomRestaurant)}</text>
+    <text x="500" y="110" fill="${palette.secondaire}" font-family="Inter, Helvetica, Arial, sans-serif" font-size="18" font-weight="800" letter-spacing="7" text-anchor="middle">CARTE DE FIDÉLITÉ</text>
+    <text x="500" y="202" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="57" font-weight="700" letter-spacing="1" text-anchor="middle">VOTRE FIDÉLITÉ MÉRITE</text>
+    <text x="500" y="276" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="68" font-weight="700" letter-spacing="2" text-anchor="middle">MIEUX</text>
+    <g transform="rotate(-4 360 760)">
       <text x="208" y="520" fill="#FFFFFF" font-family="Georgia, Times New Roman, serif" font-size="${tailleNomCarte}" font-weight="700">${echapperXml(nomRestaurant)}</text>
     </g>
-    <g id="restaurant-real-wallet-qr" transform="translate(0 -170) rotate(7 710 820)">${qr.qrIntegrable(qrGenere, 577, 644, 230)}</g>
+    <g id="restaurant-real-wallet-qr" transform="rotate(7 710 820)">${qr.qrIntegrable(qrGenere, 577, 644, 230)}</g>
   </svg>`;
 }
 
