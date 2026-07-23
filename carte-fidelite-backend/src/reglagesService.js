@@ -116,7 +116,11 @@ function construireMiseAJourGeolocalisation(donnees) {
     geoloc_latitude: latitude,
     geoloc_longitude: longitude,
     geoloc_message_proximite: message,
-    geoloc_actif: actif
+    geoloc_actif: actif,
+    // Des que le restaurateur enregistre lui-meme cette section, on arrete
+    // de recalculer automatiquement la position depuis l'adresse : il en
+    // devient responsable, meme s'il n'a en fait rien change.
+    geoloc_coordonnees_manuelles: true
   };
 }
 

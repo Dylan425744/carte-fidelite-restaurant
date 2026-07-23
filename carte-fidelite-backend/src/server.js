@@ -22,6 +22,7 @@ const svgExport = require('./svgExportService');
 const roueService = require('./roueService');
 const walletAssetSpecifications = require('./walletAssetSpecifications');
 const reglagesService = require('./reglagesService');
+const geocodingService = require('./geocodingService');
 
 // Delai de retrait pour la recompense du programme de fidelite (seuil de
 // points atteint), disponible immediatement contrairement aux gains de la
@@ -133,7 +134,8 @@ const CHAMPS_RESTAURANT = [
   'geoloc_latitude',
   'geoloc_longitude',
   'geoloc_message_proximite',
-  'geoloc_actif'
+  'geoloc_actif',
+  'geoloc_coordonnees_manuelles'
 ].join(', ');
 
 function pageProgrammeIndisponible(titre, texte) {
@@ -1163,6 +1165,24 @@ app.put('/api/reglages/:slug', async (req, res) => {
       constructeur(req.body),
       acces.restaurant
     );
+
+    // Calcule automatiquement latitude/longitude depuis la nouvelle adresse,
+    // pour éviter au restaurateur d'aller les chercher lui-même. On ne le
+    // fait plus dès qu'il a confirmé des coordonnées à la main (Réglages >
+    // Géolocalisation), et une adresse introuvable ne bloque jamais
+    // l'enregistrement du reste de la fiche Contact.
+    if (
+      section === 'contact' &&
+      miseAJour.adresse &&
+      miseAJour.adresse !== acces.restaurant.adresse &&
+      !acces.restaurant.geoloc_coordonnees_manuelles
+    ) {
+      const position = await geocodingService.geocoderAdresse(miseAJour.adresse);
+      if (position) {
+        miseAJour.geoloc_latitude = position.latitude;
+        miseAJour.geoloc_longitude = position.longitude;
+      }
+    }
 
     const { data, error } = await supabase
       .from('restaurants')

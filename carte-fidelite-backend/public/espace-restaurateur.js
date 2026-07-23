@@ -1307,6 +1307,7 @@ function actualiserApercuGeoloc() {
   compteur.classList.toggle('limite', longueur >= 120);
   $('#geolocApercuTitre').textContent = restaurant?.nom || 'Votre restaurant';
   $('#geolocApercuMessage').textContent = message.trim() || 'Votre message apparaîtra ici.';
+  actualiserIconeNotification('geolocApercuIcone', 'geolocApercuInitiale');
 }
 
 const CHAMPS_SECTION_REGLAGES = {
@@ -1483,10 +1484,19 @@ async function envoyerNotification(estTest = false) {
   }
 }
 
+function actualiserIconeNotification(idImage, idInitiale) {
+  const url = restaurant?.apple_icon_url || restaurant?.logo_url || '';
+  const image = $(`#${idImage}`);
+  image.src = url;
+  image.classList.toggle('visible', Boolean(url));
+  $(`#${idInitiale}`).textContent = initiales(restaurant?.nom);
+}
+
 function actualiserApercuNotification() {
   $('#previewTitreNotification').textContent = $('#titreNotification').value || restaurant?.nom || 'Votre restaurant';
   $('#previewMessageNotification').textContent = $('#messageNotification').value || 'Votre message apparaîtra ici.';
   $('#compteurMessage').textContent = $('#messageNotification').value.length;
+  actualiserIconeNotification('previewNotifIcone', 'previewNotifInitiale');
 }
 
 function elementAsset(plateforme, id) {
