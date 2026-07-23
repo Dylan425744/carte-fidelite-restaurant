@@ -2018,7 +2018,7 @@ function afficherTypesGenerateur(items, valeurActuelle) {
   };
   $('#genListeTypes').innerHTML = items.map(item => `
     <button type="button" data-kind="${echapper(item.id)}" class="${item.id === valeurActuelle ? 'actif' : ''}">
-      <span class="generateur-type-icone ${item.id}">${icones[item.id] || icones.wallet}</span>
+      <span class="generateur-type-icone type-${item.id}">${icones[item.id] || icones.wallet}</span>
       <strong>${echapper(item.nom)}</strong>
       <small>${echapper(item.description || '')}</small>
     </button>`).join('');
@@ -2081,6 +2081,9 @@ function memoriserReglageGenerateur() {
 function appliquerReglageGenerateur(kind) {
   const type = kitCommunication.types_support.find(item => item.id === kind);
   const reglage = genEtat.reglages[kind] || {};
+  const ancienMessageWallet = valeur => /scannez[\s\S]*ajoutez[\s\S]*carte[\s\S]*secondes/i.test(String(valeur || ''));
+  const ancienTitreWallet = valeur => ancienMessageWallet(valeur) || /^ajoutez votre carte de fidélité[.!]?$/i.test(String(valeur || ''));
+  const ancienSousTitreWallet = valeur => ancienMessageWallet(valeur) || /apple wallet[\s\S]*google wallet/i.test(String(valeur || ''));
   genEtat.kind = kind;
   genEtat.formatId = 'a6-portrait';
   genEtat.style = reglage.style || (kind === 'wheel' ? 'fun' : 'premium');
@@ -2090,8 +2093,12 @@ function appliquerReglageGenerateur(kind) {
   $('#genCouleurPrincipale').value = reglage.primary_color || style?.primaire || '#6C3CE9';
   $('#genCouleurSecondaire').value = reglage.secondary_color || style?.secondaire || '#E8891F';
   $('#genCouleurAccent').value = reglage.accent_color || style?.accent || '#D6B15E';
-  $('#genTitre').value = reglage.title || type?.titreParDefaut || '';
-  $('#genSousTitre').value = reglage.subtitle || type?.sousTitreParDefaut || '';
+  $('#genTitre').value = kind === 'wallet' && ancienTitreWallet(reglage.title)
+    ? type?.titreParDefaut || ''
+    : reglage.title || type?.titreParDefaut || '';
+  $('#genSousTitre').value = kind === 'wallet' && ancienSousTitreWallet(reglage.subtitle)
+    ? type?.sousTitreParDefaut || ''
+    : reglage.subtitle || type?.sousTitreParDefaut || '';
   rafraichirPickersGenerateur();
 }
 

@@ -395,6 +395,16 @@ function rendrePortrait(ctx) {
   return roueFlyerOfficiel(ctx, 0, 0, w, h);
 }
 
+function normaliserTextesSupport(kind, titreRecu, sousTitreRecu, type) {
+  let titre = texteLimite(titreRecu, type.titreParDefaut, 72);
+  let sousTitre = texteLimite(sousTitreRecu, type.sousTitreParDefaut, 100);
+  if (kind !== 'wallet') return { titre, sousTitre };
+  const ancienMessage = valeur => /scannez[\s\S]*ajoutez[\s\S]*carte[\s\S]*secondes/i.test(valeur);
+  if (ancienMessage(titre) || /^ajoutez votre carte de fidélité[.!]?$/i.test(titre)) titre = type.titreParDefaut;
+  if (ancienMessage(sousTitre) || /apple wallet[\s\S]*google wallet/i.test(sousTitre)) sousTitre = type.sousTitreParDefaut;
+  return { titre, sousTitre };
+}
+
 async function construireSupport(restaurant, parametresRecus, marketing) {
   const { kind, formatId, styleId } = resoudreParametres(parametresRecus);
   const type = catalogue.TYPES_SUPPORT[kind];
@@ -417,14 +427,15 @@ async function construireSupport(restaurant, parametresRecus, marketing) {
     imageEnDataUri(photoUrl, { autorisees: photosAutorisees })
   ]);
   const variante = Math.max(0, Math.min(9, Number.parseInt(parametresRecus.variant, 10) || 0));
+  const textes = normaliserTextesSupport(kind, parametresRecus.title, parametresRecus.subtitle, type);
   const ctx = {
     largeur: format.largeurMm, hauteur: format.hauteurMm,
     marge: formatId === 'a4-portrait' ? 14 : 7,
     type, formatId, styleId, style, variante,
     suffixe: `${kind}-${formatId}-${styleId}-${variante}`.replace(/[^a-z0-9-]/g, ''),
     nomRestaurant: texteLimite(restaurant.nom, 'Votre restaurant', 45), logo, photo,
-    titre: texteLimite(parametresRecus.title, type.titreParDefaut, 72),
-    sousTitre: texteLimite(parametresRecus.subtitle, type.sousTitreParDefaut, 100),
+    titre: textes.titre,
+    sousTitre: textes.sousTitre,
     qrGenere
   };
   const contenu = formatId === 'square' ? rendreCarre(ctx) : rendrePortrait(ctx);
@@ -435,10 +446,7 @@ function normaliserReglage(reglage, kind) {
   const type = catalogue.TYPES_SUPPORT[kind];
   const formatId = catalogue.FORMATS[reglage?.format_layout] ? reglage.format_layout : 'a6-portrait';
   const style = catalogue.STYLES[reglage?.style] ? reglage.style : (kind === 'wheel' ? 'fun' : 'premium');
-  let titre = texteLimite(reglage?.title, type.titreParDefaut, 72);
-  let sousTitre = texteLimite(reglage?.subtitle, type.sousTitreParDefaut, 100);
-  if (kind === 'wallet' && (/ajoutez votre carte/i.test(titre) || /scannez.*ajoutez/i.test(titre))) titre = type.titreParDefaut;
-  if (kind === 'wallet' && /apple wallet|google wallet/i.test(sousTitre)) sousTitre = type.sousTitreParDefaut;
+  const { titre, sousTitre } = normaliserTextesSupport(kind, reglage?.title, reglage?.subtitle, type);
   return {
     format_layout: formatId, style,
     primary_color: nettoyerCouleur(reglage?.primary_color, catalogue.STYLES[style].primaire),
