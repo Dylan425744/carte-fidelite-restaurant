@@ -9,6 +9,7 @@ const BASE_URL = 'https://api.walletwallet.dev/api/passes';
 
 const DELAI_AVANT_NOUVELLE_TENTATIVE_MS = 1500;
 const DELAI_MAX_REQUETE_MS = 15000;
+const TENTATIVES_MAX = 3;
 
 /**
  * Vérifie qu'une variable d'environnement contient une vraie valeur.
@@ -577,12 +578,13 @@ async function mettreAJourPasseApple(
       erreur.name === 'AbortError' ||
       erreur instanceof TypeError;
 
-    if (erreurTemporaire && tentative < 2) {
+    if (erreurTemporaire && tentative < TENTATIVES_MAX) {
+      const delai = DELAI_AVANT_NOUVELLE_TENTATIVE_MS * tentative;
       console.warn(
-        'Échec réseau Apple Wallet, nouvelle tentative dans 1,5 seconde.'
+        `Échec réseau Apple Wallet, nouvelle tentative dans ${delai}ms (essai ${tentative + 1}/${TENTATIVES_MAX}).`
       );
 
-      await attendre(DELAI_AVANT_NOUVELLE_TENTATIVE_MS);
+      await attendre(delai);
 
       return mettreAJourPasseApple(
         serialNumber,
@@ -610,12 +612,13 @@ async function mettreAJourPasseApple(
       reponse.status === 429 ||
       reponse.status >= 500;
 
-    if (erreurTemporaire && tentative < 2) {
+    if (erreurTemporaire && tentative < TENTATIVES_MAX) {
+      const delai = DELAI_AVANT_NOUVELLE_TENTATIVE_MS * tentative;
       console.warn(
-        `Échec temporaire Apple Wallet (${reponse.status}), nouvelle tentative dans 1,5 seconde.`
+        `Échec temporaire Apple Wallet (${reponse.status}), nouvelle tentative dans ${delai}ms (essai ${tentative + 1}/${TENTATIVES_MAX}).`
       );
 
-      await attendre(DELAI_AVANT_NOUVELLE_TENTATIVE_MS);
+      await attendre(delai);
 
       return mettreAJourPasseApple(
         serialNumber,

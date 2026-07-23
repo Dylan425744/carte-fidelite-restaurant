@@ -1134,7 +1134,29 @@ app.get('/api/reglages/:slug', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res, 'design_manage');
     if (!acces) return;
-    res.json({ succes: true, reglages: reglagesService.serialiserReglages(acces.restaurant) });
+
+    // Rattrapage : une adresse deja enregistree avant l'existence de ce
+    // champ (ou jamais recalculee depuis) n'a pas a attendre un nouvel
+    // enregistrement du Contact pour obtenir sa position par defaut.
+    let restaurant = acces.restaurant;
+    if (
+      restaurant.adresse &&
+      !restaurant.geoloc_coordonnees_manuelles &&
+      (restaurant.geoloc_latitude === null || restaurant.geoloc_latitude === undefined)
+    ) {
+      const position = await geocodingService.geocoderAdresse(restaurant.adresse);
+      if (position) {
+        const { data, error } = await supabase
+          .from('restaurants')
+          .update({ geoloc_latitude: position.latitude, geoloc_longitude: position.longitude })
+          .eq('id', restaurant.id)
+          .select(CHAMPS_RESTAURANT)
+          .single();
+        if (!error) restaurant = data;
+      }
+    }
+
+    res.json({ succes: true, reglages: reglagesService.serialiserReglages(restaurant) });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });
@@ -1174,8 +1196,12 @@ app.put('/api/reglages/:slug', async (req, res) => {
     if (
       section === 'contact' &&
       miseAJour.adresse &&
-      miseAJour.adresse !== acces.restaurant.adresse &&
-      !acces.restaurant.geoloc_coordonnees_manuelles
+      !acces.restaurant.geoloc_coordonnees_manuelles &&
+      (
+        miseAJour.adresse !== acces.restaurant.adresse ||
+        acces.restaurant.geoloc_latitude === null ||
+        acces.restaurant.geoloc_latitude === undefined
+      )
     ) {
       const position = await geocodingService.geocoderAdresse(miseAJour.adresse);
       if (position) {
