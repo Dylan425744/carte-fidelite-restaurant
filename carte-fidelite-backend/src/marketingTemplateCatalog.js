@@ -4,8 +4,8 @@ const TYPES_SUPPORT = {
     nom: 'Faire ajouter la carte Wallet',
     description: 'Le client scanne le flyer pour installer sa carte de fidélité.',
     lien: 'loyalty',
-    titreParDefaut: 'Ajoutez votre carte de fidélité',
-    sousTitreParDefaut: 'Directement dans Apple Wallet ou Google Wallet'
+    titreParDefaut: 'Votre fidélité mérite mieux',
+    sousTitreParDefaut: 'Carte de fidélité'
   },
   wheel: {
     id: 'wheel',

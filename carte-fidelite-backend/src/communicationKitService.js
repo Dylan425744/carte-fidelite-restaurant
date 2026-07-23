@@ -212,15 +212,21 @@ function walletFixe(x, y, largeur, hauteur, style, viewBox = '0 0 1000 1400') {
 }
 
 function walletDynamique(ctx, x, y, largeur, hauteur, viewBox = '0 0 1000 1400') {
-  const { nomRestaurant, style, qrGenere } = ctx;
+  const { nomRestaurant, style, qrGenere, titre, sousTitre } = ctx;
   const palette = paletteWallet(style);
   const tailleNom = Math.max(28, Math.min(46, 620 / (Math.max(8, nomRestaurant.length) * .55)));
   const tailleNomCarte = Math.max(12, Math.min(21, 220 / (Math.max(8, nomRestaurant.length) * .55)));
+  const lignesAccroche = decouperLignes(String(titre).toUpperCase(), 23, 2);
+  const longueurAccroche = Math.max(10, ...lignesAccroche.map(ligne => ligne.length));
+  const tailleAccroche = Math.max(38, Math.min(58, 760 / (longueurAccroche * .56)));
+  const departAccroche = lignesAccroche.length > 1 ? 202 : 240;
+  const ligneSecondaire = String(sousTitre).toUpperCase();
+  const tailleSecondaire = Math.max(12, Math.min(18, 500 / (Math.max(10, ligneSecondaire.length) * .7)));
   return `<svg x="${x}" y="${y}" width="${largeur}" height="${hauteur}" viewBox="${viewBox}" preserveAspectRatio="none" overflow="hidden" aria-label="Contenu personnalisé du restaurant">
     <text x="500" y="68" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="${tailleNom}" font-weight="700" text-anchor="middle">${echapperXml(nomRestaurant)}</text>
-    <text x="500" y="110" fill="${palette.secondaire}" font-family="Inter, Helvetica, Arial, sans-serif" font-size="18" font-weight="800" letter-spacing="7" text-anchor="middle">CARTE DE FIDÉLITÉ</text>
-    <text x="500" y="202" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="57" font-weight="700" letter-spacing="1" text-anchor="middle">VOTRE FIDÉLITÉ MÉRITE</text>
-    <text x="500" y="276" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="68" font-weight="700" letter-spacing="2" text-anchor="middle">MIEUX</text>
+    <line x1="118" y1="103" x2="242" y2="103" stroke="${palette.secondaire}" stroke-width="2"/><line x1="758" y1="103" x2="882" y2="103" stroke="${palette.secondaire}" stroke-width="2"/>
+    <text x="500" y="110" fill="${palette.secondaire}" font-family="Inter, Helvetica, Arial, sans-serif" font-size="${tailleSecondaire}" font-weight="800" letter-spacing="5" text-anchor="middle">${echapperXml(ligneSecondaire)}</text>
+    ${lignesAccroche.map((ligne, index) => `<text x="500" y="${departAccroche + index * 74}" fill="${palette.texte}" font-family="Georgia, Times New Roman, serif" font-size="${tailleAccroche}" font-weight="700" letter-spacing="1" text-anchor="middle">${echapperXml(ligne)}</text>`).join('')}
     <g transform="rotate(-4 360 760)">
       <text x="208" y="520" fill="#FFFFFF" font-family="Georgia, Times New Roman, serif" font-size="${tailleNomCarte}" font-weight="700">${echapperXml(nomRestaurant)}</text>
     </g>
@@ -429,14 +435,18 @@ function normaliserReglage(reglage, kind) {
   const type = catalogue.TYPES_SUPPORT[kind];
   const formatId = catalogue.FORMATS[reglage?.format_layout] ? reglage.format_layout : 'a6-portrait';
   const style = catalogue.STYLES[reglage?.style] ? reglage.style : (kind === 'wheel' ? 'fun' : 'premium');
+  let titre = texteLimite(reglage?.title, type.titreParDefaut, 72);
+  let sousTitre = texteLimite(reglage?.subtitle, type.sousTitreParDefaut, 100);
+  if (kind === 'wallet' && (/ajoutez votre carte/i.test(titre) || /scannez.*ajoutez/i.test(titre))) titre = type.titreParDefaut;
+  if (kind === 'wallet' && /apple wallet|google wallet/i.test(sousTitre)) sousTitre = type.sousTitreParDefaut;
   return {
     format_layout: formatId, style,
     primary_color: nettoyerCouleur(reglage?.primary_color, catalogue.STYLES[style].primaire),
     secondary_color: nettoyerCouleur(reglage?.secondary_color, catalogue.STYLES[style].secondaire),
     accent_color: nettoyerCouleur(reglage?.accent_color, catalogue.STYLES[style].accent || '#D6B15E'),
     photo_url: String(reglage?.photo_url || '').slice(0, 500),
-    title: texteLimite(reglage?.title, type.titreParDefaut, 72),
-    subtitle: texteLimite(reglage?.subtitle, type.sousTitreParDefaut, 100),
+    title: titre,
+    subtitle: sousTitre,
     variant: Math.max(0, Math.min(9, Number.parseInt(reglage?.variant, 10) || 0))
   };
 }

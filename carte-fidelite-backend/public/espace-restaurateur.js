@@ -2034,14 +2034,16 @@ function rafraichirPickersGenerateur() {
   const type = kitCommunication.types_support.find(item => item.id === genEtat.kind);
   const format = kitCommunication.formats.find(item => item.id === genEtat.formatId);
   const wallet = genEtat.kind === 'wallet';
-  $('#genListeStyles').style.display = wallet ? 'none' : '';
+  $('#genListeStyles').style.display = '';
   $('#genBlocLogo').style.display = 'none';
   $('#genBlocPhotos').style.display = 'none';
   $('#genVariante').style.display = 'none';
-  $('#genBlocMessage').style.display = wallet ? 'none' : '';
-  $('#genEtapeStyleTitre').textContent = wallet ? 'Choisissez vos deux couleurs' : 'Donnez-lui votre style';
+  $('#genBlocMessage').style.display = '';
+  $('#genTitreLabel').textContent = wallet ? 'Accroche principale' : 'Texte principal';
+  $('#genSousTitreLabel').textContent = wallet ? 'Ligne entre les tirets' : 'Sous-titre';
+  $('#genEtapeStyleTitre').textContent = wallet ? 'Choisissez une harmonie' : 'Donnez-lui votre style';
   $('#genEtapeStyleAide').textContent = wallet
-    ? 'Bravocard calcule automatiquement les dégradés, contrastes et ombres.'
+    ? 'Sélectionnez un combo esthétique, puis ajustez librement ses deux couleurs.'
     : 'Six directions artistiques, personnalisables ensuite.';
   $('#genBlocAccent').style.display = genEtat.kind === 'wheel' ? '' : 'none';
   $('#genRoueDefaut').style.display = genEtat.kind === 'wheel' ? '' : 'none';
