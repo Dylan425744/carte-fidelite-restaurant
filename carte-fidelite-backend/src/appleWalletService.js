@@ -476,11 +476,15 @@ async function envoyerRequeteWalletWallet(url, options) {
 /**
  * Crée une nouvelle carte pour un client.
  *
- * La création n'est volontairement pas relancée automatiquement :
- * si WalletWallet a créé la carte mais que la réponse réseau s'est perdue,
- * une nouvelle tentative pourrait créer un doublon.
+ * Une carte non créée à l'inscription ne sera plus jamais retentée
+ * automatiquement (ce n'est pas un scan répété), donc un simple incident
+ * réseau ou un démarrage à froid du serveur privait le client d'Apple
+ * Wallet pour toujours. On relance donc quelques fois, comme pour la
+ * mise à jour : le risque d'une carte orpheline en double chez
+ * WalletWallet (jamais référencée nulle part, sans impact visible pour
+ * le client) est largement préférable à l'absence totale de carte Apple.
  */
-async function creerPasseApple(client, restaurant = null) {
+async function creerPasseApple(client, restaurant = null, tentative = 1) {
   const cleApi = obtenirVariableEnvironnement(
     'WALLETWALLET_API_KEY'
   );
@@ -503,6 +507,21 @@ async function creerPasseApple(client, restaurant = null) {
       body: JSON.stringify(construireChampsCarte(client, restaurant))
     });
   } catch (erreur) {
+    const erreurTemporaire =
+      erreur.name === 'AbortError' ||
+      erreur instanceof TypeError;
+
+    if (erreurTemporaire && tentative < TENTATIVES_MAX) {
+      const delai = DELAI_AVANT_NOUVELLE_TENTATIVE_MS * tentative;
+      console.warn(
+        `Échec réseau création Apple Wallet, nouvelle tentative dans ${delai}ms (essai ${tentative + 1}/${TENTATIVES_MAX}).`
+      );
+
+      await attendre(delai);
+
+      return creerPasseApple(client, restaurant, tentative + 1);
+    }
+
     if (erreur.name === 'AbortError') {
       throw new Error(
         'La création de la carte Apple Wallet a dépassé le délai autorisé.'
@@ -517,6 +536,21 @@ async function creerPasseApple(client, restaurant = null) {
   const donnees = await lireReponse(reponse);
 
   if (!reponse.ok) {
+    const erreurTemporaire =
+      reponse.status === 429 ||
+      reponse.status >= 500;
+
+    if (erreurTemporaire && tentative < TENTATIVES_MAX) {
+      const delai = DELAI_AVANT_NOUVELLE_TENTATIVE_MS * tentative;
+      console.warn(
+        `Échec temporaire création Apple Wallet (${reponse.status}), nouvelle tentative dans ${delai}ms (essai ${tentative + 1}/${TENTATIVES_MAX}).`
+      );
+
+      await attendre(delai);
+
+      return creerPasseApple(client, restaurant, tentative + 1);
+    }
+
     throw new Error(
       `Erreur création passe Apple Wallet : ${obtenirMessageErreur(
         donnees,
