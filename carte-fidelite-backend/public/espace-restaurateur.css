@@ -333,5 +333,17 @@
 @keyframes pulse-pastille{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.82)}}
 @media (prefers-reduced-motion: reduce){.pastille-brillante{animation:none}}
 
+/* Reglages : carte Geolocalisation (occupe toute la largeur, aperçu telephone inclus) */
+.carte-reglage-geoloc{grid-column:1/-1}
+.carte-reglage-geoloc:before{background:linear-gradient(90deg,#7148e8,#35b8a6)}
+.grille-geoloc{display:grid;grid-template-columns:1.25fr .85fr;gap:30px;align-items:start;margin-top:6px}
+.geoloc-formulaire textarea{width:100%;margin-top:0;padding:12px 13px;border:1px solid var(--bordure);border-radius:11px;background:#fff;color:var(--texte);outline:none;font:500 13px "Work Sans";resize:vertical}
+.geoloc-formulaire textarea:focus{border-color:#9a7df0;box-shadow:0 0 0 3px rgba(113,72,232,.12)}
+.compteur-caracteres{margin-top:6px;color:var(--secondaire);font-size:10px;text-align:right}
+.compteur-caracteres.attention{color:#d29b38;font-weight:700}
+.compteur-caracteres.limite{color:var(--rouge);font-weight:700}
+.geoloc-apercu{display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:6px}
+@media(max-width:1120px){.grille-geoloc{grid-template-columns:1fr}.geoloc-apercu{margin-top:6px}}
+
 @media(max-width:1120px){.grille-reglages{grid-template-columns:1fr}.grille-raccourcis-reglages{grid-template-columns:1fr}.reglages-hero{flex-direction:column;align-items:flex-start}}
 @media(max-width:620px){#vue-reglages.active{padding:9px;border-radius:20px}.reglages-hero{padding:24px 21px}.reglages-promesse{border-radius:12px;line-height:1.4}.carte-reglage:hover{transform:none}}

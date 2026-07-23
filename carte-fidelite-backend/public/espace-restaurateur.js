@@ -1290,7 +1290,23 @@ function remplirReglages() {
   $('#reglageSeuilRecompense').value = r.seuil_recompense || 100;
   $('#reglageDescriptionRecompense').value = r.description_recompense || '';
   $('#reglageLienAvis').value = r.lien_avis_google || '';
+  $('#reglageGeolocActif').checked = Boolean(r.geoloc_actif);
+  $('#reglageGeolocLatitude').value = r.geoloc_latitude ?? '';
+  $('#reglageGeolocLongitude').value = r.geoloc_longitude ?? '';
+  $('#reglageGeolocMessage').value = r.geoloc_message_proximite || '';
+  actualiserApercuGeoloc();
   appliquerCompletionReglages(r.completion);
+}
+
+function actualiserApercuGeoloc() {
+  const message = $('#reglageGeolocMessage').value;
+  const longueur = message.length;
+  $('#reglageGeolocCompteur').textContent = longueur;
+  const compteur = $('#reglageGeolocCompteur').parentElement;
+  compteur.classList.toggle('attention', longueur >= 100 && longueur < 120);
+  compteur.classList.toggle('limite', longueur >= 120);
+  $('#geolocApercuTitre').textContent = restaurant?.nom || 'Votre restaurant';
+  $('#geolocApercuMessage').textContent = message.trim() || 'Votre message apparaîtra ici.';
 }
 
 const CHAMPS_SECTION_REGLAGES = {
@@ -1313,6 +1329,12 @@ const CHAMPS_SECTION_REGLAGES = {
   }),
   avis: () => ({
     lien_avis_google: $('#reglageLienAvis').value.trim()
+  }),
+  geolocalisation: () => ({
+    geoloc_actif: $('#reglageGeolocActif').checked,
+    geoloc_latitude: $('#reglageGeolocLatitude').value.trim(),
+    geoloc_longitude: $('#reglageGeolocLongitude').value.trim(),
+    geoloc_message_proximite: $('#reglageGeolocMessage').value.trim()
   })
 };
 
@@ -2419,6 +2441,7 @@ $('#actualiserCampagnes').addEventListener('click', () => actualiserTableau());
 document.querySelectorAll('[data-enregistrer-reglage]').forEach(bouton =>
   bouton.addEventListener('click', () => enregistrerSectionReglages(bouton.dataset.enregistrerReglage))
 );
+$('#reglageGeolocMessage').addEventListener('input', actualiserApercuGeoloc);
 $('#reglageLogoImporter').addEventListener('click', () => $('#reglageLogoFichier').click());
 $('#reglageLogoFichier').addEventListener('change', evenement => {
   const fichier = evenement.target.files[0];

@@ -92,6 +92,34 @@ function construireMiseAJourAvis(donnees) {
   };
 }
 
+function construireMiseAJourGeolocalisation(donnees) {
+  const actif = Boolean(donnees.geoloc_actif);
+  const latBrute = donnees.geoloc_latitude;
+  const lngBrute = donnees.geoloc_longitude;
+  const latitude = latBrute === '' || latBrute === null || latBrute === undefined ? null : Number(latBrute);
+  const longitude = lngBrute === '' || lngBrute === null || lngBrute === undefined ? null : Number(lngBrute);
+
+  if (latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) {
+    throw new Error('La latitude doit être un nombre compris entre -90 et 90.');
+  }
+  if (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)) {
+    throw new Error('La longitude doit être un nombre compris entre -180 et 180.');
+  }
+
+  const message = nettoyerTexteOptionnel(donnees.geoloc_message_proximite, 128, 'Le message de proximité');
+
+  if (actif && (latitude === null || longitude === null)) {
+    throw new Error('Renseignez la latitude et la longitude avant d’activer les notifications de proximité.');
+  }
+
+  return {
+    geoloc_latitude: latitude,
+    geoloc_longitude: longitude,
+    geoloc_message_proximite: message,
+    geoloc_actif: actif
+  };
+}
+
 function memeValeur(valeurA, valeurB) {
   const a = String(valeurA || '').trim().toUpperCase();
   const b = String(valeurB || '').trim().toUpperCase();
@@ -267,6 +295,10 @@ function serialiserReglages(restaurant) {
     points_per_scan: Number(restaurant.points_per_scan || 10),
     description_recompense: restaurant.description_recompense || '',
     lien_avis_google: restaurant.lien_avis_google || '',
+    geoloc_latitude: restaurant.geoloc_latitude ?? null,
+    geoloc_longitude: restaurant.geoloc_longitude ?? null,
+    geoloc_message_proximite: restaurant.geoloc_message_proximite || '',
+    geoloc_actif: Boolean(restaurant.geoloc_actif),
     completion: calculerCompletion(restaurant)
   };
 }
@@ -276,6 +308,7 @@ module.exports = {
   construireMiseAJourContact,
   construireMiseAJourProgramme,
   construireMiseAJourAvis,
+  construireMiseAJourGeolocalisation,
   ajouterSynchronisations,
   calculerCompletion,
   serialiserReglages

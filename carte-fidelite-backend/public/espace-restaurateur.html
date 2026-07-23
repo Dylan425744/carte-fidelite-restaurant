@@ -186,6 +186,45 @@
             <button class="bouton principal" data-enregistrer-reglage="avis">Enregistrer</button>
             <p class="message" data-message-reglage="avis"></p>
           </article>
+
+          <article class="panneau carte-reglage carte-reglage-geoloc" data-carte-reglage="geolocalisation">
+            <div class="carte-reglage-entete">
+              <div><span class="eyebrow">Localisation</span><h3>Prévenir vos clients à proximité</h3></div>
+              <label class="interrupteur" title="Activer les notifications de proximité"><input id="reglageGeolocActif" type="checkbox"><span></span></label>
+            </div>
+            <p class="texte-secondaire">Quand un client passe près de chez vous, sa carte s’affiche automatiquement sur l’écran verrouillé de son téléphone, sans qu’il ait rien à faire.</p>
+
+            <div class="grille-geoloc">
+              <div class="geoloc-formulaire">
+                <div class="deux-colonnes">
+                  <div><label for="reglageGeolocLatitude">Latitude</label><input id="reglageGeolocLatitude" type="number" step="0.000001" min="-90" max="90" placeholder="48.856613"></div>
+                  <div><label for="reglageGeolocLongitude">Longitude</label><input id="reglageGeolocLongitude" type="number" step="0.000001" min="-180" max="180" placeholder="2.352222"></div>
+                </div>
+                <div class="info-envoi"><span>i</span><p>Pour trouver ces coordonnées : ouvrez Google Maps, faites un clic droit exactement à l’emplacement de votre restaurant, puis cliquez sur les chiffres qui apparaissent en haut du menu pour les copier.</p></div>
+
+                <label for="reglageGeolocMessage">Message affiché aux clients Apple Wallet</label>
+                <textarea id="reglageGeolocMessage" maxlength="128" rows="3" placeholder="Vous passez près de nous, venez cumuler vos points !"></textarea>
+                <div class="compteur-caracteres"><span id="reglageGeolocCompteur">0</span>/128 caractères</div>
+
+                <button class="bouton principal" data-enregistrer-reglage="geolocalisation">Enregistrer</button>
+                <p class="message" data-message-reglage="geolocalisation"></p>
+              </div>
+
+              <div class="geoloc-apercu">
+                <div class="telephone">
+                  <div class="telephone-haut"></div>
+                  <div class="ecran">
+                    <div class="heure">9:41</div>
+                    <div class="notification-ios">
+                      <div class="notif-entete"><div class="notif-icone">✦</div><strong id="geolocApercuTitre">Votre restaurant</strong><span>à proximité</span></div>
+                      <p id="geolocApercuMessage">Votre message apparaîtra ici.</p>
+                    </div>
+                  </div>
+                </div>
+                <p class="legende">Aperçu Apple Wallet sur l’écran verrouillé</p>
+              </div>
+            </div>
+          </article>
         </div>
 
         <article class="panneau">

@@ -70,6 +70,20 @@ function logoParDefaut() {
   return `${base}/logo-bravocard-encadre.png`;
 }
 
+// Position de proximite (Reglages > Geolocalisation). Google notifie
+// automatiquement les clients proches avec un texte generique impose par
+// la plateforme (pas de message personnalisable, contrairement a Apple).
+// Toujours un tableau, jamais undefined : vide des que le reglage est
+// desactive ou incomplet, pour que la classe perde bien la position au
+// prochain envoi plutot que de simplement arreter d'etre mise a jour.
+function construireLocalisationsGoogle(restaurant) {
+  if (!restaurant?.geoloc_actif) return [];
+  const latitude = Number(restaurant.geoloc_latitude);
+  const longitude = Number(restaurant.geoloc_longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+  return [{ latitude, longitude }];
+}
+
 function construireClasseFidelite(restaurant) {
   const nom = String(restaurant.wallet_display_name || restaurant.nom || 'Bravocard').trim().slice(0, 80);
   // Google ne lit jamais les libelles de personnalisation Apple. Son rendu
@@ -118,6 +132,7 @@ function construireClasseFidelite(restaurant) {
     hexBackgroundColor: couleurRestaurant(restaurant),
     accountNameLabel: 'CLIENT',
     accountIdLabel: 'IDENTIFIANT',
+    locations: construireLocalisationsGoogle(restaurant),
     ...(logoLarge ? { wideProgramLogo: logoLarge } : {}),
     ...(banniere ? { heroImage: banniere } : {}),
     classTemplateInfo: {

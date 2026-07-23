@@ -129,7 +129,11 @@ const CHAMPS_RESTAURANT = [
   'reglages_identite_confirme',
   'reglages_contact_confirme',
   'reglages_programme_confirme',
-  'reglages_avis_confirme'
+  'reglages_avis_confirme',
+  'geoloc_latitude',
+  'geoloc_longitude',
+  'geoloc_message_proximite',
+  'geoloc_actif'
 ].join(', ');
 
 function pageProgrammeIndisponible(titre, texte) {
@@ -1139,7 +1143,8 @@ const CONSTRUCTEURS_SECTION_REGLAGES = {
   identite: reglagesService.construireMiseAJourIdentite,
   contact: reglagesService.construireMiseAJourContact,
   programme: reglagesService.construireMiseAJourProgramme,
-  avis: reglagesService.construireMiseAJourAvis
+  avis: reglagesService.construireMiseAJourAvis,
+  geolocalisation: reglagesService.construireMiseAJourGeolocalisation
 };
 
 app.put('/api/reglages/:slug', async (req, res) => {
@@ -1176,8 +1181,11 @@ app.put('/api/reglages/:slug', async (req, res) => {
       );
     }
 
-    // Identite, contact et programme alimentent les cartes Wallet existantes.
-    if (['identite', 'contact', 'programme'].includes(section)) {
+    // Identite, contact, programme et geolocalisation alimentent les cartes
+    // Wallet existantes (la geolocalisation doit aussi se propager tout de
+    // suite : desactiver l'interrupteur doit retirer la position des cartes
+    // deja creees, pas seulement empecher les futures cartes de l'avoir).
+    if (['identite', 'contact', 'programme', 'geolocalisation'].includes(section)) {
       setImmediate(() => {
         actualiserCartesAppleEnArrierePlan(data);
         actualiserClasseGoogleEnArrierePlan(data);

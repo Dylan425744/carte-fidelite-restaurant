@@ -185,6 +185,27 @@ function ajouterDesignPro(champs, restaurant = null) {
 }
 
 /**
+ * Position de proximité (notification sur l'écran verrouillé quand le client
+ * est proche du restaurant). Renvoie toujours un tableau, jamais undefined :
+ * vide dès que le réglage est désactivé ou incomplet, afin qu'une carte déjà
+ * créée avec une position la perde bien au prochain envoi, pas seulement
+ * qu'elle arrête d'en recevoir une nouvelle.
+ */
+function construireLocalisations(restaurant) {
+  if (!restaurant?.geoloc_actif) return [];
+
+  const latitude = Number(restaurant.geoloc_latitude);
+  const longitude = Number(restaurant.geoloc_longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+
+  const localisation = { latitude, longitude };
+  const message = String(restaurant.geoloc_message_proximite || '').trim().slice(0, 128);
+  if (message) localisation.relevantText = message;
+
+  return [localisation];
+}
+
+/**
  * Construit l'ensemble complet des champs de la carte.
  *
  * Cette fonction est utilisée à l'identique lors de la création
@@ -251,6 +272,12 @@ function construireChampsCarte(client, restaurant = null) {
      * Empêche un client de partager sa carte personnelle avec quelqu'un d'autre.
      */
     sharingProhibited: true,
+
+    /*
+     * Notification sur l'écran verrouillé à proximité du restaurant
+     * (Réglages > Géolocalisation). Tableau vide si désactivé.
+     */
+    locations: construireLocalisations(restaurant),
 
     /*
      * Thème le plus sombre disponible gratuitement.
