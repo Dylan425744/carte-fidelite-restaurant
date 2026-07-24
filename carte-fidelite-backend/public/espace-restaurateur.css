@@ -352,3 +352,38 @@
 
 @media(max-width:1120px){.grille-reglages{grid-template-columns:1fr}.grille-raccourcis-reglages{grid-template-columns:1fr}.reglages-hero{flex-direction:column;align-items:flex-start}}
 @media(max-width:620px){#vue-reglages.active{padding:9px;border-radius:20px}.reglages-hero{padding:24px 21px}.reglages-promesse{border-radius:12px;line-height:1.4}.carte-reglage:hover{transform:none}}
+
+.aide-bloc{display:grid;gap:5px;width:100%;margin-bottom:15px;padding:15px;border:0;border-radius:13px;background:linear-gradient(145deg,#2e2240,#251c32);text-align:left;cursor:pointer;transition:filter .15s}
+.aide-bloc:hover{filter:brightness(1.12)}
+.aide-bloc strong{font-size:12px;color:#fff}
+.aide-bloc span{color:#9f93aa;font-size:10px;line-height:1.45}
+.aide-fond{position:fixed;inset:0;z-index:110;display:none;place-items:center;padding:20px;background:rgba(17,12,26,.65)}
+.aide-fond.visible{display:grid}
+.aide-boite{position:relative;width:min(760px,100%);max-height:88vh;overflow-y:auto;border-radius:24px;background:#fff;box-shadow:0 40px 90px rgba(15,8,26,.4)}
+.aide-fermer{position:absolute;top:16px;right:16px;z-index:1;display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:13px;cursor:pointer;transition:background .15s}
+.aide-fermer:hover{background:rgba(255,255,255,.28)}
+.aide-entete{position:relative;overflow:hidden;padding:38px 34px 34px;border-radius:24px 24px 0 0;color:#fff;text-align:center;background:linear-gradient(140deg,#20152e 0%,#4a2a5c 55%,#c2618f 100%)}
+.aide-entete:after{content:"";position:absolute;left:50%;top:-120px;width:280px;height:280px;transform:translateX(-50%);border:1px solid rgba(255,255,255,.16);border-radius:50%;box-shadow:0 0 0 40px rgba(255,255,255,.035),0 0 0 90px rgba(255,255,255,.02)}
+.aide-symbole{position:relative;z-index:1;display:inline-grid;place-items:center;width:46px;height:46px;margin-bottom:14px;border-radius:14px;background:rgba(255,255,255,.14);font-size:20px}
+.aide-entete h3{position:relative;z-index:1;margin:0 0 6px;font:800 24px "Manrope";letter-spacing:-.5px}
+.aide-entete p{position:relative;z-index:1;margin:0;color:#e6dcf0;font-size:12.5px}
+.aide-corps{display:grid;grid-template-columns:1.25fr 1fr;gap:0}
+.aide-faq{padding:26px 30px;border-right:1px solid var(--bordure)}
+.aide-contact{padding:26px 30px;background:#faf8fc;border-radius:0 0 24px 0}
+.aide-question{border-top:1px solid #f0ebf2}
+.aide-question:first-of-type{border-top:0}
+.aide-question-titre{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;width:100%;padding:13px 2px;border:0;background:transparent;color:var(--texte);font-size:12px;font-weight:700;line-height:1.4;text-align:left;cursor:pointer}
+.aide-chevron{display:inline-grid;place-items:center;width:20px;height:20px;color:var(--violet);font-size:14px;transition:transform .2s}
+.aide-question.ouverte .aide-chevron{transform:rotate(180deg)}
+.aide-question-reponse{display:grid;grid-template-rows:0fr;transition:grid-template-rows .25s ease}
+.aide-question-reponse p{margin:0 2px 14px;overflow:hidden;color:var(--secondaire);font-size:11.5px;line-height:1.6}
+.aide-question-reponse>p{min-height:0}
+.aide-question.ouverte .aide-question-reponse{grid-template-rows:1fr}
+.aide-contact h4{margin:9px 0 6px;font:800 17px "Manrope"}
+.aide-contact .texte-secondaire{margin-bottom:16px}
+.aide-contact label{display:block;margin:14px 0 7px;font-size:11px;font-weight:700}
+.aide-contact input,.aide-contact textarea{width:100%;padding:11px 13px;border:1px solid var(--bordure);border-radius:11px;background:#fff;color:var(--texte);font:inherit;outline:none}
+.aide-contact textarea{min-height:96px;resize:vertical}
+.aide-contact input:focus,.aide-contact textarea:focus{border-color:#9a7df0;box-shadow:0 0 0 3px rgba(113,72,232,.12)}
+.aide-contact .bouton{margin-top:16px}
+@media(max-width:720px){.aide-corps{grid-template-columns:1fr}.aide-faq{border-right:0;border-bottom:1px solid var(--bordure)}.aide-contact{border-radius:0 0 24px 24px}}

@@ -1549,6 +1549,47 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
   }
 });
 
+// Message envoye depuis le centre d'aide ("Besoin d'aide ?"). Ouvert a tous
+// les roles (scan est la seule permission commune aux trois), pas seulement
+// au proprietaire : un employe doit pouvoir signaler un probleme lui aussi.
+app.post('/api/restaurateur/:slug/support', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'scan');
+    if (!acces) return;
+
+    const emailNettoye = String(req.body?.email || '').trim().toLowerCase();
+    const messageNettoye = String(req.body?.message || '').trim().slice(0, 4000);
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNettoye)) {
+      return res.status(400).json({ erreur: 'Indiquez une adresse email valide.' });
+    }
+    if (!messageNettoye) {
+      return res.status(400).json({ erreur: 'Le message ne peut pas être vide.' });
+    }
+
+    const { error } = await supabase.from('support_messages').insert({
+      restaurant_id: acces.restaurant.id,
+      restaurant_nom: acces.restaurant.nom,
+      email: emailNettoye,
+      message: messageNettoye
+    });
+    if (error) throw error;
+
+    if (process.env.BRAVOCARD_PUBLIC_EMAIL) {
+      email.envoyerEmail(
+        process.env.BRAVOCARD_PUBLIC_EMAIL,
+        `Centre d'aide · ${acces.restaurant.nom}`,
+        `Restaurant : ${acces.restaurant.nom}\nEmail : ${emailNettoye}\n\n${messageNettoye}`
+      ).catch(erreurEnvoi => console.error('Erreur notification centre d’aide:', erreurEnvoi.message));
+    }
+
+    res.json({ succes: true, message: 'Votre message a été envoyé. Nous vous répondons rapidement.' });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
 async function obtenirRecompensesProgrammeEnAttente(restaurantId) {
   const { data, error } = await supabase
     .from('clients')

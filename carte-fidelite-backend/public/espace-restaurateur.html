@@ -81,7 +81,7 @@
         <button class="navigation" data-vue="equipe">Mon équipe</button>
         <button class="navigation" data-vue="compte">Mon compte</button>
       </nav>
-      <div class="sidebar-bas"><aside class="upgrade-sidebar" id="upgradeSidebar"><span>Développez votre fidélité</span><strong id="upgradeTitre">Passez à Croissance</strong><small id="upgradeTexte">Débloquez les statistiques détaillées et le pilotage d’équipe.</small><button id="upgradeBouton" type="button">Voir l’offre</button></aside><div class="aide-bloc"><strong>Besoin d’aide ?</strong><span>L’équipe Bravocard reste disponible.</span></div><button class="deconnexion" id="deconnexion">Se déconnecter</button></div>
+      <div class="sidebar-bas"><aside class="upgrade-sidebar" id="upgradeSidebar"><span>Développez votre fidélité</span><strong id="upgradeTitre">Passez à Croissance</strong><small id="upgradeTexte">Débloquez les statistiques détaillées et le pilotage d’équipe.</small><button id="upgradeBouton" type="button">Voir l’offre</button></aside><button type="button" class="aide-bloc" id="ouvrirAide"><strong>Besoin d’aide ?</strong><span>L’équipe Bravocard reste disponible.</span></button><button class="deconnexion" id="deconnexion">Se déconnecter</button></div>
     </aside>
 
     <main class="contenu">
@@ -673,6 +673,59 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="aide-fond" id="aideFond">
+    <div class="aide-boite">
+      <button type="button" class="aide-fermer" id="fermerAide" aria-label="Fermer">✕</button>
+      <div class="aide-entete">
+        <span class="aide-symbole">✦</span>
+        <h3>Centre d’aide Bravocard</h3>
+        <p>Une question sur votre programme de fidélité ? Commencez ici.</p>
+      </div>
+      <div class="aide-corps">
+        <div class="aide-faq">
+          <span class="eyebrow">Questions fréquentes</span>
+          <div class="aide-question">
+            <button type="button" class="aide-question-titre"><span>Comment mes clients ajoutent-ils leur carte à leur téléphone ?</span><span class="aide-chevron">⌄</span></button>
+            <div class="aide-question-reponse"><p>Depuis votre QR code ou votre puce NFC, ils créent leur carte en quelques secondes et l’ajoutent directement à Apple Wallet ou Google Wallet, sans rien installer d’autre.</p></div>
+          </div>
+          <div class="aide-question">
+            <button type="button" class="aide-question-titre"><span>Le solde de points d’un client ne se met pas à jour</span><span class="aide-chevron">⌄</span></button>
+            <div class="aide-question-reponse"><p>Apple et Google envoient les mises à jour à l’appareil sur lequel la carte a été ajoutée. Si votre client a changé de téléphone sans réinstaller sa carte, l’ancien appareil ne reçoit plus rien : demandez-lui de rouvrir sa carte, ou de la réajouter si besoin.</p></div>
+          </div>
+          <div class="aide-question">
+            <button type="button" class="aide-question-titre"><span>Je ne reçois pas les emails automatiques (bienvenue, récompense…)</span><span class="aide-chevron">⌄</span></button>
+            <div class="aide-question-reponse"><p>Vérifiez que votre adresse d’envoi est activée et votre domaine vérifié dans votre compte Brevo. Sans cela, Bravocard accepte bien l’envoi, mais l’email n’arrive jamais chez votre client.</p></div>
+          </div>
+          <div class="aide-question">
+            <button type="button" class="aide-question-titre"><span>Un client supprimé par erreur peut-il être récupéré ?</span><span class="aide-chevron">⌄</span></button>
+            <div class="aide-question-reponse"><p>Oui. Il reste 30 jours dans la corbeille (Mes clients → Voir la corbeille), avec sa carte et son historique intacts jusqu’à ce que vous le restauriez.</p></div>
+          </div>
+          <div class="aide-question">
+            <button type="button" class="aide-question-titre"><span>Quelle est la différence entre Employé, Manager et Propriétaire ?</span><span class="aide-chevron">⌄</span></button>
+            <div class="aide-question-reponse"><p>L’employé scanne uniquement les cartes. Le manager pilote le quotidien : clients, statistiques, notifications. Seul le propriétaire modifie les réglages du programme et gère l’équipe.</p></div>
+          </div>
+          <div class="aide-question">
+            <button type="button" class="aide-question-titre"><span>Comment changer mes points par passage ou le seuil de récompense ?</span><span class="aide-chevron">⌄</span></button>
+            <div class="aide-question-reponse"><p>Depuis Réglages → Programme, ajustez librement les deux valeurs. Elles s’appliquent immédiatement aux prochains scans.</p></div>
+          </div>
+        </div>
+        <div class="aide-contact">
+          <span class="eyebrow">Nous contacter</span>
+          <h4>Toujours coincé ?</h4>
+          <p class="texte-secondaire">Décrivez votre question, notre équipe vous répond directement par email.</p>
+          <form id="formAide">
+            <label for="aideEmail">Votre email</label>
+            <input id="aideEmail" type="email" required placeholder="vous@restaurant.fr">
+            <label for="aideMessage">Votre message</label>
+            <textarea id="aideMessage" required placeholder="Décrivez votre question ou votre problème…"></textarea>
+            <button type="submit" class="bouton principal large" id="envoyerAide">Envoyer le message</button>
+          </form>
+          <p class="message" id="messageAide"></p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="icone-picker-fond" id="iconePickerFond">

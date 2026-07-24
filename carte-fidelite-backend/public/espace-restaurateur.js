@@ -2913,6 +2913,33 @@ async function deconnecter() {
 $('#deconnexion').addEventListener('click', deconnecter);
 $('#deconnexionEntete').addEventListener('click', deconnecter);
 
+$('#ouvrirAide').addEventListener('click', () => $('#aideFond').classList.add('visible'));
+$('#fermerAide').addEventListener('click', () => $('#aideFond').classList.remove('visible'));
+$('#aideFond').addEventListener('click', evenement => {
+  if (evenement.target.id === 'aideFond') $('#aideFond').classList.remove('visible');
+});
+document.querySelectorAll('.aide-question-titre').forEach(bouton => {
+  bouton.addEventListener('click', () => bouton.closest('.aide-question').classList.toggle('ouverte'));
+});
+$('#formAide').addEventListener('submit', async evenement => {
+  evenement.preventDefault();
+  const bouton = $('#envoyerAide');
+  const messageAide = $('#messageAide');
+  bouton.disabled = true;
+  try {
+    const reponse = await api(`/api/restaurateur/${encodeURIComponent(slug)}/support`, {
+      method: 'POST',
+      body: JSON.stringify({ email: $('#aideEmail').value, message: $('#aideMessage').value })
+    });
+    afficherMessage(messageAide, reponse.message, 'succes');
+    $('#formAide').reset();
+  } catch (erreur) {
+    afficherMessage(messageAide, erreur.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+});
+
 $('#boutonConnexion').addEventListener('click', connecterCompte);
 $('#boutonConnexionHistorique').addEventListener('click', connecterHistorique);
 $('#motDePasseOublie').addEventListener('click', () => $('#recuperationCompte').classList.toggle('visible'));
