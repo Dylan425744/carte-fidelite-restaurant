@@ -2619,6 +2619,7 @@ app.post('/api/clients', async (req, res) => {
     // On cree aussi la carte Apple Wallet, et on garde son serialNumber
     // pour pouvoir la mettre a jour plus tard (scan, points, etc.)
     let lienAppleWallet = null;
+    let appleErreurDebug = null;
     try {
       const passeApple = await appleWallet.creerPasseApple(
         clientWallet,
@@ -2631,6 +2632,7 @@ app.post('/api/clients', async (req, res) => {
         .eq('id', nouveauClient.id);
     } catch (erreurApple) {
       console.error('Erreur creation Apple Wallet:', erreurApple.message);
+      appleErreurDebug = erreurApple.message;
     }
 
     // Pas d'email immediat ici : le message de bienvenue ("tenter de gagner
@@ -2647,6 +2649,7 @@ app.post('/api/clients', async (req, res) => {
       restaurant: { nom: restaurant.nom, slug: restaurant.slug },
       lienWallet,
       lienAppleWallet,
+      apple_erreur_debug: appleErreurDebug,
       parrainage: invitation
         ? {
             statut: 'en_attente_premier_scan',
