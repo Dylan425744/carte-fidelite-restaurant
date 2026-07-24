@@ -376,14 +376,11 @@ function construireChampsCarte(client, restaurant = null) {
     });
   }
 
-  // Le dernier message reste dans les détails de la carte. Apple exige que le
-  // modèle changeMessage contienne %@, remplacé par la nouvelle valeur du
-  // champ pour declencher une alerte ecran verrouille. La date d'envoi change
-  // naturellement a chaque nouvelle campagne (contrairement au texte du
-  // message, qui peut se repeter) : c'est donc elle qui porte changeMessage,
-  // plutot qu'un caractere invisible ajoute au texte pour forcer la
-  // detection. Ce caractere invisible faisait echouer la creation et la mise
-  // a jour des cartes des que le restaurant avait deja envoye une campagne.
+  // Le dernier message reste dans les détails de la carte, en texte simple.
+  // L'alerte ecran verrouille d'une campagne ne passe pas par ce champ (voir
+  // points_change_message_override sur le champ POINTS ci-dessus) : WalletWallet
+  // rejette la creation et la mise a jour de la carte des qu'un changeMessage
+  // est pose sur un champ de backFields plutot que sur un champ principal.
   if (restaurant?.last_notification_message) {
     const dateEnvoi = restaurant.last_notification_sent_at
       ? new Date(restaurant.last_notification_sent_at).toLocaleString('fr-FR', {
@@ -399,8 +396,7 @@ function construireChampsCarte(client, restaurant = null) {
     });
     champs.backFields.push({
       label: 'ENVOYÉ LE',
-      value: dateEnvoi,
-      changeMessage: '%@'
+      value: dateEnvoi
     });
   }
 

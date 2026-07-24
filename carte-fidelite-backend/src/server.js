@@ -1898,6 +1898,11 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
       // Wallet affiche organizationName comme titre de notification. Cette
       // valeur n'est pas enregistrée en base : elle ne sert qu'à cet envoi.
       notification_title_override: campagne.titre,
+      // Alerte ecran verrouille Apple : reutilise le champ POINTS (deja
+      // fiable pour les recompenses et niveaux VIP) plutot qu'un champ
+      // secondaire, qui fait echouer la mise a jour de la carte cote
+      // WalletWallet. %@ reste obligatoire, Apple le remplace par le solde.
+      points_change_message_override: `${campagne.message} Solde actuel : %@ points.`,
       ...(clientTestId
         ? {
             last_notification_title: campagne.titre,
