@@ -2406,10 +2406,10 @@ async function ajouterMembre() {
     });
     $('#nomMembre').value = '';
     $('#emailMembre').value = '';
-    const precision = donnees.email_activation_envoye
+    const precision = donnees.mot_de_passe_temporaire
+      ? `${donnees.email_activation_envoye ? 'Un email d’activation a été envoyé à ce membre. Si jamais il ne le reçoit pas, voici' : 'Voici'} son mot de passe temporaire : <span class="mot-de-passe-temporaire">${echapper(donnees.mot_de_passe_temporaire)}</span>Copiez-le maintenant : il ne sera plus affiché.`
+      : donnees.email_activation_envoye
       ? 'Un email d’activation sécurisé a été envoyé à ce membre.'
-      : donnees.mot_de_passe_temporaire
-      ? `<span class="mot-de-passe-temporaire">${echapper(donnees.mot_de_passe_temporaire)}</span>Copiez ce mot de passe maintenant : il ne sera plus affiché.`
       : 'Le compte existant a été associé à cet établissement.';
     $('#messageEquipe').className = 'message succes';
     $('#messageEquipe').innerHTML = `Accès créé. ${precision}`;

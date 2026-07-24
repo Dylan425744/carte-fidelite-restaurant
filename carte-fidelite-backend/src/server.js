@@ -1979,9 +1979,11 @@ app.post('/api/restaurateur/:slug/equipe', async (req, res) => {
       },
       nouveau_compte: resultat.nouveau_compte,
       email_activation_envoye: activation.email_envoye,
-      mot_de_passe_temporaire: activation.email_envoye
-        ? null
-        : resultat.mot_de_passe_temporaire
+      // Toujours renvoye, meme quand l'email semble parti sans erreur : un
+      // envoi accepte par Brevo n'est pas une garantie de reception (filtre
+      // anti-spam, domaine non verifie...), et sans ce mot de passe visible
+      // il n'existe aucun autre moyen de faire se connecter le nouveau compte.
+      mot_de_passe_temporaire: resultat.mot_de_passe_temporaire
     });
   } catch (erreur) {
     console.error(erreur);
@@ -2226,9 +2228,11 @@ app.post('/api/admin/restaurants/:id/proprietaires', exigerAdministrateur, async
       compte: resultat.profil,
       nouveau_compte: resultat.nouveau_compte,
       email_activation_envoye: activation.email_envoye,
-      mot_de_passe_temporaire: activation.email_envoye
-        ? null
-        : resultat.mot_de_passe_temporaire
+      // Toujours renvoye, meme quand l'email semble parti sans erreur : un
+      // envoi accepte par Brevo n'est pas une garantie de reception (filtre
+      // anti-spam, domaine non verifie...), et sans ce mot de passe visible
+      // il n'existe aucun autre moyen de faire se connecter le nouveau compte.
+      mot_de_passe_temporaire: resultat.mot_de_passe_temporaire
     });
   } catch (erreur) {
     console.error(erreur);
