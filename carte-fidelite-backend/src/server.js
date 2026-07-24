@@ -2669,9 +2669,9 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
     const codeScanne = String(req.body.client_id || '').trim();
     const pointsAAjouter = Number.parseInt(acces.restaurant.points_per_scan || 10, 10);
 
-    if (!Number.isInteger(pointsAAjouter) || pointsAAjouter < 1 || pointsAAjouter > 100) {
+    if (!Number.isInteger(pointsAAjouter) || pointsAAjouter < 1 || pointsAAjouter > 500) {
       return res.status(400).json({
-        erreur: 'Le nombre de points doit être compris entre 1 et 100.'
+        erreur: 'Le nombre de points doit être compris entre 1 et 500.'
       });
     }
 

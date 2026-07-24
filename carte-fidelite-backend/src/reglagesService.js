@@ -73,8 +73,8 @@ function construireMiseAJourProgramme(donnees) {
   if (!Number.isInteger(seuil) || seuil < 1 || seuil > 100000) {
     throw new Error('Le seuil de récompense doit être compris entre 1 et 100000.');
   }
-  if (!Number.isInteger(pointsParScan) || pointsParScan < 1 || pointsParScan > 100) {
-    throw new Error('Les points par passage doivent être compris entre 1 et 100.');
+  if (!Number.isInteger(pointsParScan) || pointsParScan < 1 || pointsParScan > 500) {
+    throw new Error('Les points par passage doivent être compris entre 1 et 500.');
   }
 
   return {

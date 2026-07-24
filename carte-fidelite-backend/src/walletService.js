@@ -168,12 +168,6 @@ function construireObjetFidelite(client, restaurant) {
       label: pointsLabel,
       balance: { int: Number.parseInt(client.points || 0, 10) }
     },
-    ...(libelleNiveauVip ? {
-      secondaryLoyaltyPoints: {
-        label: 'Niveau',
-        balance: { string: libelleNiveauVip }
-      }
-    } : {}),
     barcode: {
       type: restaurant.wallet_barcode_format === 'QR_CODE' ? 'QR_CODE' : 'CODE_128',
       value: client.scan_code || client.id,

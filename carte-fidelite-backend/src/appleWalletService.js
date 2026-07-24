@@ -310,13 +310,7 @@ function construireChampsCarte(client, restaurant = null) {
       }
     ],
 
-    /*
-     * Niveau VIP bien visible au centre de la carte (Reglages > Niveaux
-     * VIP). Vide si la fonctionnalité n'est pas activée pour ce restaurant.
-     */
-    primaryFields: libelleNiveauVip
-      ? [{ label: 'NIVEAU', value: libelleNiveauVip.toUpperCase() }]
-      : [],
+    primaryFields: [],
 
     /*
      * Client à gauche, récompense à droite. La récompense n'apparaît que

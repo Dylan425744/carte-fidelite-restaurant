@@ -167,7 +167,7 @@
             </div>
             <p class="texte-secondaire">Détermine combien de points sont gagnés, et à partir de quand la récompense est débloquée.</p>
             <div class="deux-colonnes">
-              <div><label for="reglagePointsParScan">Points par passage</label><input id="reglagePointsParScan" type="number" min="1" max="100" value="10"></div>
+              <div><label for="reglagePointsParScan">Points par passage</label><input id="reglagePointsParScan" type="number" min="1" max="500" value="10"></div>
               <div><label for="reglageSeuilRecompense">Points pour la récompense</label><input id="reglageSeuilRecompense" type="number" min="1" max="100000" value="100"></div>
             </div>
             <label for="reglageDescriptionRecompense">Récompense offerte</label>
@@ -408,7 +408,7 @@
             <div class="grille-reglages-fraude">
               <div><label for="delaiAntiFraude">Délai entre deux scans</label><div class="champ-points"><input id="delaiAntiFraude" type="number" min="0" max="1440"><span>min</span></div></div>
               <div><label for="maxScansJour">Scans maximum par jour</label><div class="champ-points"><input id="maxScansJour" type="number" min="1" max="100"><span>scans</span></div></div>
-              <div><label for="maxPointsScan">Points maximum par scan</label><div class="champ-points"><input id="maxPointsScan" type="number" min="1" max="500"><span>pts</span></div></div>
+              <div><label for="maxPointsScan">Points maximum par scan</label><div class="champ-points"><input id="maxPointsScan" type="number" min="1" max="2500"><span>pts</span></div></div>
               <div><label for="maxPointsJour">Points maximum par jour</label><div class="champ-points"><input id="maxPointsJour" type="number" min="1" max="5000"><span>pts</span></div></div>
             </div>
             <div class="info-envoi"><span>i</span><p>Le contrôle est atomique : même deux scans lancés exactement au même moment ne peuvent pas doubler les points.</p></div>

@@ -83,7 +83,7 @@ async function enregistrerReglages(restaurantId, donnees) {
       'La limite de scans quotidiens'
     ),
     max_points_per_scan: Math.max(pointsParScan, entierDansIntervalle(
-      donnees.max_points_per_scan, 1, 500, 'La limite de points par scan'
+      donnees.max_points_per_scan, 1, 2500, 'La limite de points par scan'
     )),
     max_points_per_day: entierDansIntervalle(
       donnees.max_points_per_day,
@@ -105,7 +105,7 @@ async function enregistrerReglages(restaurantId, donnees) {
 }
 
 async function synchroniserAvecProgramme(restaurantId, pointsParScan, anciensPointsParScan = null) {
-  const minimum = entierDansIntervalle(pointsParScan, 1, 100, 'Les points par passage');
+  const minimum = entierDansIntervalle(pointsParScan, 1, 500, 'Les points par passage');
   const ancienMinimum = Math.max(1, Number(anciensPointsParScan) || minimum);
   const { data: existant, error: erreurLecture } = await supabase
     .from('fraud_settings')
