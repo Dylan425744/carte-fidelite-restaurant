@@ -168,9 +168,11 @@
 
 <div class="etape identification-cadeau" id="identificationCadeau" hidden>
   <span class="numero">2</span>
+  <label for="nomCadeau">Votre prénom</label>
+  <input id="nomCadeau" type="text" maxlength="80" autocomplete="given-name" placeholder="Jean" required>
   <label for="emailCadeau">Où devons-nous envoyer votre cadeau si vous gagnez&nbsp;?</label>
   <input id="emailCadeau" type="email" maxlength="254" autocomplete="email" inputmode="email" placeholder="votre@email.fr" required aria-describedby="aideEmailCadeau">
-  <small id="aideEmailCadeau">Votre adresse est nécessaire pour enregistrer votre participation et vous transmettre immédiatement votre code cadeau.</small>
+  <small id="aideEmailCadeau">Ces informations sont nécessaires pour enregistrer votre participation et vous transmettre immédiatement votre code cadeau.</small>
 </div>
 
 <div class="zone-roue" id="zoneRoue">
@@ -213,6 +215,7 @@ const zoneCode = document.getElementById('zoneCode');
 const codeRetrait = document.getElementById('codeRetrait');
 const messageInfo = document.getElementById('messageInfo');
 const identificationCadeau = document.getElementById('identificationCadeau');
+const nomCadeau = document.getElementById('nomCadeau');
 const emailCadeau = document.getElementById('emailCadeau');
 const verificationAvis = document.getElementById('verificationAvis');
 const verificationKicker = document.getElementById('verificationKicker');
@@ -382,8 +385,12 @@ function confirmerAvis() {
     identificationCadeau.hidden = false;
     boutonJouer.classList.remove('en-attente');
     actualiserAccesRoue();
-    emailCadeau.focus();
+    nomCadeau.focus();
   }, DELAI_MINIMUM_MS);
+}
+
+function nomCadeauValide() {
+  return nomCadeau.value.trim().length > 0;
 }
 
 function emailCadeauValide() {
@@ -393,18 +400,25 @@ function emailCadeauValide() {
 
 function actualiserAccesRoue() {
   if (identificationCadeau.hidden) return;
-  const valide = emailCadeauValide();
-  emailCadeau.classList.toggle('valide', valide);
+  const valide = nomCadeauValide() && emailCadeauValide();
+  nomCadeau.classList.toggle('valide', nomCadeauValide());
+  emailCadeau.classList.toggle('valide', emailCadeauValide());
   boutonJouer.disabled = !valide;
-  boutonJouer.textContent = valide ? 'Faire tourner la roue' : 'Renseignez votre e-mail pour jouer';
+  boutonJouer.textContent = valide ? 'Faire tourner la roue' : 'Renseignez votre prénom et votre e-mail pour jouer';
   zoneRoue.classList.toggle('deverrouille', valide);
 }
 
+nomCadeau.addEventListener('input', actualiserAccesRoue);
 emailCadeau.addEventListener('input', actualiserAccesRoue);
 
 let rotationActuelle = 0;
 
 boutonJouer.addEventListener('click', async () => {
+  if (!nomCadeauValide()) {
+    messageInfo.textContent = 'Indiquez votre prénom pour enregistrer votre participation.';
+    nomCadeau.focus();
+    return;
+  }
   if (!emailCadeauValide()) {
     messageInfo.textContent = 'Indiquez une adresse email valide pour recevoir votre cadeau.';
     emailCadeau.focus();
@@ -419,6 +433,7 @@ boutonJouer.addEventListener('click', async () => {
       body: JSON.stringify({
         avisConfirme: true,
         clientCode,
+        nom: nomCadeau.value.trim(),
         email: emailCadeau.value.trim()
       })
     });

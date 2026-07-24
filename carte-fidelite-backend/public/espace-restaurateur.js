@@ -653,9 +653,10 @@ function afficherHistoriqueRoue() {
   corps.innerHTML = historique.map(ligne => `
     <tr>
       <td><div class="client-cell"><span class="avatar-client">${echapper(initiales(ligne.client))}</span><strong>${echapper(ligne.client)}</strong></div></td>
-      <td>${ligne.email ? `<span class="texte-secondaire">${echapper(ligne.email)}</span>` : '<span class="texte-secondaire">—</span>'}</td>
+      <td>${ligne.email ? `<span class="texte-secondaire">${echapper(ligne.email)}</span>` : ''}</td>
       <td>${formaterDate(ligne.date, true)}</td>
       <td><strong>${echapper(ligne.gain)}</strong></td>
+      <td>${ligne.code ? `<span class="texte-secondaire">${echapper(ligne.code)}</span>` : ''}</td>
       <td>${echapper(ligne.parcours)}</td>
       <td><span class="etat-membre ${ligne.utilise ? 'actif' : 'inactif'}">${ligne.utilise ? 'Retiré' : 'En attente'}</span></td>
     </tr>`).join('');

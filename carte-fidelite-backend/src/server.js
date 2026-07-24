@@ -1402,14 +1402,14 @@ async function obtenirHistoriqueRoue(restaurantId) {
   const [scansGagnes, entreesAvis] = await Promise.all([
     supabase
       .from('scans')
-      .select('id, cadeau_gagne, date_scan, code_retrait_utilise_le, clients!inner(nom, email, restaurant_id)')
+      .select('id, cadeau_gagne, date_scan, code_retrait, code_retrait_utilise_le, clients!inner(nom, email, restaurant_id)')
       .eq('clients.restaurant_id', restaurantId)
       .eq('roue_utilisee', true)
       .order('date_scan', { ascending: false })
       .limit(30),
     supabase
       .from('roue_avis_entries')
-      .select('id, cadeau_gagne, created_at, utilise, email_destinataire, clients(nom)')
+      .select('id, cadeau_gagne, created_at, utilise, email_destinataire, nom_destinataire, code_retrait, clients(nom)')
       .eq('restaurant_id', restaurantId)
       .order('created_at', { ascending: false })
       .limit(30)
@@ -1424,14 +1424,16 @@ async function obtenirHistoriqueRoue(restaurantId) {
       email: scan.clients?.email || null,
       date: scan.date_scan,
       gain: scan.cadeau_gagne,
+      code: scan.code_retrait || null,
       parcours: 'Passage en caisse',
       utilise: Boolean(scan.code_retrait_utilise_le)
     })),
     ...(entreesAvis.data || []).map(entree => ({
-      client: entree.clients?.nom || 'Client (QR avis)',
+      client: entree.clients?.nom || entree.nom_destinataire || 'Client (QR avis)',
       email: entree.email_destinataire || null,
       date: entree.created_at,
       gain: entree.cadeau_gagne,
+      code: entree.code_retrait || null,
       parcours: 'QR avis',
       utilise: Boolean(entree.utilise)
     }))
@@ -3217,6 +3219,10 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
     if (!emailSoumis) {
       return res.status(400).json({ erreur: 'Indiquez une adresse email valide pour enregistrer votre participation.' });
     }
+    const nomSoumis = String(req.body?.nom || '').trim().slice(0, 80);
+    if (!nomSoumis) {
+      return res.status(400).json({ erreur: 'Indiquez votre prénom pour enregistrer votre participation.' });
+    }
     const destinataire = await trouverDestinataireRoueAvis(
       restaurant,
       req.body?.clientCode,
@@ -3253,6 +3259,7 @@ app.post('/api/roue-avis/:token/jouer', async (req, res) => {
       restaurant_id: restaurant.id,
       client_id: destinataire.clientId,
       email_destinataire: destinataire.email,
+      nom_destinataire: nomSoumis,
       cookie_id: cookieId,
       cadeau_gagne: lot.label,
       cadeau_icone: lot.icone,
