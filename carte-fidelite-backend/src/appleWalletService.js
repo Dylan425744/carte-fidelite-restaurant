@@ -378,8 +378,12 @@ function construireChampsCarte(client, restaurant = null) {
 
   // Le dernier message reste dans les détails de la carte. Apple exige que le
   // modèle changeMessage contienne %@, remplacé par la nouvelle valeur du
-  // champ. Un séparateur invisible horodaté garantit qu'un message identique
-  // envoyé une seconde fois est tout de même détecté comme une modification.
+  // champ pour declencher une alerte ecran verrouille. La date d'envoi change
+  // naturellement a chaque nouvelle campagne (contrairement au texte du
+  // message, qui peut se repeter) : c'est donc elle qui porte changeMessage,
+  // plutot qu'un caractere invisible ajoute au texte pour forcer la
+  // detection. Ce caractere invisible faisait echouer la creation et la mise
+  // a jour des cartes des que le restaurant avait deja envoye une campagne.
   if (restaurant?.last_notification_message) {
     const dateEnvoi = restaurant.last_notification_sent_at
       ? new Date(restaurant.last_notification_sent_at).toLocaleString('fr-FR', {
@@ -389,21 +393,14 @@ function construireChampsCarte(client, restaurant = null) {
         })
       : 'maintenant';
 
-    const horodatage = restaurant.last_notification_sent_at
-      ? new Date(restaurant.last_notification_sent_at).getTime()
-      : Date.now();
-    const marqueInvisible = '\u2063'.repeat(
-      (Math.abs(Number.isFinite(horodatage) ? horodatage : Date.now()) % 31) + 1
-    );
-
     champs.backFields.push({
       label: restaurant.last_notification_title || 'MESSAGE DU RESTAURANT',
-      value: `${restaurant.last_notification_message}${marqueInvisible}`,
-      changeMessage: '%@'
+      value: String(restaurant.last_notification_message)
     });
     champs.backFields.push({
       label: 'ENVOYÉ LE',
-      value: dateEnvoi
+      value: dateEnvoi,
+      changeMessage: '%@'
     });
   }
 
