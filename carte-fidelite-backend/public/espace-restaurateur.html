@@ -302,6 +302,14 @@
           <div class="barre-selection" id="barreSelectionClients" hidden><span id="compteurSelectionClients">0 client sélectionné</span><button type="button" class="bouton discret-clair" id="supprimerSelectionClients">Supprimer la sélection</button></div>
           <div class="table-conteneur"><table><thead><tr><th class="case-colonne"><input type="checkbox" id="clientsToutCocher" title="Tout sélectionner"></th><th>Client</th><th>Contact</th><th>Wallet</th><th>Points</th><th>Niveau</th><th>Inscription</th><th></th></tr></thead><tbody id="tableClients"></tbody></table></div>
           <div class="etat-vide" id="aucunClient">Aucun client ne correspond à cette recherche.</div>
+          <button type="button" class="lien-bouton" id="afficherCorbeilleClients">Voir la corbeille (<span id="compteurCorbeilleClients">0</span>)</button>
+        </div>
+        <div class="panneau" id="panneauCorbeilleClients" hidden>
+          <div class="panneau-titre"><div><span class="eyebrow">Suppressions récentes</span><h3>Corbeille</h3></div><button type="button" class="lien-bouton" id="masquerCorbeilleClients">Retour à la liste</button></div>
+          <p class="texte-secondaire">Un client supprimé reste ici 30 jours avant d’être effacé définitivement. Le restaurer remet tout exactement comme avant, y compris sa carte Wallet.</p>
+          <div class="barre-selection" id="barreSelectionCorbeille" hidden><span id="compteurSelectionCorbeille">0 client sélectionné</span><div class="actions-corbeille"><button type="button" class="bouton secondaire" id="restaurerSelectionClients">Restaurer la sélection</button><button type="button" class="bouton discret-clair" id="supprimerDefinitivementSelectionClients">Supprimer définitivement</button></div></div>
+          <div class="table-conteneur"><table><thead><tr><th class="case-colonne"><input type="checkbox" id="corbeilleToutCocher" title="Tout sélectionner"></th><th>Client</th><th>Contact</th><th>Points</th><th>Supprimé le</th><th></th></tr></thead><tbody id="tableCorbeilleClients"></tbody></table></div>
+          <div class="etat-vide" id="corbeilleVide">La corbeille est vide.</div>
         </div>
       </section>
 

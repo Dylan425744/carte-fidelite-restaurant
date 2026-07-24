@@ -19,6 +19,7 @@ let motDePasseAdmin = modeAdmin
 let restaurant = null;
 let donneesTableau = null;
 let clientsSelectionnes = new Set();
+let corbeilleSelectionnes = new Set();
 let minuteurCampagne = null;
 let lecteurScanner = null;
 let scanEnCours = false;
@@ -503,6 +504,7 @@ function afficherTableau() {
   $('#statApple').textContent = stats.cartes_apple;
   $('#statNotifications').textContent = stats.campagnes_24h;
   afficherClients(donneesTableau.clients);
+  afficherCorbeille(donneesTableau.clients_corbeille || []);
   afficherDerniersClients();
   afficherHistorique();
   afficherDerniereCampagne();
@@ -1232,11 +1234,11 @@ function actualiserBarreSelectionClients() {
 }
 
 async function supprimerClient(id, nom) {
-  if (!confirm(`Supprimer « ${nom} » ? Son historique de points et de parrainage sera définitivement perdu. Sa carte restera installée dans son téléphone mais ne sera plus liée à votre restaurant.`)) return;
+  if (!confirm(`Mettre « ${nom} » à la corbeille ? Sa carte arrêtera aussitôt de fonctionner en caisse. Vous pourrez le restaurer pendant 30 jours, exactement comme avant.`)) return;
   try {
     await api(`/api/restaurateur/${encodeURIComponent(slug)}/clients/${encodeURIComponent(id)}`, { method: 'DELETE' });
     await actualiserTableau(true);
-    afficherMessage($('#messageEnvoi'), `« ${nom} » a été supprimé.`, 'succes');
+    afficherMessage($('#messageEnvoi'), `« ${nom} » a été placé dans la corbeille.`, 'succes');
   } catch (erreur) {
     window.alert(erreur.message);
   }
@@ -1246,7 +1248,7 @@ async function supprimerSelectionClients() {
   const ids = Array.from(clientsSelectionnes);
   if (!ids.length) return;
   const n = ids.length;
-  if (!confirm(`Supprimer ces ${n} clients sélectionnés ? Leur historique de points et de parrainage sera définitivement perdu. Leur carte restera installée dans leur téléphone mais ne sera plus liée à votre restaurant.`)) return;
+  if (!confirm(`Mettre ces ${n} clients à la corbeille ? Leur carte arrêtera aussitôt de fonctionner en caisse. Vous pourrez les restaurer pendant 30 jours, exactement comme avant.`)) return;
   const bouton = $('#supprimerSelectionClients');
   bouton.disabled = true;
   try {
@@ -1256,7 +1258,109 @@ async function supprimerSelectionClients() {
     });
     clientsSelectionnes.clear();
     await actualiserTableau(true);
-    afficherMessage($('#messageEnvoi'), reponse.message || `${n} clients supprimés.`, 'succes');
+    afficherMessage($('#messageEnvoi'), reponse.message || `${n} clients placés dans la corbeille.`, 'succes');
+  } catch (erreur) {
+    window.alert(erreur.message);
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
+function afficherCorbeille(clients) {
+  const idsConnus = new Set(clients.map(client => String(client.id)));
+  corbeilleSelectionnes.forEach(id => { if (!idsConnus.has(id)) corbeilleSelectionnes.delete(id); });
+
+  $('#compteurCorbeilleClients').textContent = clients.length;
+  $('#tableCorbeilleClients').innerHTML = clients.map(client => {
+    const id = String(client.id);
+    return `
+    <tr>
+      <td class="case-colonne"><input type="checkbox" class="case-corbeille" data-id="${echapper(id)}" ${corbeilleSelectionnes.has(id) ? 'checked' : ''}></td>
+      <td><div class="client-cell"><span class="avatar-client">${echapper(initiales(client.nom))}</span><strong>${echapper(client.nom)}</strong></div></td>
+      <td class="contact-cell">${echapper(client.email)}<span>${echapper(client.telephone || 'Téléphone non renseigné')}</span></td>
+      <td><span class="points-badge">${Number(client.points || 0)} pts</span></td>
+      <td>${formaterDate(client.deleted_at, true)}</td>
+      <td><button class="bouton-table" data-restaurer-client="${echapper(id)}" title="Restaurer ce client">Restaurer</button><button class="bouton-table" data-supprimer-definitivement-client="${echapper(id)}" title="Supprimer définitivement">Supprimer définitivement</button></td>
+    </tr>`;
+  }).join('');
+  $('#corbeilleVide').style.display = clients.length ? 'none' : 'block';
+  actualiserBarreSelectionCorbeille();
+}
+
+function actualiserBarreSelectionCorbeille() {
+  const casesVisibles = Array.from(document.querySelectorAll('#tableCorbeilleClients .case-corbeille'));
+  const cochees = casesVisibles.filter(case_ => case_.checked).length;
+  const toutCocher = $('#corbeilleToutCocher');
+  if (toutCocher) {
+    toutCocher.checked = casesVisibles.length > 0 && cochees === casesVisibles.length;
+    toutCocher.indeterminate = cochees > 0 && cochees < casesVisibles.length;
+  }
+  const n = corbeilleSelectionnes.size;
+  $('#barreSelectionCorbeille').hidden = n === 0;
+  if (n > 0) {
+    $('#compteurSelectionCorbeille').textContent = `${n} client${n > 1 ? 's' : ''} sélectionné${n > 1 ? 's' : ''}`;
+  }
+}
+
+async function restaurerClient(id, nom) {
+  if (!confirm(`Restaurer « ${nom} » ? Il redevient un client actif exactement comme avant, avec sa carte Wallet.`)) return;
+  try {
+    await api(`/api/restaurateur/${encodeURIComponent(slug)}/clients/${encodeURIComponent(id)}/restaurer`, { method: 'PATCH' });
+    await actualiserTableau(true);
+    afficherMessage($('#messageEnvoi'), `« ${nom} » a été restauré.`, 'succes');
+  } catch (erreur) {
+    window.alert(erreur.message);
+  }
+}
+
+async function restaurerSelectionClients() {
+  const ids = Array.from(corbeilleSelectionnes);
+  if (!ids.length) return;
+  const n = ids.length;
+  if (!confirm(`Restaurer ces ${n} clients ? Ils redeviennent actifs exactement comme avant, avec leur carte Wallet.`)) return;
+  const bouton = $('#restaurerSelectionClients');
+  bouton.disabled = true;
+  try {
+    const reponse = await api(`/api/restaurateur/${encodeURIComponent(slug)}/clients/restaurer`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ids })
+    });
+    corbeilleSelectionnes.clear();
+    await actualiserTableau(true);
+    afficherMessage($('#messageEnvoi'), reponse.message || `${n} clients restaurés.`, 'succes');
+  } catch (erreur) {
+    window.alert(erreur.message);
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
+async function supprimerDefinitivementClient(id, nom) {
+  if (!confirm(`Supprimer définitivement « ${nom} » ? Sa carte Wallet est immédiatement invalidée sur son téléphone et toutes ses données sont effacées. Impossible à annuler.`)) return;
+  try {
+    await api(`/api/restaurateur/${encodeURIComponent(slug)}/clients/${encodeURIComponent(id)}/definitivement`, { method: 'DELETE' });
+    await actualiserTableau(true);
+    afficherMessage($('#messageEnvoi'), `« ${nom} » a été supprimé définitivement.`, 'succes');
+  } catch (erreur) {
+    window.alert(erreur.message);
+  }
+}
+
+async function supprimerDefinitivementSelectionClients() {
+  const ids = Array.from(corbeilleSelectionnes);
+  if (!ids.length) return;
+  const n = ids.length;
+  if (!confirm(`Supprimer définitivement ces ${n} clients ? Leur carte Wallet est immédiatement invalidée sur leur téléphone et toutes leurs données sont effacées. Impossible à annuler.`)) return;
+  const bouton = $('#supprimerDefinitivementSelectionClients');
+  bouton.disabled = true;
+  try {
+    const reponse = await api(`/api/restaurateur/${encodeURIComponent(slug)}/clients/definitivement`, {
+      method: 'DELETE',
+      body: JSON.stringify({ ids })
+    });
+    corbeilleSelectionnes.clear();
+    await actualiserTableau(true);
+    afficherMessage($('#messageEnvoi'), reponse.message || `${n} clients supprimés définitivement.`, 'succes');
   } catch (erreur) {
     window.alert(erreur.message);
   } finally {
@@ -2693,6 +2797,41 @@ $('#clientsToutCocher').addEventListener('change', evenement => {
   actualiserBarreSelectionClients();
 });
 $('#supprimerSelectionClients').addEventListener('click', supprimerSelectionClients);
+$('#tableCorbeilleClients').addEventListener('click', evenement => {
+  const ligne = evenement.target.closest('tr');
+  const nom = ligne?.querySelector('strong')?.textContent || 'ce client';
+  const boutonRestaurer = evenement.target.closest('[data-restaurer-client]');
+  if (boutonRestaurer) return restaurerClient(boutonRestaurer.dataset.restaurerClient, nom);
+  const boutonSupprimer = evenement.target.closest('[data-supprimer-definitivement-client]');
+  if (boutonSupprimer) return supprimerDefinitivementClient(boutonSupprimer.dataset.supprimerDefinitivementClient, nom);
+});
+$('#tableCorbeilleClients').addEventListener('change', evenement => {
+  const case_ = evenement.target.closest('.case-corbeille');
+  if (!case_) return;
+  const id = case_.dataset.id;
+  if (case_.checked) corbeilleSelectionnes.add(id);
+  else corbeilleSelectionnes.delete(id);
+  actualiserBarreSelectionCorbeille();
+});
+$('#corbeilleToutCocher').addEventListener('change', evenement => {
+  const casesVisibles = Array.from(document.querySelectorAll('#tableCorbeilleClients .case-corbeille'));
+  casesVisibles.forEach(case_ => {
+    case_.checked = evenement.target.checked;
+    if (evenement.target.checked) corbeilleSelectionnes.add(case_.dataset.id);
+    else corbeilleSelectionnes.delete(case_.dataset.id);
+  });
+  actualiserBarreSelectionCorbeille();
+});
+$('#restaurerSelectionClients').addEventListener('click', restaurerSelectionClients);
+$('#supprimerDefinitivementSelectionClients').addEventListener('click', supprimerDefinitivementSelectionClients);
+$('#afficherCorbeilleClients').addEventListener('click', () => {
+  $('#panneauCorbeilleClients').hidden = false;
+  $('#afficherCorbeilleClients').hidden = true;
+});
+$('#masquerCorbeilleClients').addEventListener('click', () => {
+  $('#panneauCorbeilleClients').hidden = true;
+  $('#afficherCorbeilleClients').hidden = false;
+});
 function actualiserLesDeuxApercusWallet() {
   actualiserApercuWallet();
   actualiserApercuGoogleWallet();

@@ -1447,14 +1447,21 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
     const acces = await authentifierEspaceDesign(req, res, 'dashboard');
     if (!acces) return;
 
-    const [resultatClients, tableauParrainage, tableauAntiFraude, statistiquesDetaillees, historiqueRoue, recompensesEnAttente] = await Promise.all([
+    const [resultatClients, resultatCorbeille, tableauParrainage, tableauAntiFraude, statistiquesDetaillees, historiqueRoue, recompensesEnAttente] = await Promise.all([
       supabase
         .from('clients')
         .select(
           'id, nom, email, telephone, points, points_cumules, apple_wallet_serial, google_wallet_object_id, date_inscription'
         )
         .eq('restaurant_id', acces.restaurant.id)
+        .is('deleted_at', null)
         .order('date_inscription', { ascending: false }),
+      supabase
+        .from('clients')
+        .select('id, nom, email, telephone, points, date_inscription, deleted_at')
+        .eq('restaurant_id', acces.restaurant.id)
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false }),
       referral.obtenirTableauParrainage(acces.restaurant.id),
       antiFraude.obtenirTableauAntiFraude(acces.restaurant.id),
       analytics.obtenirStatistiques(acces.restaurant.id, 30),
@@ -1463,8 +1470,10 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
     ]);
 
     const { data: clients, error } = resultatClients;
-
     if (error) throw error;
+
+    const { data: clientsCorbeille, error: erreurCorbeille } = resultatCorbeille;
+    if (erreurCorbeille) throw erreurCorbeille;
 
     const historique = obtenirHistoriqueNotifications(acces.restaurant);
     const totalPoints = clients.reduce(
@@ -1509,6 +1518,15 @@ app.get('/api/restaurateur/:slug/tableau-de-bord', async (req, res) => {
         date_inscription: client.date_inscription,
         apple_wallet: Boolean(client.apple_wallet_serial),
         google_wallet: true
+      })),
+      clients_corbeille: clientsCorbeille.map(client => ({
+        id: client.id,
+        nom: client.nom,
+        email: client.email,
+        telephone: client.telephone,
+        points: client.points,
+        date_inscription: client.date_inscription,
+        deleted_at: client.deleted_at
       })),
       notifications: historique,
       parrainage: tableauParrainage,
@@ -1818,7 +1836,8 @@ app.post('/api/restaurateur/:slug/notifications', async (req, res) => {
     const { data: clients, error: erreurClients } = await supabase
       .from('clients')
       .select('id, nom, points, scan_code, apple_wallet_serial')
-      .eq('restaurant_id', acces.restaurant.id);
+      .eq('restaurant_id', acces.restaurant.id)
+      .is('deleted_at', null);
 
     if (erreurClients) throw erreurClients;
 
@@ -2472,38 +2491,40 @@ app.get('/api/clients', exigerAdministrateur, async (req, res) => {
   }
 });
 
-// Supprime un client de ce restaurant (et ses donnees liees : parrainage,
-// alertes anti-fraude). Ne notifie pas Apple/Google : le pass reste installe
-// chez le client mais n'est plus rattache a aucun compte cote Bravocard.
+// Place un client dans la corbeille (deleted_at). Il disparait aussitot de
+// la liste et de la caisse (voir le endpoint de scan), mais reste
+// recuperable 30 jours avant la purge automatique. Le passe Apple/Google
+// n'est volontairement PAS touche a ce stade : une restauration doit tout
+// remettre exactement comme avant, sans que le client ait besoin de
+// re-ajouter sa carte.
 app.delete('/api/restaurateur/:slug/clients/:id', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res, 'clients');
     if (!acces) return;
     const { data: client, error: erreurLecture } = await supabase
       .from('clients')
-      .select('id, nom, restaurant_id')
+      .select('id, nom')
       .eq('id', req.params.id)
       .eq('restaurant_id', acces.restaurant.id)
+      .is('deleted_at', null)
       .maybeSingle();
     if (erreurLecture) throw erreurLecture;
     if (!client) return res.status(404).json({ erreur: 'Ce client est introuvable pour ce restaurant.' });
 
-    await supabase.from('referral_codes').delete().eq('client_id', client.id);
-    await supabase.from('referrals').delete().or(`sponsor_client_id.eq.${client.id},referred_client_id.eq.${client.id}`);
-    await supabase.from('fraud_alerts').delete().eq('client_id', client.id);
-    await supabase.from('scans').delete().eq('client_id', client.id);
-    const { error } = await supabase.from('clients').delete().eq('id', client.id);
+    const { error } = await supabase
+      .from('clients')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', client.id);
     if (error) throw error;
 
-    res.json({ succes: true, message: `« ${client.nom} » a été supprimé.` });
+    res.json({ succes: true, message: `« ${client.nom} » a été placé dans la corbeille.` });
   } catch (erreur) {
     console.error(erreur);
     res.status(400).json({ erreur: erreur.message });
   }
 });
 
-// Supprime plusieurs clients de ce restaurant en une fois (même cascade que
-// la suppression individuelle ci-dessus). Corps attendu : { ids: [...] }.
+// Meme mise en corbeille, en masse. Corps attendu : { ids: [...] }.
 app.delete('/api/restaurateur/:slug/clients', async (req, res) => {
   try {
     const acces = await authentifierEspaceDesign(req, res, 'clients');
@@ -2518,27 +2539,188 @@ app.delete('/api/restaurateur/:slug/clients', async (req, res) => {
 
     const { data: clients, error: erreurLecture } = await supabase
       .from('clients')
-      .select('id, nom')
+      .select('id')
       .in('id', idsDemandes)
-      .eq('restaurant_id', acces.restaurant.id);
+      .eq('restaurant_id', acces.restaurant.id)
+      .is('deleted_at', null);
     if (erreurLecture) throw erreurLecture;
     if (!clients.length) {
       return res.status(404).json({ erreur: 'Aucun de ces clients n’a été trouvé pour ce restaurant.' });
     }
 
     const idsTrouves = clients.map(c => c.id);
-    await supabase.from('referral_codes').delete().in('client_id', idsTrouves);
-    await supabase.from('referrals').delete().in('sponsor_client_id', idsTrouves);
-    await supabase.from('referrals').delete().in('referred_client_id', idsTrouves);
-    await supabase.from('fraud_alerts').delete().in('client_id', idsTrouves);
-    await supabase.from('scans').delete().in('client_id', idsTrouves);
-    const { error } = await supabase.from('clients').delete().in('id', idsTrouves);
+    const { error } = await supabase
+      .from('clients')
+      .update({ deleted_at: new Date().toISOString() })
+      .in('id', idsTrouves);
     if (error) throw error;
 
     res.json({
       succes: true,
       supprimes: idsTrouves.length,
-      message: `${idsTrouves.length} client${idsTrouves.length > 1 ? 's' : ''} supprimé${idsTrouves.length > 1 ? 's' : ''}.`
+      message: `${idsTrouves.length} client${idsTrouves.length > 1 ? 's' : ''} placé${idsTrouves.length > 1 ? 's' : ''} dans la corbeille.`
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+// Ressort un client de la corbeille : tout redevient exactement comme
+// avant, y compris sa carte Wallet qui n'a jamais ete touchee.
+app.patch('/api/restaurateur/:slug/clients/:id/restaurer', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'clients');
+    if (!acces) return;
+    const { data: client, error: erreurLecture } = await supabase
+      .from('clients')
+      .select('id, nom')
+      .eq('id', req.params.id)
+      .eq('restaurant_id', acces.restaurant.id)
+      .not('deleted_at', 'is', null)
+      .maybeSingle();
+    if (erreurLecture) throw erreurLecture;
+    if (!client) return res.status(404).json({ erreur: 'Ce client est introuvable dans la corbeille.' });
+
+    const { error } = await supabase
+      .from('clients')
+      .update({ deleted_at: null })
+      .eq('id', client.id);
+    if (error) throw error;
+
+    res.json({ succes: true, message: `« ${client.nom} » a été restauré.` });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+// Meme restauration, en masse. Corps attendu : { ids: [...] }.
+app.patch('/api/restaurateur/:slug/clients/restaurer', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'clients');
+    if (!acces) return;
+
+    const idsDemandes = Array.isArray(req.body?.ids)
+      ? [...new Set(req.body.ids.filter(Boolean).map(String))]
+      : [];
+    if (!idsDemandes.length) {
+      return res.status(400).json({ erreur: 'Aucun client sélectionné.' });
+    }
+
+    const { data: clients, error: erreurLecture } = await supabase
+      .from('clients')
+      .select('id')
+      .in('id', idsDemandes)
+      .eq('restaurant_id', acces.restaurant.id)
+      .not('deleted_at', 'is', null);
+    if (erreurLecture) throw erreurLecture;
+    if (!clients.length) {
+      return res.status(404).json({ erreur: 'Aucun de ces clients n’a été trouvé dans la corbeille.' });
+    }
+
+    const idsTrouves = clients.map(c => c.id);
+    const { error } = await supabase
+      .from('clients')
+      .update({ deleted_at: null })
+      .in('id', idsTrouves);
+    if (error) throw error;
+
+    res.json({
+      succes: true,
+      restaures: idsTrouves.length,
+      message: `${idsTrouves.length} client${idsTrouves.length > 1 ? 's' : ''} restauré${idsTrouves.length > 1 ? 's' : ''}.`
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+// Revoque le passe Wallet d'un client (Apple et Google) au mieux : une carte
+// deja absente ou une erreur de revocation ne doit jamais empecher la
+// suppression definitive de ses donnees.
+async function revoquerPassesClient(client) {
+  await Promise.allSettled([
+    client.apple_wallet_serial
+      ? appleWallet.revoquerPasseApple(client.apple_wallet_serial)
+      : Promise.resolve(),
+    client.google_wallet_object_id
+      ? wallet.revoquerObjetGoogle(client.google_wallet_object_id)
+      : Promise.resolve()
+  ]);
+}
+
+async function purgerClientsDefinitivement(idsTrouves) {
+  await supabase.from('referral_codes').delete().in('client_id', idsTrouves);
+  await supabase.from('referrals').delete().in('sponsor_client_id', idsTrouves);
+  await supabase.from('referrals').delete().in('referred_client_id', idsTrouves);
+  await supabase.from('fraud_alerts').delete().in('client_id', idsTrouves);
+  await supabase.from('scans').delete().in('client_id', idsTrouves);
+  const { error } = await supabase.from('clients').delete().in('id', idsTrouves);
+  if (error) throw error;
+}
+
+// Supprime definitivement un client depuis la corbeille : revoque son passe
+// Wallet (il s'affiche aussitot comme invalide sur son telephone) puis
+// efface toutes ses donnees. Aucun retour en arriere possible ensuite.
+app.delete('/api/restaurateur/:slug/clients/:id/definitivement', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'clients');
+    if (!acces) return;
+    const { data: client, error: erreurLecture } = await supabase
+      .from('clients')
+      .select('id, nom, apple_wallet_serial, google_wallet_object_id')
+      .eq('id', req.params.id)
+      .eq('restaurant_id', acces.restaurant.id)
+      .not('deleted_at', 'is', null)
+      .maybeSingle();
+    if (erreurLecture) throw erreurLecture;
+    if (!client) return res.status(404).json({ erreur: 'Ce client est introuvable dans la corbeille.' });
+
+    await revoquerPassesClient(client);
+    await purgerClientsDefinitivement([client.id]);
+
+    res.json({ succes: true, message: `« ${client.nom} » a été supprimé définitivement.` });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
+// Meme suppression definitive, en masse depuis la corbeille. Corps
+// attendu : { ids: [...] }.
+app.delete('/api/restaurateur/:slug/clients/definitivement', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'clients');
+    if (!acces) return;
+
+    const idsDemandes = Array.isArray(req.body?.ids)
+      ? [...new Set(req.body.ids.filter(Boolean).map(String))]
+      : [];
+    if (!idsDemandes.length) {
+      return res.status(400).json({ erreur: 'Aucun client sélectionné.' });
+    }
+
+    const { data: clients, error: erreurLecture } = await supabase
+      .from('clients')
+      .select('id, apple_wallet_serial, google_wallet_object_id')
+      .in('id', idsDemandes)
+      .eq('restaurant_id', acces.restaurant.id)
+      .not('deleted_at', 'is', null);
+    if (erreurLecture) throw erreurLecture;
+    if (!clients.length) {
+      return res.status(404).json({ erreur: 'Aucun de ces clients n’a été trouvé dans la corbeille.' });
+    }
+
+    await Promise.allSettled(clients.map(revoquerPassesClient));
+    const idsTrouves = clients.map(c => c.id);
+    await purgerClientsDefinitivement(idsTrouves);
+
+    res.json({
+      succes: true,
+      supprimes: idsTrouves.length,
+      message: `${idsTrouves.length} client${idsTrouves.length > 1 ? 's' : ''} supprimé${idsTrouves.length > 1 ? 's' : ''} définitivement.`
     });
   } catch (erreur) {
     console.error(erreur);
@@ -2746,6 +2928,12 @@ app.post('/api/restaurateur/:slug/scan', async (req, res) => {
     if (client.restaurant_id !== acces.restaurant.id) {
       return res.status(404).json({
         erreur: 'Cette carte n’appartient pas à votre établissement.'
+      });
+    }
+
+    if (client.deleted_at) {
+      return res.status(404).json({
+        erreur: 'Ce client a été supprimé et ne peut plus être crédité.'
       });
     }
 
@@ -3149,6 +3337,7 @@ async function trouverDestinataireRoueAvis(restaurant, codeClient, emailSaisi = 
       .select('id, nom, email, scan_code')
       .eq('restaurant_id', restaurant.id)
       .eq('scan_code', code)
+      .is('deleted_at', null)
       .maybeSingle();
     if (error) throw error;
     if (client) {
@@ -3501,6 +3690,41 @@ async function traiterEmailsBienvenue() {
 }
 
 cron.schedule('*/15 * * * *', traiterEmailsBienvenue);
+
+// Purge definitivement les clients en corbeille depuis plus de 30 jours :
+// revoque leurs passes Wallet (Apple et Google) puis efface toutes leurs
+// donnees. Comme pour les emails de bienvenue, un redemarrage ne perd
+// aucune purge en attente, elle est juste rattrapee au prochain passage.
+let purgeCorbeilleClientsEnCours = false;
+async function purgerCorbeilleClients() {
+  if (purgeCorbeilleClientsEnCours) return;
+  purgeCorbeilleClientsEnCours = true;
+  try {
+    const limite = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: clients, error } = await supabase
+      .from('clients')
+      .select('id, apple_wallet_serial, google_wallet_object_id')
+      .not('deleted_at', 'is', null)
+      .lte('deleted_at', limite)
+      .limit(200);
+
+    if (error) {
+      console.error('Erreur lecture corbeille clients (purge):', error.message);
+      return;
+    }
+    if (!clients.length) return;
+
+    await Promise.allSettled(clients.map(revoquerPassesClient));
+    await purgerClientsDefinitivement(clients.map(client => client.id));
+    console.log(`Corbeille clients : ${clients.length} client(s) purgé(s) après 30 jours.`);
+  } catch (erreur) {
+    console.error('Erreur purge corbeille clients:', erreur.message);
+  } finally {
+    purgeCorbeilleClientsEnCours = false;
+  }
+}
+
+cron.schedule('30 3 * * *', purgerCorbeilleClients);
 
 async function initialiserGoogleWalletMultiRestaurants() {
   if (!process.env.GOOGLE_ISSUER_ID || !process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {

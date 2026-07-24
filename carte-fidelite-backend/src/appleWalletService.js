@@ -677,9 +677,53 @@ async function mettreAJourPasseApple(
   return donnees;
 }
 
+/**
+ * Revoque definitivement un passe aupres de WalletWallet : Apple Wallet
+ * l'affiche aussitot comme invalide sur tous les appareils ou il est
+ * installe. A n'appeler qu'au moment d'une suppression VRAIMENT
+ * definitive (purge de la corbeille), jamais lors d'une mise en corbeille
+ * simple : l'operation n'est pas reversible cote WalletWallet.
+ */
+async function revoquerPasseApple(serialNumber) {
+  if (!serialNumber) return { ignore: true };
+
+  const cleApi = obtenirVariableEnvironnement('WALLETWALLET_API_KEY');
+  if (!cleApi) {
+    throw new Error('La variable WALLETWALLET_API_KEY est absente sur Render.');
+  }
+
+  let reponse;
+  try {
+    reponse = await envoyerRequeteWalletWallet(
+      `${BASE_URL}/${encodeURIComponent(serialNumber)}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${cleApi}` }
+      }
+    );
+  } catch (erreur) {
+    throw new Error(`Erreur réseau pendant la révocation Apple Wallet : ${erreur.message}`);
+  }
+
+  if (reponse.status === 404) {
+    return { dejaAbsent: true };
+  }
+
+  const donnees = await lireReponse(reponse);
+
+  if (!reponse.ok) {
+    throw new Error(
+      `Erreur révocation passe Apple Wallet : ${obtenirMessageErreur(donnees, reponse.status)}`
+    );
+  }
+
+  return donnees;
+}
+
 module.exports = {
   construireChampsCarte,
   creerPasseApple,
   designProDisponible,
-  mettreAJourPasseApple
+  mettreAJourPasseApple,
+  revoquerPasseApple
 };

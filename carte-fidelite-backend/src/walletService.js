@@ -417,6 +417,29 @@ async function configurerModeleCarte(restaurant) {
   return true;
 }
 
+/**
+ * Marque un objet Google Wallet comme expire : la carte s'affiche aussitot
+ * comme invalide dans l'application, sur tous les appareils du client.
+ * A n'appeler qu'au moment d'une suppression VRAIMENT definitive (purge de
+ * la corbeille), jamais lors d'une simple mise en corbeille.
+ */
+async function revoquerObjetGoogle(objectId) {
+  if (!objectId) return false;
+  try {
+    const clientGoogle = await obtenirClientGoogle();
+    await clientGoogle.request({
+      url: `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(objectId)}`,
+      method: 'PATCH',
+      data: { state: 'EXPIRED' }
+    });
+    return true;
+  } catch (erreur) {
+    if (statutErreur(erreur) === 404) return true;
+    console.error('Erreur révocation Google Wallet:', resumerErreurGoogle(erreur).message);
+    return false;
+  }
+}
+
 async function envoyerNotificationWallet(client, titre, message, campagneId) {
   const clientGoogle = await obtenirClientGoogle();
   const objectId = getObjectId(client.id);
@@ -444,5 +467,6 @@ module.exports = {
   envoyerNotificationWallet,
   getLegacyClassId,
   getObjectId,
-  getRestaurantClassId
+  getRestaurantClassId,
+  revoquerObjetGoogle
 };
