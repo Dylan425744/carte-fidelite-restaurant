@@ -400,6 +400,12 @@ function construireChampsCarte(client, restaurant = null) {
     });
   }
 
+  // WalletWallet refuse toute carte au dela de 10 champs backFields. Les
+  // champs les moins essentiels sont ajoutes en dernier (parrainage, puis
+  // dernier message) : la troncature les retire donc en premier plutot que
+  // les champs de contact ou les conditions du programme.
+  champs.backFields = champs.backFields.slice(0, 10);
+
   return ajouterDesignPro(champs, restaurant);
 }
 
