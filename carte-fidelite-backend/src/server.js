@@ -2502,6 +2502,50 @@ app.delete('/api/restaurateur/:slug/clients/:id', async (req, res) => {
   }
 });
 
+// Supprime plusieurs clients de ce restaurant en une fois (même cascade que
+// la suppression individuelle ci-dessus). Corps attendu : { ids: [...] }.
+app.delete('/api/restaurateur/:slug/clients', async (req, res) => {
+  try {
+    const acces = await authentifierEspaceDesign(req, res, 'clients');
+    if (!acces) return;
+
+    const idsDemandes = Array.isArray(req.body?.ids)
+      ? [...new Set(req.body.ids.filter(Boolean).map(String))]
+      : [];
+    if (!idsDemandes.length) {
+      return res.status(400).json({ erreur: 'Aucun client sélectionné.' });
+    }
+
+    const { data: clients, error: erreurLecture } = await supabase
+      .from('clients')
+      .select('id, nom')
+      .in('id', idsDemandes)
+      .eq('restaurant_id', acces.restaurant.id);
+    if (erreurLecture) throw erreurLecture;
+    if (!clients.length) {
+      return res.status(404).json({ erreur: 'Aucun de ces clients n’a été trouvé pour ce restaurant.' });
+    }
+
+    const idsTrouves = clients.map(c => c.id);
+    await supabase.from('referral_codes').delete().in('client_id', idsTrouves);
+    await supabase.from('referrals').delete().in('sponsor_client_id', idsTrouves);
+    await supabase.from('referrals').delete().in('referred_client_id', idsTrouves);
+    await supabase.from('fraud_alerts').delete().in('client_id', idsTrouves);
+    await supabase.from('scans').delete().in('client_id', idsTrouves);
+    const { error } = await supabase.from('clients').delete().in('id', idsTrouves);
+    if (error) throw error;
+
+    res.json({
+      succes: true,
+      supprimes: idsTrouves.length,
+      message: `${idsTrouves.length} client${idsTrouves.length > 1 ? 's' : ''} supprimé${idsTrouves.length > 1 ? 's' : ''}.`
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(400).json({ erreur: erreur.message });
+  }
+});
+
 // Crée un nouveau client, son parrainage éventuel et ses cartes Wallet.
 app.post('/api/clients', async (req, res) => {
   try {

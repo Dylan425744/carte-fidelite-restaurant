@@ -18,6 +18,7 @@ let motDePasseAdmin = modeAdmin
   : '';
 let restaurant = null;
 let donneesTableau = null;
+let clientsSelectionnes = new Set();
 let minuteurCampagne = null;
 let lecteurScanner = null;
 let scanEnCours = false;
@@ -438,7 +439,7 @@ function afficherAbonnement() {
 
 function appliquerPermissions() {
   const correspondances = {
-    accueil: 'dashboard', statistiques: 'statistics', scanner: 'scan',
+    accueil: 'dashboard', reglages: 'design_manage', statistiques: 'statistics', scanner: 'scan',
     clients: 'clients', parrainage: 'referral_view', vip: 'design_view', 'anti-fraude': 'fraud_view',
     notifications: 'notifications', roue: 'dashboard', design: 'design_view',
     marketing: 'marketing_view', equipe: 'team_manage'
@@ -1186,6 +1187,9 @@ async function chargerStatistiques() {
 }
 
 function afficherClients(clients) {
+  const idsConnus = new Set(clients.map(client => String(client.id)));
+  clientsSelectionnes.forEach(id => { if (!idsConnus.has(id)) clientsSelectionnes.delete(id); });
+
   const recherche = $('#rechercheClients').value.trim().toLowerCase();
   const filtres = clients.filter(client =>
     [client.nom, client.email, client.telephone]
@@ -1195,18 +1199,36 @@ function afficherClients(clients) {
 
   $('#tableClients').innerHTML = filtres.map(client => {
     const niveau = calculerNiveauVip(donneesTableau.vip, client.points_cumules);
+    const id = String(client.id);
     return `
     <tr>
+      <td class="case-colonne"><input type="checkbox" class="case-client" data-id="${echapper(id)}" ${clientsSelectionnes.has(id) ? 'checked' : ''}></td>
       <td><div class="client-cell"><span class="avatar-client">${echapper(initiales(client.nom))}</span><strong>${echapper(client.nom)}</strong></div></td>
       <td class="contact-cell">${echapper(client.email)}<span>${echapper(client.telephone || 'Téléphone non renseigné')}</span></td>
       <td><div class="wallet-badges">${client.apple_wallet ? '<span class="wallet-badge apple"> Apple</span>' : ''}<span class="wallet-badge google">G Google</span></div></td>
       <td><span class="points-badge">${Number(client.points || 0)} pts</span></td>
       <td>${niveau ? `<span class="badge-niveau-vip ${niveau}">${libelleNiveauVip(niveau)}</span>` : ''}</td>
       <td>${formaterDate(client.date_inscription)}</td>
-      <td><button class="bouton-table" data-supprimer-client="${echapper(client.id)}" title="Supprimer ce client">Supprimer</button></td>
+      <td><button class="bouton-table" data-supprimer-client="${echapper(id)}" title="Supprimer ce client">Supprimer</button></td>
     </tr>`;
   }).join('');
   $('#aucunClient').style.display = filtres.length ? 'none' : 'block';
+  actualiserBarreSelectionClients();
+}
+
+function actualiserBarreSelectionClients() {
+  const casesVisibles = Array.from(document.querySelectorAll('#tableClients .case-client'));
+  const cochees = casesVisibles.filter(case_ => case_.checked).length;
+  const toutCocher = $('#clientsToutCocher');
+  if (toutCocher) {
+    toutCocher.checked = casesVisibles.length > 0 && cochees === casesVisibles.length;
+    toutCocher.indeterminate = cochees > 0 && cochees < casesVisibles.length;
+  }
+  const n = clientsSelectionnes.size;
+  $('#barreSelectionClients').hidden = n === 0;
+  if (n > 0) {
+    $('#compteurSelectionClients').textContent = `${n} client${n > 1 ? 's' : ''} sélectionné${n > 1 ? 's' : ''}`;
+  }
 }
 
 async function supprimerClient(id, nom) {
@@ -1217,6 +1239,28 @@ async function supprimerClient(id, nom) {
     afficherMessage($('#messageEnvoi'), `« ${nom} » a été supprimé.`, 'succes');
   } catch (erreur) {
     window.alert(erreur.message);
+  }
+}
+
+async function supprimerSelectionClients() {
+  const ids = Array.from(clientsSelectionnes);
+  if (!ids.length) return;
+  const n = ids.length;
+  if (!confirm(`Supprimer ces ${n} clients sélectionnés ? Leur historique de points et de parrainage sera définitivement perdu. Leur carte restera installée dans leur téléphone mais ne sera plus liée à votre restaurant.`)) return;
+  const bouton = $('#supprimerSelectionClients');
+  bouton.disabled = true;
+  try {
+    const reponse = await api(`/api/restaurateur/${encodeURIComponent(slug)}/clients`, {
+      method: 'DELETE',
+      body: JSON.stringify({ ids })
+    });
+    clientsSelectionnes.clear();
+    await actualiserTableau(true);
+    afficherMessage($('#messageEnvoi'), reponse.message || `${n} clients supprimés.`, 'succes');
+  } catch (erreur) {
+    window.alert(erreur.message);
+  } finally {
+    bouton.disabled = false;
   }
 }
 
@@ -2631,6 +2675,24 @@ $('#tableClients').addEventListener('click', evenement => {
   const nom = ligne?.querySelector('strong')?.textContent || 'ce client';
   supprimerClient(bouton.dataset.supprimerClient, nom);
 });
+$('#tableClients').addEventListener('change', evenement => {
+  const case_ = evenement.target.closest('.case-client');
+  if (!case_) return;
+  const id = case_.dataset.id;
+  if (case_.checked) clientsSelectionnes.add(id);
+  else clientsSelectionnes.delete(id);
+  actualiserBarreSelectionClients();
+});
+$('#clientsToutCocher').addEventListener('change', evenement => {
+  const casesVisibles = Array.from(document.querySelectorAll('#tableClients .case-client'));
+  casesVisibles.forEach(case_ => {
+    case_.checked = evenement.target.checked;
+    if (evenement.target.checked) clientsSelectionnes.add(case_.dataset.id);
+    else clientsSelectionnes.delete(case_.dataset.id);
+  });
+  actualiserBarreSelectionClients();
+});
+$('#supprimerSelectionClients').addEventListener('click', supprimerSelectionClients);
 function actualiserLesDeuxApercusWallet() {
   actualiserApercuWallet();
   actualiserApercuGoogleWallet();
